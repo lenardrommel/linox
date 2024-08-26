@@ -1,0 +1,12 @@
+# Extensions
+*.ipynb
+*.txt
+*.egg-info
+*.pyc
+
+# Directories
+.tox
+
+# Files
+.envrc
+.DS_Store
