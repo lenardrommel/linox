@@ -1,24 +1,26 @@
 # The following file follows the implementation of probnum.typing
 # see:
-import nola
-from typing import Tuple, Union, Iterable
-import jax.numpy as jnp
+from collections.abc import Iterable
+from typing import Union
+
 import jax
-from jax import dtypes
+import jax.numpy as jnp
+
+import linox
 
 ########################################################################################
 # API Types
 ########################################################################################
 
 # Array Utilities
-ShapeType = Tuple[int, ...]
+ShapeType = tuple[int, ...]
 """Type defining a shape of an object."""
 
 # Scalars, Arrays and Matrices
 ScalarType = jnp.ndarray
 """Type defining a scalar."""
 
-MatrixType = Union[jnp.ndarray, "nola.linox._linear_operator.LinearOperator"]
+MatrixType = jnp.ndarray | "linox._linear_operator.LinearOperator"
 """Type defining a matrix, i.e. a linear map between \
 finite-dimensional vector spaces."""
 
@@ -27,25 +29,25 @@ finite-dimensional vector spaces."""
 ########################################################################################
 
 # Python Numbers
-IntLike = Union[int, jnp.integer]
+IntLike = int | jnp.integer
 """Object that can be converted to an integer.
 
 Arguments of type :attr:`IntLike` should always be converted
 into :class:`int`\\ s before further internal processing."""
 
-FloatLike = Union[float, jnp.floating]
+FloatLike = float | jnp.floating
 """Object that can be converted to a float.
 
 Arguments of type :attr:`FloatLike` should always be converted
 into :class:`float`\\ s before further internal processing."""
 
 # Array Utilities
-ShapeLike = Union[IntLike, Iterable[IntLike]]
+ShapeLike = IntLike | Iterable[IntLike]
 """Object that can be converted to a shape.
 
 Arguments of type :attr:`ShapeLike` should always be converted
 into :class:`ShapeType` using the function :func:`linox.utils.as_shape`
-before further internal processing."""
+before internal processing."""
 
 DTypeLike = jax.numpy.dtype
 """Object that can be converted to an array dtype.
@@ -54,14 +56,14 @@ Arguments of type :attr:`DTypeLike` should always be converted
 into :class:`jax.numpy.dtype`\\ s before further internal processing."""
 
 # Scalars, Arrays and Matrices
-ScalarLike = Union[int, float, complex, jax.core.Primitive, jnp.number]
+ScalarLike = int | float | complex | jax.core.Primitive | jnp.number
 """Object that can be converted to a scalar value.
 
 Arguments of type :attr:`ScalarLike` should always be converted
 into :class:`jax.numpy.number`\\ s using the function :func:`probnum.utils.as_scalar`
 before further internal processing."""
 
-ArrayLike = Union[jax.Array, jnp.ndarray, Iterable]
+ArrayLike = jax.Array, jnp.ndarray, Iterable
 """Object that can be converted to an array.
 
 Arguments of type :attr:`ArrayLike` should always be converted
@@ -70,8 +72,9 @@ before further internal processing."""
 
 LinearOperatorLike = Union[
     ArrayLike,
-    # Note: `scipy.sparse.spmatrix` and `probnum.linops.LinearOperator` do not have JAX equivalents.
-    "nola.linox._linear_operator.LinearOperator",
+    # Note: `scipy.sparse.spmatrix` and `probnum.linops.LinearOperator`
+    # do not have JAX equivalents.
+    "linox.LinearOperator",
 ]
 """Object that can be converted to a :class:`~probnum.linops.LinearOperator`.
 

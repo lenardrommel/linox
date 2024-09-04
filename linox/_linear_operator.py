@@ -1,10 +1,9 @@
+from typing import Union
+
 import jax.numpy as jnp
 
-from nola import linox
-from nola.linox._typing import DTypeLike, ShapeLike, ScalarLike
-
-from typing import Union, Tuple, Callable
-from nola.linox import _utils as utils
+from linox import _utils as utils
+from linox._typing import DTypeLike, ScalarLike, ShapeLike
 
 BinaryOperandType = Union["LinearOperator", ScalarLike, jnp.ndarray]
 
@@ -12,11 +11,13 @@ BinaryOperandType = Union["LinearOperator", ScalarLike, jnp.ndarray]
 class LinearOperator:
     r"""Abstract base class for `matrix-free` finite-dimensional linear operators.
 
-    It follows in most parts the implementation of `probnum.linops.LinearOperator` from ProbNum
+    It follows in most parts the implementation of `probnum.linops.LinearOperator`
+    from ProbNum
     (see also https://github.com/probabilistic-numerics/probnum/blob/main/src/probnum/linops/_linear_operator.py).
 
     Design choices:
-    :class:`LinearOperator`\ s are defined to behave like a :class:`jax.numpy.ndarray` and thus, they
+    :class:`LinearOperator`\ s are defined to behave like a :class:`jax.numpy.ndarray`
+    and thus, they
 
 
     * have :attr:`shape`, :attr:`dtype`, :attr:`ndim`, and :attr:`size` attributes,
@@ -38,17 +39,18 @@ class LinearOperator:
         Shape of the linear operator.
     dtype: Type
 
-    See Also
+    See Also:
     --------
     aslinop : Transform into a LinearOperator
 
-    Notes
+    Notes:
     -----
     -   A subclass is only required to implement :meth:`_matmat`. Additionally, other
         methods like :meth:`_solve`, :meth:`_inverse`, :meth:`_transpose`,
         :meth:`_cholesky`, or :meth:`_det` should be overwritten if more performant
         implementations are available.
-    -   Compared to probnum this implementation does not check for dtype to be numeric and not complexfloating.
+    -   Compared to probnum this implementation does not check for dtype to be numeric
+    and not complexfloating.
     -   Matrix properties are tags.
     """
 
@@ -56,7 +58,7 @@ class LinearOperator:
         self,
         shape: ShapeLike,
         dtype: DTypeLike,
-    ):
+    ) -> None:
         self.__shape = utils.as_shape(
             shape, ndim=2
         )  # TODO(2bys): Needs to be implemented.
@@ -66,7 +68,7 @@ class LinearOperator:
         # possible type checks: numeric, not complexfloating
 
     @property
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         """Shape of the linear operator.
 
         Defined as a tuple of the output and input dimension of operator.
@@ -89,6 +91,7 @@ class LinearOperator:
     @property
     def dtype(self) -> jnp.dtype:
         """Data type of the linear operator.
+
         # TODO(2bys): Check how this could be expanded to pytrees.
         """
         return self.__dtype
@@ -111,37 +114,25 @@ class LinearOperator:
     def transpose(self) -> "LinearOperator":
         return self.todense().T
 
+    @property
+    def T(self) -> "LinearOperator":
+        from linox._arithmetic import TransposedLinearOperator  # noqa: PLC0415
+
+        return TransposedLinearOperator(self)
+
     ########################################################################
-    # Unary Arithmetic
+    # Arithmetic
     ########################################################################
 
     def __neg__(self) -> "LinearOperator":
-        from ._arithmetic import lneg
+        from ._arithmetic import lneg  # noqa: PLC0415
 
         return lneg(self)
-
-    @property
-    def T(self) -> "LinearOperator":
-        return self._transpose()
-
-    # def _inverse(self) -> "LinearOperator":
-    #     from ._arithmetic import (
-    #         InverseLinearOperator,
-    #     )  # This should be indeed functions eval last minute.
-
-    #     return InverseLinearOperator(self)
-
-    # def inv(self) -> "LinearOperator":
-    #     return self._inverse()
-
-    ########################################################################
-    # Binary Arithmetic
-    ########################################################################
 
     def __add__(
         self, other: "LinearOperator"
     ) -> "LinearOperator":  # Here the package uses a BinaryOperandType
-        from ._arithmetic import ladd
+        from ._arithmetic import ladd  # noqa: PLC0415
 
         return ladd(self, other)
 
@@ -149,65 +140,74 @@ class LinearOperator:
         return self.__add__(other, self)
 
     def __sub__(self, other: BinaryOperandType) -> "LinearOperator":
-        from ._arithmetic import lsub
+        from ._arithmetic import lsub  # noqa: PLC0415
 
         return lsub(self, other)
 
     def __rsub__(self, other: BinaryOperandType) -> "LinearOperator":
-        from ._arithmetic import lsub
+        from ._arithmetic import lsub  # noqa: PLC0415
 
         return lsub(other, self)
 
     def __mul__(self, other: BinaryOperandType) -> "LinearOperator":
-        from ._arithmetic import lmul
+        from ._arithmetic import lmul  # noqa: PLC0415
 
         return lmul(self, other)
 
     def __rmul__(self, other: BinaryOperandType) -> "LinearOperator":
-        from ._arithmetic import lmul
+        from ._arithmetic import lmul  # noqa: PLC0415
 
         return lmul(other, self)
 
     def __matmul__(self, other: BinaryOperandType) -> "LinearOperator":
         # TODO(2bys): Add shape checks.
-        from ._arithmetic import lmatmul
+        from ._arithmetic import lmatmul  # noqa: PLC0415
 
-        return lmatmul(self, other)
+        # Shape checks
+        if len(other.shape) == 1:
+            other = other[:, None]
+            flatten = True
+        else:
+            flatten = False
+
+        if other.shape[-2] != self.shape[-1]:
+            msg = f"expected other.shape[-2] to be {self.shape[-1]}, got {other.shape[-2]} instead."  # noqa: E501
+            raise ValueError(msg)
+
+        if len(other.shape) > 2:
+            msg = "Only 2D arrays are supported."
+            raise ValueError(msg)
+
+        if other.dtype != self.dtype:
+            msg = f"expected other.dtype to be {self.dtype}, got {other.dtype} instead."
+            raise ValueError(msg)
+
+        res = lmatmul(self, other)
+        return res if not flatten else res[..., 0]
 
     def __rmatmul__(self, other: BinaryOperandType) -> "LinearOperator":
         # TODO(2bys): Add shape checks.
-        from ._arithmetic import lmatmul
+        from ._arithmetic import lmatmul  # noqa: PLC0415
+
+        # Shape checks
+        # if len(other.shape) == 1:
+        #     other = other[:, None]
+        #     flatten = True
+        # else:
+        #     flatten = False
+
+        if other.shape[-1] != self.shape[-2]:
+            msg = (
+                f"expected other.shape[-1] to be {other.shape[-1]}, "
+                f"got {self.shape[-2]} instead."
+            )
+            raise ValueError(msg)
+
+        if len(other.shape) > 2:
+            msg = "Only 2D arrays are supported."
+            raise ValueError(msg)
 
         return lmatmul(other, self)
 
-    ########################################################################
-    # Automatic `mat{vec, mat}` to `matmul` vectorization
-    ########################################################################
-
-    # broadcast_matvec = staticmethod(_vectorize.vectorize_matvec)
-    # broadcast_matmat = staticmethod(_vectorize.vectorize_matmat)
-
-
-# class LambdaLinearOperator:
-#     def __init__(
-#         self,
-#         shape: ShapeLike,
-#         dtype: DTypeLike,
-#         *,
-#         mv: Callable,
-#         transpose: Optional[Callable] = None,
-#         todense: Optional[Callable] = None,
-#     ):
-#         super().__init__(shape, dtype)
-
-#         self.mv_fn = mv
-#         self.transpose_fn = transpose
-#         self.todense_fn = todense
-
-#     def mv(self, vector: jnp.ndarray) -> jnp.ndarray:
-#         return self.mv(vector)
-
-#     def transpose(self) -> "LinearOperator":
-#         if self.transpose_fn is None:
-#             return self.transpose()
-#         return self.transpose_fn()
+    def __call__(self, arr: BinaryOperandType) -> "LinearOperator":
+        return self @ arr

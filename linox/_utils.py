@@ -2,15 +2,15 @@
 """Utility functions for argument types."""
 
 import numbers
-from typing import Optional
+
 import jax.numpy as jnp
 
-from nola.linox._typing import DTypeLike, ScalarLike, ShapeLike, ShapeType
+from linox._typing import DTypeLike, ScalarLike, ShapeLike, ShapeType
 
-__all__ = ["as_shape", "as_scalar"]
+__all__ = ["as_scalar", "as_shape"]
 
 
-def as_shape(x: ShapeLike, ndim: Optional[numbers.Integral] = None) -> ShapeType:
+def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
     """Convert a shape representation into a shape defined as a tuple of ints.
 
     Parameters
@@ -20,14 +20,14 @@ def as_shape(x: ShapeLike, ndim: Optional[numbers.Integral] = None) -> ShapeType
     ndim
         The required number of dimensions in the shape.
 
-    Raises
+    Raises:
     ------
     TypeError
         If ``x`` is not a valid :const:`ShapeLike`.
     TypeError
         If ``x`` does not feature the required number of dimensions.
     """
-    if isinstance(x, (int, numbers.Integral, jnp.integer)):
+    if isinstance(x, int | numbers.Integral | jnp.integer):
         shape = (int(x),)
     elif isinstance(x, tuple) and all(isinstance(item, int) for item in x):
         shape = x
@@ -35,20 +35,20 @@ def as_shape(x: ShapeLike, ndim: Optional[numbers.Integral] = None) -> ShapeType
         try:
             _ = iter(x)
         except TypeError as e:
-            raise TypeError(
-                f"The given shape {x} must be an integer or an iterable of integers."
-            ) from e
+            msg = f"The given shape {x} must be an integer or an iterable of integers."
+            raise TypeError(msg) from e
 
         if not all(
-            isinstance(item, (int, numbers.Integral, jnp.integer)) for item in x
+            isinstance(item, int | numbers.Integral | jnp.integer) for item in x
         ):
-            raise TypeError(f"The given shape {x} must only contain integer values.")
+            msg = f"The given shape {x} must only contain integer values."
+            raise TypeError(msg)
 
         shape = tuple(int(item) for item in x)
 
-    if isinstance(ndim, numbers.Integral):
-        if len(shape) != ndim:
-            raise TypeError(f"The given shape {shape} must have {ndim} dimensions.")
+    if isinstance(ndim, numbers.Integral) and len(shape) != ndim:
+        msg = f"The given shape {shape} must have {ndim} dimensions."
+        raise TypeError(msg)
 
     return shape
 
@@ -63,13 +63,13 @@ def as_scalar(x: ScalarLike, dtype: DTypeLike = None) -> jnp.ndarray:
     dtype
         Data type of the scalar.
 
-    Raises
+    Raises:
     ------
     ValueError
         If :code:`x` can not be interpreted as a scalar.
     """
-
     if jnp.ndim(x) != 0:
-        raise ValueError("The given input is not a scalar.")
+        msg = "The given input is not a scalar."
+        raise ValueError(msg)
 
     return jnp.asarray(x, dtype=dtype)
