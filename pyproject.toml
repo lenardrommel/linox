@@ -19,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "jax",
+    "plum-dispatch",
 ]
 description = "Linear operators in JAX."
 dynamic = ["version"]
@@ -33,7 +34,7 @@ requires-python = ">=3.10,<3.12"
 
 [project.optional-dependencies]
 dev = ["ruff", "jupyterlab", "pre-commit", "pytest", "tox-uv", "pyright"]
-
+test = ["pytest", "tox-uv", "pytest_cases", "probnum"]
 
 # PEP 518 Build System Configuration
 # See https://peps.python.org/pep-0518/
@@ -151,6 +152,9 @@ ignore = [
     # Assignments before return can emphasize the code's semantic structure
     "RET504",
     "S403",
+    # During development it is useful to allow the following
+    "ERA001", # Allow uncommented code.
+    "TD003", # Allow TODOs without a issue.
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
