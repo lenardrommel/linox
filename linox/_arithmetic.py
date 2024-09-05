@@ -91,7 +91,7 @@ def symmetrize(a: LinearOperator) -> ArithmeticType:
 
 @lmatmul.dispatch
 def _(a: LinearOperator, b: jax.Array) -> jax.Array:
-    return jax.lax.map(a.mv, b.T).T
+    return a.mv(b)  # a.mv is vectorized
 
 
 @lmatmul.dispatch

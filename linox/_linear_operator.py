@@ -66,6 +66,7 @@ class LinearOperator:
         # DType
         self.__dtype = jnp.dtype(dtype)
         # possible type checks: numeric, not complexfloating
+        self.mv = jnp.vectorize(self.mv, signature="(n,k)->(m,k)")
 
     @property
     def shape(self) -> tuple[int, int]:
@@ -174,9 +175,9 @@ class LinearOperator:
             msg = f"expected other.shape[-2] to be {self.shape[-1]}, got {other.shape[-2]} instead."  # noqa: E501
             raise ValueError(msg)
 
-        if len(other.shape) > 2:
-            msg = "Only 2D arrays are supported."
-            raise ValueError(msg)
+        # if len(other.shape) > 2:
+        #     msg = "Only 2D arrays are supported."
+        #     raise ValueError(msg)
 
         if other.dtype != self.dtype:
             msg = f"expected other.dtype to be {self.dtype}, got {other.dtype} instead."

@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 
-from linox import LinearOperator
+from linox._linear_operator import LinearOperator
 from linox._arithmetic import lmatmul
 
 

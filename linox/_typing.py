@@ -20,7 +20,7 @@ ShapeType = tuple[int, ...]
 ScalarType = jnp.ndarray
 """Type defining a scalar."""
 
-MatrixType = jnp.ndarray | "linox._linear_operator.LinearOperator"
+MatrixType = Union[jnp.ndarray, "linox._linear_operator.LinearOperator"]
 """Type defining a matrix, i.e. a linear map between \
 finite-dimensional vector spaces."""
 
@@ -70,12 +70,12 @@ Arguments of type :attr:`ArrayLike` should always be converted
 into :class:`jax.Array`\\ s using the function :func:`jnp.asarray`
 before further internal processing."""
 
-LinearOperatorLike = Union[
-    ArrayLike,
-    # Note: `scipy.sparse.spmatrix` and `probnum.linops.LinearOperator`
-    # do not have JAX equivalents.
-    "linox.LinearOperator",
-]
+# LinearOperatorLike = Union[
+#     ArrayLike,
+#     # Note: `scipy.sparse.spmatrix` and `probnum.linops.LinearOperator`
+#     # do not have JAX equivalents.
+#     "linox._linear_operator.LinearOperator",
+# ]
 """Object that can be converted to a :class:`~probnum.linops.LinearOperator`.
 
 Arguments of type :attr:`LinearOperatorLike` should always be converted

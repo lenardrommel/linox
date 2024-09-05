@@ -1,6 +1,6 @@
 import jax
 
-from linox import LinearOperator
+from linox._linear_operator import LinearOperator
 
 
 class EigenD(LinearOperator):

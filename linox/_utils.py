@@ -3,11 +3,14 @@
 
 import numbers
 
+import jax
 import jax.numpy as jnp
 
 from linox._typing import DTypeLike, ScalarLike, ShapeLike, ShapeType
+from linox._linear_operator import LinearOperator
+from linox._matrix import Matrix
 
-__all__ = ["as_scalar", "as_shape"]
+__all__ = ["as_scalar", "as_shape", "as_linop"]
 
 
 def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
@@ -73,3 +76,30 @@ def as_scalar(x: ScalarLike, dtype: DTypeLike = None) -> jnp.ndarray:
         raise ValueError(msg)
 
     return jnp.asarray(x, dtype=dtype)
+
+
+LinearOperatorLike = jax.Array | LinearOperator
+
+
+def as_linop(A: LinearOperatorLike) -> LinearOperator:
+    """Convert an object into a linear operator.
+
+    Parameters
+    ----------
+    A
+        Object to convert.
+
+    Raises
+    ------
+    TypeError
+        If ``A`` is not a valid linear operator.
+    """
+    if isinstance(A, LinearOperator):
+        return A
+
+    if isinstance(A, jax.Array):
+        return Matrix(A)
+
+    # Add Callable support.
+    msg = f"The given object {A} is not a valid linear operator type."
+    raise TypeError(msg)
