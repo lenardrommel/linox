@@ -1,4 +1,5 @@
 import operator
+from collections.abc import Iterable
 from functools import reduce
 
 import jax
@@ -7,25 +8,24 @@ import plum
 
 import linox._utils as utils
 from linox._linear_operator import LinearOperator
-from linox._matrix import Matrix
-from linox._typing import ScalarLike, ScalarType
+from linox._typing import ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
 
 
 # all arithmetic functions
-# @plum.dispatch
+@plum.dispatch
 def ladd(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     return AddLinearOperator(a, b)
 
 
-# @plum.dispatch
+@plum.dispatch
 def lsub(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     return AddLinearOperator(a, -b)
 
 
-# @plum.dispatch
-def lmul(a: ScalarType, b: LinearOperator) -> LinearOperator:
+@plum.dispatch
+def lmul(a: ScalarLike | jax.Array, b: LinearOperator) -> LinearOperator:
     return ScaledLinearOperator(scalar=a, operator=b)
 
 
@@ -39,9 +39,10 @@ def lneg(a: LinearOperator) -> LinearOperator:
     return ScaledLinearOperator(operator=a, scalar=-1)
 
 
-# @lmatmul.dispatch # TODO(2bys): Check for a general rule.
-# def _(a: LinearOperator, b: jax.Array) -> ArithmeticType:
-#     return a.mv(b)
+@plum.dispatch
+def lsqrt(A: LinearOperator) -> LinearOperator:
+    msg = f"Square root of {type(A)} not implemented."
+    raise NotImplementedError(msg)
 
 
 # --------------------------------------------------------------------------- #
@@ -57,8 +58,8 @@ def transpose(a: LinearOperator) -> ArithmeticType:
     return TransposedLinearOperator(a)
 
 
-# @plum.dispatch
-def inverse(a: LinearOperator) -> ArithmeticType:
+@plum.dispatch
+def linverse(a: LinearOperator) -> ArithmeticType:
     return InverseLinearOperator(a)
 
 
@@ -91,7 +92,7 @@ def symmetrize(a: LinearOperator) -> ArithmeticType:
 
 @lmatmul.dispatch
 def _(a: LinearOperator, b: jax.Array) -> jax.Array:
-    return a.mv(b)  # a.mv is vectorized
+    return a.matmat(b)
 
 
 @lmatmul.dispatch
@@ -99,14 +100,6 @@ def _(a: jax.Array, b: LinearOperator) -> LinearOperator:
     from linox._matrix import Matrix  # noqa: PLC0415
 
     return Matrix(a) @ b
-
-
-@lmatmul.dispatch
-def _(a: jax.Array, b: Matrix) -> jax.Array:
-    return a @ b.A
-
-
-# --------------------------------------------------------------------------- #
 
 
 # --------------------------------------------------------------------------- #
@@ -118,13 +111,14 @@ class ScaledLinearOperator(LinearOperator):
     """Linear operator scaled with a scalar."""
 
     def __init__(self, operator: LinearOperator, scalar: ScalarLike) -> None:
-        self.operator = operator
+        self.operator = utils.as_linop(operator)
         scalar = jnp.asarray(scalar)
         dtype = jnp.result_type(operator.dtype, scalar.dtype)
         self.scalar = utils.as_scalar(scalar, dtype)
+        super().__init__(shape=operator.shape, dtype=dtype)
 
-    def mv(self, vector: jax.Array) -> jax.Array:
-        return (self.operator @ vector) * self.scalar
+    def matmat(self, arr: jax.Array) -> jax.Array:
+        return (self.operator @ arr) * self.scalar
 
     def todense(self) -> jax.Array:
         return self.operator.todense() * self.scalar
@@ -135,6 +129,12 @@ class ScaledLinearOperator(LinearOperator):
 
 # inverse special behavior:
 # ScaledLinearOperator(inverse(operator), inverse(Scalar))
+def _broadcast_shapes(shapes: Iterable[ShapeLike]) -> ShapeLike:
+    try:
+        return jnp.broadcast_shapes(*shapes)
+    except ValueError:
+        msg = f"Shapes {shapes} cannot be broadcasted."
+        raise ValueError(msg)  # noqa: B904
 
 
 class AddLinearOperator(LinearOperator):
@@ -142,25 +142,19 @@ class AddLinearOperator(LinearOperator):
 
     def __init__(self, *operator_list: ArithmeticType) -> None:
         self.operator_list = [
-            o if isinstance(op, AddLinearOperator) else op
+            utils.as_linop(o)
+            if isinstance(op, AddLinearOperator)
+            else utils.as_linop(op)
             for op in operator_list
             for o in (op.operator_list if isinstance(op, AddLinearOperator) else [op])
         ]
-        self.__check_init__()
-        super().__init__(
-            shape=self.operator_list[0].shape, dtype=self.operator_list[0].dtype
-        )
+        shape = _broadcast_shapes([op.shape for op in self.operator_list])
+        super().__init__(shape=shape, dtype=self.operator_list[0].dtype)
 
-    def __check_init__(self) -> None:  # noqa: PLW3201
-        shapes = [op.shape for op in self.operator_list]
-        if not all(shape == shapes[0] for shape in shapes):
-            msg = f"Shapes of all operators must match, but received shapes {shapes}."
-            raise ValueError(msg)
-
-    def mv(self, vector: jax.Array) -> jax.Array:
+    def matmat(self, arr: jax.Array) -> jax.Array:
         return reduce(
             operator.add,
-            (op @ vector for op in reversed(self.operator_list)),
+            (op @ arr for op in reversed(self.operator_list)),
         )
 
     def todense(self) -> jax.Array:
@@ -175,23 +169,27 @@ class ProductLinearOperator(LinearOperator):
 
     def __init__(self, *operator_list: LinearOperator) -> None:
         self.operator_list = [
-            o if isinstance(op, ProductLinearOperator) else op
+            utils.as_linop(o)
+            if isinstance(op, ProductLinearOperator)
+            else utils.as_linop(op)
             for op in operator_list
             for o in (
                 op.operator_list if isinstance(op, ProductLinearOperator) else [op]
             )
         ]
+        batch_shape = _broadcast_shapes([op.shape[:-2] for op in self.operator_list])
         self.__check_init__()
         shape = utils.as_shape((
-            self.operator_list[0].shape[0],
-            self.operator_list[-1].shape[1],
+            *batch_shape,
+            self.operator_list[0].shape[-2],
+            self.operator_list[-1].shape[-1],
         ))
         super().__init__(shape=shape, dtype=self.operator_list[0].dtype)
 
     def __check_init__(self) -> None:  # noqa: PLW3201
         for i, op1 in enumerate(self.operator_list[:-1]):
             op2 = self.operator_list[i + 1]
-            if op1.shape[1] != op2.shape[0]:
+            if op1.shape[-1] != op2.shape[-2]:
                 msg = (
                     f"Shape mismatch: Cannot multiply linear operators with shapes "
                     f"operator 1: ({op1.shape}) "
@@ -205,25 +203,50 @@ class ProductLinearOperator(LinearOperator):
                 )
                 raise TypeError(msg)
 
-    def mv(self, vector: jax.Array) -> jax.Array:
-        return reduce(lambda x, y: y @ x, [vector, *reversed(self.operator_list)])
+    def matmat(self, arr: jax.Array) -> jax.Array:
+        return reduce(lambda x, y: y @ x, [arr, *reversed(self.operator_list)])
 
     def transpose(self) -> "ProductLinearOperator":
         return ProductLinearOperator(
-            self.operator2.transpose(), self.operator1.transpose()
+            *(op.transpose() for op in reversed(self.operator_list))
         )
+
+
+class CongruenceTransform(ProductLinearOperator):
+    r""":math:`A B A^\top`."""
+
+    def __init__(self, A: ArithmeticType, B: ArithmeticType) -> None:
+        self._A = utils.as_linop(A)
+        self._B = utils.as_linop(B)
+
+        super().__init__(self._A, self._B, self._A.T)
+
+        self.is_symmetric = self._B.is_symmetric
+        self.is_positive_definite = self._B.is_positive_definite
+
+    def _transpose(self) -> LinearOperator:
+        return CongruenceTransform(self._A, self._B.T)
+
+
+@plum.dispatch
+def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:
+    return CongruenceTransform(A, B)
 
 
 class TransposedLinearOperator(LinearOperator):
     def __init__(self, operator: LinearOperator) -> None:
-        self.operator = operator
-        super().__init__(shape=operator.shape[::-1], dtype=operator.dtype)
+        self.operator = utils.as_linop(operator)
+        batch_shape = operator.shape[:-2]
+        super().__init__(
+            shape=(*batch_shape, operator.shape[-1], operator.shape[-2]),
+            dtype=operator.dtype,
+        )
 
-    def mv(self, vector: jnp.array) -> jax.Array:
-        return self.operator.transpose() @ vector
+    def matmat(self, arr: jnp.array) -> jax.Array:
+        return self.operator.transpose() @ arr
 
     def todense(self) -> jax.Array:
-        return self.operator.todense().T
+        return self.operator.todense().swapaxes(-1, -2)
 
     def transpose(self) -> LinearOperator:
         return self.operator
@@ -236,7 +259,7 @@ class InverseLinearOperator(LinearOperator):
         super().__init__(shape=operator.shape, dtype=operator.dtype)
 
     def mv(self, vector: jax.Array) -> jax.Array:
-        return inverse(self.operator) @ vector
+        return linverse(self.operator) @ vector
 
     def todense(self) -> jax.Array:
         return jnp.linalg.inv(self.operator.todense())

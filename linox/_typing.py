@@ -6,7 +6,9 @@ from typing import Union
 import jax
 import jax.numpy as jnp
 
-import linox
+import linox  # noqa: TCH001
+
+# from linox._matrix import Scalar
 
 ########################################################################################
 # API Types
@@ -20,7 +22,7 @@ ShapeType = tuple[int, ...]
 ScalarType = jnp.ndarray
 """Type defining a scalar."""
 
-MatrixType = Union[jnp.ndarray, "linox._linear_operator.LinearOperator"]
+MatrixType = Union[jnp.ndarray, "linox._linear_operator.LinearOperator"]  # noqa: SLF001
 """Type defining a matrix, i.e. a linear map between \
 finite-dimensional vector spaces."""
 
@@ -56,7 +58,9 @@ Arguments of type :attr:`DTypeLike` should always be converted
 into :class:`jax.numpy.dtype`\\ s before further internal processing."""
 
 # Scalars, Arrays and Matrices
-ScalarLike = int | float | complex | jax.core.Primitive | jnp.number
+ScalarLike = (
+    int | float | complex | jax.core.Primitive | jnp.number  # | linox._matrix.Scalar
+)
 """Object that can be converted to a scalar value.
 
 Arguments of type :attr:`ScalarLike` should always be converted

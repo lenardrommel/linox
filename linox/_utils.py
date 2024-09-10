@@ -2,15 +2,17 @@
 """Utility functions for argument types."""
 
 import numbers
+from collections.abc import Iterable
 
 import jax
 import jax.numpy as jnp
 
-from linox._typing import DTypeLike, ScalarLike, ShapeLike, ShapeType
 from linox._linear_operator import LinearOperator
-from linox._matrix import Matrix
 
-__all__ = ["as_scalar", "as_shape", "as_linop"]
+# from linox._matrix import Matrix, Scalar
+from linox._typing import ArrayLike, DTypeLike, ScalarLike, ShapeLike, ShapeType
+
+__all__ = ["_broadcast_shapes", "as_linop", "as_scalar", "as_shape"]
 
 
 def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
@@ -75,7 +77,9 @@ def as_scalar(x: ScalarLike, dtype: DTypeLike = None) -> jnp.ndarray:
         msg = "The given input is not a scalar."
         raise ValueError(msg)
 
-    return jnp.asarray(x, dtype=dtype)
+    from linox._matrix import Scalar  # noqa: PLC0415
+
+    return jnp.asarray(x.scalar if isinstance(x, Scalar) else x, dtype=dtype)
 
 
 LinearOperatorLike = jax.Array | LinearOperator
@@ -98,8 +102,33 @@ def as_linop(A: LinearOperatorLike) -> LinearOperator:
         return A
 
     if isinstance(A, jax.Array):
+        from linox._matrix import Matrix  # noqa: PLC0415
+
         return Matrix(A)
 
     # Add Callable support.
     msg = f"The given object {A} is not a valid linear operator type."
     raise TypeError(msg)
+
+
+# inverse special behavior:
+def _broadcast_shapes(shapes: Iterable[ShapeLike]) -> ShapeLike:
+    try:
+        return jnp.broadcast_shapes(*shapes)
+    except ValueError:
+        msg = f"Shapes {shapes} cannot be broadcasted."
+        raise ValueError(msg)  # noqa: B904
+
+
+def _broadcast_to(x: ArrayLike, shape: ShapeLike) -> jnp.ndarray:
+    """Broadcast an array to a given shape."""
+    if isinstance(x, jnp.ndarray):
+        return x
+    elif isinstance(x, LinearOperator):
+        return x.toshape(shape)
+    else:
+        msg = f"Unsupported broadcast type {type(x)}."
+        raise ValueError(msg)  # noqa: TRY004
+    # except ValueError as e:
+    #     msg = f"Array of shape {x.shape} cannot be broadcasted to {shape}."
+    #     raise ValueError(msg) from e

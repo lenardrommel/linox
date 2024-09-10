@@ -1,3 +1,5 @@
+import operator
+from functools import reduce
 from typing import Union
 
 import jax.numpy as jnp
@@ -8,7 +10,7 @@ from linox._typing import DTypeLike, ScalarLike, ShapeLike
 BinaryOperandType = Union["LinearOperator", ScalarLike, jnp.ndarray]
 
 
-class LinearOperator:
+class LinearOperator:  # noqa: PLR0904 To many public methods
     r"""Abstract base class for `matrix-free` finite-dimensional linear operators.
 
     It follows in most parts the implementation of `probnum.linops.LinearOperator`
@@ -52,6 +54,10 @@ class LinearOperator:
     -   Compared to probnum this implementation does not check for dtype to be numeric
     and not complexfloating.
     -   Matrix properties are tags.
+
+    Important:
+    ----------
+    -  (...batch..., n, m) is the general shape assumption.
     """
 
     def __init__(
@@ -60,16 +66,14 @@ class LinearOperator:
         dtype: DTypeLike,
     ) -> None:
         self.__shape = utils.as_shape(
-            shape, ndim=2
+            shape, ndim=len(shape)
         )  # TODO(2bys): Needs to be implemented.
 
         # DType
         self.__dtype = jnp.dtype(dtype)
-        # possible type checks: numeric, not complexfloating
-        self.mv = jnp.vectorize(self.mv, signature="(n,k)->(m,k)")
 
     @property
-    def shape(self) -> tuple[int, int]:
+    def shape(self) -> tuple[int]:
         """Shape of the linear operator.
 
         Defined as a tuple of the output and input dimension of operator.
@@ -77,17 +81,28 @@ class LinearOperator:
         return self.__shape
 
     @property
+    def batch_shape(self) -> tuple[int]:
+        """Shape of the batch dimensions of the linear operator."""
+        return self.__shape[:-2]
+
+    @property
     def ndim(self) -> int:
         """Number of linear operator dimensions.
 
-        Defined analogously to numpy.ndarray.ndim. # TODO(2bys): Check with jnp.ndarray.ndim.
+        Defined analogously to numpy.ndarray.ndim.
+        TODO(2bys): Check with jnp.ndarray.ndim.
         """
-        return 2
+        return len(self.__shape)
+
+    @property
+    def batch_ndim(self) -> int:
+        """Number of batch dimensions of the linear operator."""
+        return len(self.__shape[:-2])
 
     @property
     def size(self) -> int:
         """Product of the :attr:`shape` entries."""
-        return self.__shape[0] * self.__shape[1]
+        return reduce(operator.mul, self.__shape, 1)
 
     @property
     def dtype(self) -> jnp.dtype:
@@ -107,13 +122,15 @@ class LinearOperator:
     ########################################################################
 
     def todense(self) -> jnp.ndarray:
-        return self @ jnp.eye(self.shape[1], dtype=self.dtype)
+        return self @ jnp.eye(self.shape[-1], dtype=self.dtype)
 
-    def mv(self, vector: jnp.ndarray) -> jnp.ndarray:
-        return self.todense() @ vector
+    def matmat(self, other: jnp.ndarray) -> jnp.ndarray:
+        return self.todense() @ other
+
+    #        return self.mv(other.swapaxes(-1, -2)).swapaxes(-1, -2)
 
     def transpose(self) -> "LinearOperator":
-        return self.todense().T
+        return self.todense().swapaxes(-1, -2)
 
     @property
     def T(self) -> "LinearOperator":
@@ -165,20 +182,18 @@ class LinearOperator:
         from ._arithmetic import lmatmul  # noqa: PLC0415
 
         # Shape checks
-        if len(other.shape) == 1:
+        if len(other.shape) == 1 and isinstance(other, jnp.ndarray):
             other = other[:, None]
             flatten = True
         else:
             flatten = False
 
+        # Check multiplication shape
         if other.shape[-2] != self.shape[-1]:
             msg = f"expected other.shape[-2] to be {self.shape[-1]}, got {other.shape[-2]} instead."  # noqa: E501
             raise ValueError(msg)
 
-        # if len(other.shape) > 2:
-        #     msg = "Only 2D arrays are supported."
-        #     raise ValueError(msg)
-
+        # Check dtype
         if other.dtype != self.dtype:
             msg = f"expected other.dtype to be {self.dtype}, got {other.dtype} instead."
             raise ValueError(msg)
@@ -189,13 +204,6 @@ class LinearOperator:
     def __rmatmul__(self, other: BinaryOperandType) -> "LinearOperator":
         # TODO(2bys): Add shape checks.
         from ._arithmetic import lmatmul  # noqa: PLC0415
-
-        # Shape checks
-        # if len(other.shape) == 1:
-        #     other = other[:, None]
-        #     flatten = True
-        # else:
-        #     flatten = False
 
         if other.shape[-1] != self.shape[-2]:
             msg = (
