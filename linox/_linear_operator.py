@@ -124,7 +124,7 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
     def todense(self) -> jnp.ndarray:
         return self @ jnp.eye(self.shape[-1], dtype=self.dtype)
 
-    def matmat(self, other: jnp.ndarray) -> jnp.ndarray:
+    def _matmul(self, other: jnp.ndarray) -> jnp.ndarray:
         return self.todense() @ other
 
     #        return self.mv(other.swapaxes(-1, -2)).swapaxes(-1, -2)

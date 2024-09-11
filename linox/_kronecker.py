@@ -28,7 +28,7 @@ class Kronecker(LinearOperator):
         dtype = A.dtype
         super().__init__(shape, dtype)
 
-    def mv(self, vec: jax.Array) -> jax.Array:
+    def _matmul(self, vec: jax.Array) -> jax.Array:
         flatten = False
         if len(vec.shape) == 1:
             vec = vec[:, None]
@@ -63,3 +63,13 @@ class Kronecker(LinearOperator):
 
     def sqrt(self) -> "Kronecker":
         return Kronecker(self.A.sqrt(), self.B.sqrt())
+
+
+#
+# A = jnp.array([[1, 2], [3, 4]], dtype=jnp.float32)
+# B = jnp.array([[5, 6], [7, 8]], dtype=jnp.float32)
+# op = Kronecker(A, B)
+# vec = jnp.array([1, 0, 0, 1], dtype=jnp.float32)
+# result = op @ vec
+# result_true = jnp.kron(A, B) @ vec
+# jnp.allclose(result, result_true)

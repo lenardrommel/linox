@@ -40,8 +40,8 @@ def lneg(a: LinearOperator) -> LinearOperator:
 
 
 @plum.dispatch
-def lsqrt(A: LinearOperator) -> LinearOperator:
-    msg = f"Square root of {type(A)} not implemented."
+def lsqrt(a: LinearOperator) -> LinearOperator:
+    msg = f"Square root of {type(a)} not implemented."
     raise NotImplementedError(msg)
 
 
@@ -92,7 +92,7 @@ def symmetrize(a: LinearOperator) -> ArithmeticType:
 
 @lmatmul.dispatch
 def _(a: LinearOperator, b: jax.Array) -> jax.Array:
-    return a.matmat(b)
+    return a._matmul(b)  # noqa: SLF001
 
 
 @lmatmul.dispatch
@@ -117,7 +117,7 @@ class ScaledLinearOperator(LinearOperator):
         self.scalar = utils.as_scalar(scalar, dtype)
         super().__init__(shape=operator.shape, dtype=dtype)
 
-    def matmat(self, arr: jax.Array) -> jax.Array:
+    def _matmul(self, arr: jax.Array) -> jax.Array:
         return (self.operator @ arr) * self.scalar
 
     def todense(self) -> jax.Array:
@@ -151,7 +151,7 @@ class AddLinearOperator(LinearOperator):
         shape = _broadcast_shapes([op.shape for op in self.operator_list])
         super().__init__(shape=shape, dtype=self.operator_list[0].dtype)
 
-    def matmat(self, arr: jax.Array) -> jax.Array:
+    def _matmul(self, arr: jax.Array) -> jax.Array:
         return reduce(
             operator.add,
             (op @ arr for op in reversed(self.operator_list)),
@@ -203,7 +203,7 @@ class ProductLinearOperator(LinearOperator):
                 )
                 raise TypeError(msg)
 
-    def matmat(self, arr: jax.Array) -> jax.Array:
+    def _matmul(self, arr: jax.Array) -> jax.Array:
         return reduce(lambda x, y: y @ x, [arr, *reversed(self.operator_list)])
 
     def transpose(self) -> "ProductLinearOperator":
@@ -212,6 +212,7 @@ class ProductLinearOperator(LinearOperator):
         )
 
 
+# not properly tested
 class CongruenceTransform(ProductLinearOperator):
     r""":math:`A B A^\top`."""
 
@@ -224,7 +225,7 @@ class CongruenceTransform(ProductLinearOperator):
         self.is_symmetric = self._B.is_symmetric
         self.is_positive_definite = self._B.is_positive_definite
 
-    def _transpose(self) -> LinearOperator:
+    def transpose(self) -> LinearOperator:
         return CongruenceTransform(self._A, self._B.T)
 
 
@@ -242,7 +243,7 @@ class TransposedLinearOperator(LinearOperator):
             dtype=operator.dtype,
         )
 
-    def matmat(self, arr: jnp.array) -> jax.Array:
+    def _matmul(self, arr: jnp.array) -> jax.Array:
         return self.operator.transpose() @ arr
 
     def todense(self) -> jax.Array:
@@ -258,8 +259,8 @@ class InverseLinearOperator(LinearOperator):
         self.operator = operator
         super().__init__(shape=operator.shape, dtype=operator.dtype)
 
-    def mv(self, vector: jax.Array) -> jax.Array:
-        return linverse(self.operator) @ vector
+    def _matmul(self, arr: jax.Array) -> jax.Array:
+        return linverse(self.operator) @ arr
 
     def todense(self) -> jax.Array:
         return jnp.linalg.inv(self.operator.todense())

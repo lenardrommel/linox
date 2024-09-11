@@ -8,25 +8,30 @@ from ._arithmetic import (
     is_square,
     is_symmetric,
     linverse,
+    lsqrt,
     symmetrize,
     transpose,
-    lsqrt,
 )
 
 # Import classes from other modules
-from ._diagonal_plus_low_rank import IsotropicScalingPlusLowRank
+from ._block import BlockDiagonal, BlockMatrix, BlockMatrix2x2
 from ._eigen import EigenD
 from ._linear_operator import LinearOperator
-from ._matrix import Identity, Matrix, Ones, Zero, Diagonal
+from ._low_rank import IsotropicScalingPlusLowRank, LowRank
+from ._matrix import Diagonal, Identity, Matrix, Ones, Zero
 from ._permutation import Permutation
 
 # Explicitly declare public API
 __all__ = [
+    "BlockDiagonal",
+    "BlockMatrix",
+    "BlockMatrix2x2",
     "Diagonal",
     "EigenD",
     "Identity",
     "IsotropicScalingPlusLowRank",
     "LinearOperator",
+    "LowRank",
     "Matrix",
     "Ones",
     "Permutation",

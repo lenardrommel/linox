@@ -93,7 +93,7 @@ def as_linop(A: LinearOperatorLike) -> LinearOperator:
     A
         Object to convert.
 
-    Raises
+    Raises:
     ------
     TypeError
         If ``A`` is not a valid linear operator.
@@ -101,7 +101,7 @@ def as_linop(A: LinearOperatorLike) -> LinearOperator:
     if isinstance(A, LinearOperator):
         return A
 
-    if isinstance(A, jax.Array):
+    if isinstance(A, jax.Array | jnp.ndarray):
         from linox._matrix import Matrix  # noqa: PLC0415
 
         return Matrix(A)

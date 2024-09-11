@@ -122,7 +122,8 @@ linops_options = [
     get_ones,
 ]
 
-symmetric_options = [get_low_rank_plus_isotropic, get_permutation]
+symmetric_options = [get_permutation]
+# isotropic_options = [get_low_rank_plus_isotropic]
 
 all_base_options = linops_options + symmetric_options
 

@@ -34,7 +34,7 @@ class Matrix(LinearOperator):
         self.A = jnp.asarray(A)
         super().__init__(self.A.shape, self.A.dtype)
 
-    def matmat(self, vector: jax.Array) -> jax.Array:
+    def _matmul(self, vector: jax.Array) -> jax.Array:
         return self.A @ vector
 
     def todense(self) -> jax.Array:
@@ -114,7 +114,7 @@ class Identity(LinearOperator):
     def __init__(self, shape: ShapeLike, *, dtype: DTypeLike = jnp.float32) -> None:
         super().__init__((*shape[:-1], shape[-1], shape[-1]), dtype)
 
-    def matmat(self, arr: jax.Array) -> jax.Array:
+    def _matmul(self, arr: jax.Array) -> jax.Array:
         return jnp.broadcast_to(
             arr,
             #            jnp.tile(arr, _fill_ones(jnp.max(arr.ndim, self.ndim))),
@@ -207,7 +207,7 @@ class Diagonal(LinearOperator):
             dtype=self.diag.dtype,
         )
 
-    def matmat(self, vector: jax.Array) -> jax.Array:
+    def _matmul(self, vector: jax.Array) -> jax.Array:
         return self.diag[..., None] * vector
 
     def todense(self) -> jax.Array:
@@ -272,7 +272,7 @@ class Scalar(LinearOperator):
 
         super().__init__(shape=(), dtype=self.scalar.dtype)
 
-    def mv(self, vector: jax.Array) -> jax.Array:
+    def _matmul(self, vector: jax.Array) -> jax.Array:
         return self.scalar * vector
 
     def todense(self) -> jax.Array:
@@ -327,7 +327,7 @@ class Zero(LinearOperator):
     def __init__(self, shape: ShapeLike, dtype: DTypeLike = jnp.float32) -> None:
         super().__init__(shape, dtype)
 
-    def matmat(self, arr: jax.Array) -> jax.Array:
+    def _matmul(self, arr: jax.Array) -> jax.Array:
         return jnp.zeros(
             (
                 *jnp.broadcast_shapes(arr.shape[:-2], self.shape[:-2]),
@@ -418,7 +418,7 @@ class Ones(LinearOperator):
     def __init__(self, shape: ShapeLike, dtype: DTypeLike = jnp.float32) -> None:
         super().__init__(shape, dtype)
 
-    def matmat(self, arr: jax.Array) -> jax.Array:
+    def _matmul(self, arr: jax.Array) -> jax.Array:
         return jnp.broadcast_to(
             arr.sum(axis=-2, keepdims=True),
             shape=(
