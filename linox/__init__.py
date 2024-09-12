@@ -11,6 +11,7 @@ from ._arithmetic import (
     lsqrt,
     symmetrize,
     transpose,
+    congruence_transform,
 )
 
 # Import classes from other modules
