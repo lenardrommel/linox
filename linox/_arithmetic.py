@@ -50,6 +50,7 @@ def lsqrt(a: LinearOperator) -> LinearOperator:
 # --------------------------------------------------------------------------- #
 
 
+@plum.dispatch
 def diagonal(a: LinearOperator) -> ArithmeticType:
     return jnp.diag(a.todense())
 
