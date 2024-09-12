@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from linox._linear_operator import LinearOperator
 
 # from linox._matrix import Matrix, Scalar
-from linox._typing import ArrayLike, DTypeLike, ScalarLike, ShapeLike, ShapeType
+from linox.typing import ArrayLike, DTypeLike, ScalarLike, ShapeLike, ShapeType
 
 __all__ = ["_broadcast_shapes", "as_linop", "as_scalar", "as_shape"]
 

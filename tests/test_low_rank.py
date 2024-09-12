@@ -4,7 +4,7 @@ import jax
 import jax.numpy as jnp
 
 from linox import IsotropicScalingPlusLowRank, LinearOperator, LowRank, linverse, lsqrt
-from linox._typing import ShapeLike
+from linox.typing import ShapeLike
 
 CaseType = tuple[LinearOperator, jnp.ndarray]
 

@@ -4,8 +4,8 @@ from typing import Union
 
 import jax.numpy as jnp
 
-from linox import _utils as utils
-from linox._typing import DTypeLike, ScalarLike, ShapeLike
+from linox import utils
+from linox.typing import DTypeLike, ScalarLike, ShapeLike
 
 BinaryOperandType = Union["LinearOperator", ScalarLike, jnp.ndarray]
 

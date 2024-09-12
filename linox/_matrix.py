@@ -3,7 +3,7 @@
 import jax
 import jax.numpy as jnp
 
-from linox import _utils as utils
+from linox import utils
 from linox._arithmetic import (
     ScaledLinearOperator,
     congruence_transform,
@@ -15,7 +15,7 @@ from linox._arithmetic import (
     lsub,
 )
 from linox._linear_operator import LinearOperator
-from linox._typing import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
+from linox.typing import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
 
 # --------------------------------------------------------------------------- #
 # Matrix

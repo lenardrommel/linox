@@ -3,7 +3,7 @@ import jax.numpy as jnp
 
 from linox._arithmetic import linverse, lsqrt
 from linox._linear_operator import LinearOperator
-from linox._utils import as_linop
+from linox.utils import as_linop
 
 
 class Kronecker(LinearOperator):

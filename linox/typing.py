@@ -67,19 +67,14 @@ Arguments of type :attr:`ScalarLike` should always be converted
 into :class:`jax.numpy.number`\\ s using the function :func:`probnum.utils.as_scalar`
 before further internal processing."""
 
-ArrayLike = jax.Array, jnp.ndarray, Iterable
+ArrayLike = jax.Array | jnp.ndarray | Iterable
 """Object that can be converted to an array.
 
 Arguments of type :attr:`ArrayLike` should always be converted
 into :class:`jax.Array`\\ s using the function :func:`jnp.asarray`
 before further internal processing."""
 
-# LinearOperatorLike = Union[
-#     ArrayLike,
-#     # Note: `scipy.sparse.spmatrix` and `probnum.linops.LinearOperator`
-#     # do not have JAX equivalents.
-#     "linox._linear_operator.LinearOperator",
-# ]
+LinearOperoatorLike = Union["linox.LinearOperator", jax.Array, jnp.ndarray]
 """Object that can be converted to a :class:`~probnum.linops.LinearOperator`.
 
 Arguments of type :attr:`LinearOperatorLike` should always be converted

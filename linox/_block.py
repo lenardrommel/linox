@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from linox import _utils as utils
+from linox import utils
 from linox._linear_operator import LinearOperator
 
 LinearOperatorLike = LinearOperator | jax.Array

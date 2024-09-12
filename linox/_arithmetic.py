@@ -6,9 +6,9 @@ import jax
 import jax.numpy as jnp
 import plum
 
-import linox._utils as utils
+from linox import utils
 from linox._linear_operator import LinearOperator
-from linox._typing import ScalarLike, ShapeLike
+from linox.typing import ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
 

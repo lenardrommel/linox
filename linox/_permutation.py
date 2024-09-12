@@ -5,7 +5,7 @@ from functools import partial
 import jax.numpy as jnp
 
 from linox._linear_operator import LinearOperator
-from linox._typing import ArrayLike
+from linox.typing import ArrayLike
 
 DTYPE = jnp.float32
 
