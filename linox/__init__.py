@@ -16,6 +16,7 @@ from ._arithmetic import (
 # Import classes from other modules
 from ._block import BlockDiagonal, BlockMatrix, BlockMatrix2x2
 from ._eigen import EigenD
+from ._kronecker import Kronecker
 from ._linear_operator import LinearOperator
 from ._low_rank import IsotropicScalingPlusLowRank, LowRank
 from ._matrix import Diagonal, Identity, Matrix, Ones, Zero
@@ -30,6 +31,7 @@ __all__ = [
     "EigenD",
     "Identity",
     "IsotropicScalingPlusLowRank",
+    "Kronecker",
     "LinearOperator",
     "LowRank",
     "Matrix",

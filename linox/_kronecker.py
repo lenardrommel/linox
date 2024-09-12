@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
 
+from linox._arithmetic import linverse, lsqrt
 from linox._linear_operator import LinearOperator
 from linox._utils import as_linop
 
@@ -29,13 +30,13 @@ class Kronecker(LinearOperator):
         super().__init__(shape, dtype)
 
     def _matmul(self, vec: jax.Array) -> jax.Array:
-        flatten = False
-        if len(vec.shape) == 1:
-            vec = vec[:, None]
-            flatten = True
-        elif vec.shape[-1] != 1:
-            msg = "The input vector must have a single column."
-            raise ValueError(msg)
+        # flatten = False
+        # if len(vec.shape) == 1:
+        #     vec = vec[:, None]
+        #     flatten = True
+        # elif vec.shape[-1] != 1:
+        #     msg = "The input vector must have a single column."
+        #     raise ValueError(msg)
 
         _, mA = self.A.shape
         _, mB = self.B.shape
@@ -54,22 +55,22 @@ class Kronecker(LinearOperator):
         y = y.reshape(y.shape[:-2] + (-1,))
         y = jnp.swapaxes(y, -1, -2)
 
-        return (
-            y[..., 0] if flatten else y
-        )  # TODO(any): Find out if we need this extra dimension.
+        return y
 
-    def inv(self) -> "Kronecker":
-        return Kronecker(self.A.inv(), self.B.inv())
+    def todense(self) -> jax.Array:
+        return jnp.kron(self.A.todense(), self.B.todense())
 
-    def sqrt(self) -> "Kronecker":
-        return Kronecker(self.A.sqrt(), self.B.sqrt())
+    def transpose(self) -> "Kronecker":
+        return Kronecker(self.A.transpose(), self.B.transpose())
 
 
-#
-# A = jnp.array([[1, 2], [3, 4]], dtype=jnp.float32)
-# B = jnp.array([[5, 6], [7, 8]], dtype=jnp.float32)
-# op = Kronecker(A, B)
-# vec = jnp.array([1, 0, 0, 1], dtype=jnp.float32)
-# result = op @ vec
-# result_true = jnp.kron(A, B) @ vec
-# jnp.allclose(result, result_true)
+# Not properly tested yet.
+@linverse.dispatch
+def _(op: Kronecker) -> Kronecker:
+    return Kronecker(linverse(op.A), linverse(op.B))
+
+
+# Not properly tested yet.
+@lsqrt.dispatch
+def _(op: Kronecker) -> Kronecker:
+    return Kronecker(lsqrt(op.A), lsqrt(op.B))
