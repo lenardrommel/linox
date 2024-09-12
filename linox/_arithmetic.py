@@ -222,9 +222,6 @@ class CongruenceTransform(ProductLinearOperator):
 
         super().__init__(self._A, self._B, self._A.T)
 
-        self.is_symmetric = self._B.is_symmetric
-        self.is_positive_definite = self._B.is_positive_definite
-
     def transpose(self) -> LinearOperator:
         return CongruenceTransform(self._A, self._B.T)
 
