@@ -111,8 +111,8 @@ class Identity(LinearOperator):
         The data type of the identity operator.
     """
 
-    def __init__(self, shape: ShapeLike, *, dtype: DTypeLike = jnp.float32) -> None:
-        super().__init__((*shape[:-1], shape[-1], shape[-1]), dtype)
+    def __init__(self, shape: int, *, dtype: DTypeLike = jnp.float32) -> None:
+        super().__init__((shape, shape), dtype)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return jnp.broadcast_to(
