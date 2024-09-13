@@ -4,6 +4,7 @@ __version__ = "0.0.1"
 
 # Import functions from _arithmetic module
 from ._arithmetic import (
+    congruence_transform,
     diagonal,
     is_square,
     is_symmetric,
@@ -11,7 +12,6 @@ from ._arithmetic import (
     lsqrt,
     symmetrize,
     transpose,
-    congruence_transform,
 )
 
 # Import classes from other modules
@@ -20,7 +20,7 @@ from ._eigen import EigenD
 from ._kronecker import Kronecker
 from ._linear_operator import LinearOperator
 from ._low_rank import IsotropicScalingPlusLowRank, LowRank
-from ._matrix import Diagonal, Identity, Matrix, Ones, Zero
+from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
 
 # Explicitly declare public API
