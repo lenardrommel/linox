@@ -74,7 +74,7 @@ Arguments of type :attr:`ArrayLike` should always be converted
 into :class:`jax.Array`\\ s using the function :func:`jnp.asarray`
 before further internal processing."""
 
-LinearOperoatorLike = Union["linox.LinearOperator", jax.Array, jnp.ndarray]
+LinearOperatorLike = Union["linox.LinearOperator", jax.Array, jnp.ndarray]
 """Object that can be converted to a :class:`~probnum.linops.LinearOperator`.
 
 Arguments of type :attr:`LinearOperatorLike` should always be converted
