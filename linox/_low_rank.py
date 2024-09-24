@@ -72,7 +72,7 @@ class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
         # Move to an abstract base class instead
         super().__init__(
             self._scalar * Identity(self._U.shape[-2]),
-            LowRank(self._U, self._S),
+            SymmetricLowRank(self._U, self._S),
         )
 
         # Add general tagging
