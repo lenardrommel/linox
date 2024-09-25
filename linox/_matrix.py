@@ -172,7 +172,7 @@ def _(a: Identity) -> Identity:
 
 
 @congruence_transform.dispatch
-def _(a: LinearOperator | Identity, b: Identity) -> LinearOperator:
+def _(a: Identity, b: LinearOperator | Identity) -> LinearOperator:
     _ = b
     return a
 
