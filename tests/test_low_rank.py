@@ -3,7 +3,13 @@
 import jax
 import jax.numpy as jnp
 
-from linox import IsotropicScalingPlusLowRank, LinearOperator, LowRank, linverse, lsqrt
+from linox import (
+    IsotropicScalingPlusSymmetricLowRank,
+    LinearOperator,
+    LowRank,
+    linverse,
+    lsqrt,
+)
 from linox.typing import ShapeLike
 
 CaseType = tuple[LinearOperator, jnp.ndarray]
@@ -28,13 +34,13 @@ def get_low_rank_operator(shape: ShapeLike) -> CaseType:  # noqa: D103
 def get_isotropic_scaling_plus_low_rank(shape: ShapeLike) -> CaseType:  # noqa: D103
     scalar = 10 * jax.random.uniform(jax.random.PRNGKey(0), ())
     U, S = draw_random_onb(shape)
-    return IsotropicScalingPlusLowRank(scalar, U, S), scalar * jnp.eye(
+    return IsotropicScalingPlusSymmetricLowRank(scalar, U, S), scalar * jnp.eye(
         U.shape[0]
     ) + U @ jnp.diag(S) @ U.T
 
 
 def test_low_rank() -> None:  # noqa: D103
-    shape = (5, 3)
+    shape = (20, 3)
     op, arr = get_low_rank_operator(shape)
     x = jax.random.normal(jax.random.PRNGKey(0), (shape[-2], shape[-2]))
     assert op.shape == 2 * shape[:1]
@@ -45,7 +51,7 @@ def test_low_rank() -> None:  # noqa: D103
 
 
 def test_isotropic_scaling_plus_low_rank() -> None:  # noqa: D103
-    shape = (5, 3)
+    shape = (20, 3)
     op, arr = get_isotropic_scaling_plus_low_rank(shape)
     x = jax.random.normal(jax.random.PRNGKey(0), (shape[-2], shape[-2]))
     assert op.shape == 2 * shape[:1]
@@ -56,7 +62,7 @@ def test_isotropic_scaling_plus_low_rank() -> None:  # noqa: D103
 
 
 def test_isotropic_scaling_plus_low_rank_lsqrt() -> None:  # noqa: D103
-    shape = (5, 3)
+    shape = (20, 3)
     op, arr = get_isotropic_scaling_plus_low_rank(shape)
     sqrt_op = lsqrt(op)
     # sqrt_arr = jnp.linalg.cholesky(arr)
@@ -64,7 +70,7 @@ def test_isotropic_scaling_plus_low_rank_lsqrt() -> None:  # noqa: D103
 
 
 def test_isotropic_scaling_plus_low_rank_linverse() -> None:  # noqa: D103
-    shape = (5, 3)
+    shape = (20, 8)
     op, _ = get_isotropic_scaling_plus_low_rank(shape)
     inv_op = linverse(op)
-    assert jnp.allclose((inv_op @ op).todense(), jnp.eye(op.shape[0]), atol=1e-6)
+    assert jnp.allclose((inv_op @ op).todense(), jnp.eye(op.shape[0]), atol=1e-7)
