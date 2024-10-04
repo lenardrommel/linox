@@ -128,6 +128,11 @@ class ScaledLinearOperator(LinearOperator):
         return self.operator.transpose() * self.scalar
 
 
+@lsqrt.dispatch
+def _(a: ScaledLinearOperator) -> LinearOperator:
+    return ScaledLinearOperator(lsqrt(a.operator), jnp.sqrt(a.scalar))
+
+
 # inverse special behavior:
 # ScaledLinearOperator(inverse(operator), inverse(Scalar))
 def _broadcast_shapes(shapes: Iterable[ShapeLike]) -> ShapeLike:
