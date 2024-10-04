@@ -1,11 +1,12 @@
 """Low rank (plus isotropic scaling) operator."""
 
+import functools
+
 import jax
 import jax.numpy as jnp
-
 from linox._arithmetic import AddLinearOperator, linverse, lsqrt
 from linox._linear_operator import LinearOperator
-from linox._matrix import Identity
+from linox._matrix import Diagonal, Identity
 
 
 class LowRank(LinearOperator):
@@ -62,7 +63,9 @@ class SymmetricLowRank(LowRank):
 
 class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
     def __init__(self, scalar: jax.Array, U: jax.Array, S: jax.Array) -> None:
-        assert scalar > 0, "Scalar must be positive in current implementation."  # noqa: S101
+        assert (
+            scalar > 0
+        ), "Scalar must be positive in current implementation."  # noqa: S101
         self._scalar = scalar
 
         self._U = U
@@ -120,3 +123,64 @@ def _(a: IsotropicScalingPlusSymmetricLowRank) -> IsotropicScalingPlusSymmetricL
         Q,
         scalar_sqrt * (jnp.sqrt((lr_eigvals / a.scalar) + 1) - 1),
     )
+
+
+class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
+    def __init__(self, diagonal: Diagonal, low_rank: SymmetricLowRank) -> None:
+        self._diagonal = diagonal
+        self._low_rank = low_rank
+
+        super().__init__(self._diagonal, self._low_rank)
+
+    @property
+    def diagonal(self) -> jax.Array:
+        return self._diagonal
+
+    @property
+    def low_rank(self) -> SymmetricLowRank:
+        return self._low_rank
+
+    @functools.cached_property
+    def _id_plus_low_rank(self) -> IsotropicScalingPlusSymmetricLowRank:
+        """1 + (D^{-1/2} U) S (D^{-1/2} U)^T = D^{-1/2} (D + U S U^T) D^{-1/2}"""
+        U, sqrt_S, _ = jnp.linalg.svd(
+            (
+                (self.low_rank.U * jnp.sqrt(self.low_rank.S))
+                / jnp.sqrt(self._diagonal.diag[:, None])
+            ),
+            full_matrices=False,
+            compute_uv=True,
+        )
+
+        return IsotropicScalingPlusSymmetricLowRank(1.0, U, sqrt_S**2)
+
+    def transpose(self) -> "PositiveDiagonalPlusSymmetricLowRank":
+        return self
+
+
+@linverse.dispatch
+def _(a: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricLowRank:
+    """(D + U S U^T)^-1 = (D^{1/2} [1 + (D^{-1/2} U) S (D^{-1/2} U)^T] D^{1/2})^-1"""
+    id_plus_low_rank_inv = linverse(a._id_plus_low_rank)
+
+    assert isinstance(id_plus_low_rank_inv, IsotropicScalingPlusSymmetricLowRank)
+    assert id_plus_low_rank_inv.scalar == 1.0
+
+    # Compute eigendecomposition of (D^{-1/2} U) S (D^{-1/2} U)^T
+    U, sqrt_S, _ = jnp.linalg.svd(
+        (
+            (id_plus_low_rank_inv.U / jnp.sqrt(a.diagonal.diag[:, None]))
+            * jnp.sqrt(id_plus_low_rank_inv.S)
+        ),
+        full_matrices=False,
+        compute_uv=True,
+    )
+
+    return PositiveDiagonalPlusSymmetricLowRank(
+        linverse(a.diagonal), SymmetricLowRank(U, sqrt_S**2)
+    )
+
+
+@lsqrt.dispatch
+def _(a: PositiveDiagonalPlusSymmetricLowRank):
+    return lsqrt(a.diagonal) @ lsqrt(a._id_plus_low_rank)

@@ -19,7 +19,12 @@ from ._block import BlockDiagonal, BlockMatrix, BlockMatrix2x2
 from ._eigen import EigenD
 from ._kronecker import Kronecker
 from ._linear_operator import LinearOperator
-from ._low_rank import IsotropicScalingPlusSymmetricLowRank, LowRank, SymmetricLowRank
+from ._low_rank import (
+    IsotropicScalingPlusSymmetricLowRank,
+    LowRank,
+    PositiveDiagonalPlusSymmetricLowRank,
+    SymmetricLowRank,
+)
 from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
 
@@ -32,6 +37,7 @@ __all__ = [
     "EigenD",
     "Identity",
     "IsotropicScalingPlusSymmetricLowRank",
+    "PositiveDiagonalPlusSymmetricLowRank",
     "Kronecker",
     "LinearOperator",
     "LowRank",
