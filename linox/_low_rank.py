@@ -4,6 +4,7 @@ import functools
 
 import jax
 import jax.numpy as jnp
+
 from linox._arithmetic import AddLinearOperator, linverse, lsqrt
 from linox._linear_operator import LinearOperator
 from linox._matrix import Diagonal, Identity
@@ -63,9 +64,9 @@ class SymmetricLowRank(LowRank):
 
 class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
     def __init__(self, scalar: jax.Array, U: jax.Array, S: jax.Array) -> None:
-        assert (
-            scalar > 0
-        ), "Scalar must be positive in current implementation."  # noqa: S101
+        # assert (
+        #     scalar > 0
+        # ), "Scalar must be positive in current implementation."  # noqa: S101
         self._scalar = scalar
 
         self._U = U
