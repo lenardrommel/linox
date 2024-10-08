@@ -127,11 +127,17 @@ def _(a: IsotropicScalingPlusSymmetricLowRank) -> IsotropicScalingPlusSymmetricL
 
 
 class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
-    def __init__(self, diagonal: Diagonal, low_rank: SymmetricLowRank) -> None:
+    def __init__(
+        self,
+        diagonal: Diagonal,
+        low_rank: SymmetricLowRank,
+        low_rank_scale: float = 1.0,
+    ) -> None:
         self._diagonal = diagonal
         self._low_rank = low_rank
+        self._low_rank_scale = low_rank_scale
 
-        super().__init__(self._diagonal, self._low_rank)
+        super().__init__(self._diagonal, self._low_rank_scale * self._low_rank)
 
     @property
     def diagonal(self) -> jax.Array:
@@ -140,6 +146,10 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
     @property
     def low_rank(self) -> SymmetricLowRank:
         return self._low_rank
+
+    @property
+    def low_rank_scale(self) -> float:
+        return self._low_rank_scale
 
     @functools.cached_property
     def _id_plus_low_rank(self) -> IsotropicScalingPlusSymmetricLowRank:
@@ -153,7 +163,11 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
             compute_uv=True,
         )
 
-        return IsotropicScalingPlusSymmetricLowRank(1.0, U, sqrt_S**2)
+        return IsotropicScalingPlusSymmetricLowRank(
+            1.0,
+            U,
+            self._low_rank_scale * sqrt_S**2,
+        )
 
     def transpose(self) -> "PositiveDiagonalPlusSymmetricLowRank":
         return self
@@ -161,24 +175,25 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
 
 @linverse.dispatch
 def _(a: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricLowRank:
-    """(D + U S U^T)^-1 = (D^{1/2} [1 + (D^{-1/2} U) S (D^{-1/2} U)^T] D^{1/2})^-1"""
-    id_plus_low_rank_inv = linverse(a._id_plus_low_rank)
+    # (D + U S U^T)^-1 = D^{-1} - D^{-1} U (S^{-1} + U^T D^{-1} U)^-1 U^T D^{-1}
+    D_inv = linverse(a.diagonal)
 
-    assert isinstance(id_plus_low_rank_inv, IsotropicScalingPlusSymmetricLowRank)
-    assert id_plus_low_rank_inv.scalar == 1.0
+    schur = a.low_rank.U.T @ D_inv @ a.low_rank.U + jnp.diag(
+        1 / (jnp.abs(a.low_rank_scale) * a.low_rank.S)
+    )
+    schur_eigvals, schur_eigvecs = jnp.linalg.eigh(schur)
 
-    # Compute eigendecomposition of (D^{-1/2} U) S (D^{-1/2} U)^T
+    # Compute eigendecomposition of (D^{-1} U schur^{1/2}) (D^{-1} U schur^{1/2})^T
     U, sqrt_S, _ = jnp.linalg.svd(
-        (
-            (id_plus_low_rank_inv.U / jnp.sqrt(a.diagonal.diag[:, None]))
-            * jnp.sqrt(id_plus_low_rank_inv.S)
-        ),
+        D_inv @ a.low_rank.U @ schur_eigvecs * jnp.sqrt(schur_eigvals),
         full_matrices=False,
         compute_uv=True,
     )
 
     return PositiveDiagonalPlusSymmetricLowRank(
-        linverse(a.diagonal), SymmetricLowRank(U, sqrt_S**2)
+        linverse(a.diagonal),
+        SymmetricLowRank(U, sqrt_S**2),
+        low_rank_scale=-jnp.sign(a.low_rank_scale),
     )
 
 
