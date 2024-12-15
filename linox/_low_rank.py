@@ -71,10 +71,11 @@ class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
 
         self._U = U
         self._S = S
+        # TODO: Check if dtype are not equal.
 
         # Move to an abstract base class instead
         super().__init__(
-            self._scalar * Identity(self._U.shape[-2]),
+            self._scalar * Identity(self._U.shape[-2], dtype=self._U.dtype),
             SymmetricLowRank(self._U, self._S),
         )
 
