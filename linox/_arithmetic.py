@@ -52,6 +52,7 @@ def lsqrt(a: LinearOperator) -> LinearOperator:
 
 @plum.dispatch
 def diagonal(a: LinearOperator) -> ArithmeticType:
+    print(f"Warning: Linear operator {a} is densed for diagonal computation.")  # noqa: T201
     return jnp.diag(a.todense())
 
 
