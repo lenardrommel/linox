@@ -134,6 +134,11 @@ def _(a: ScaledLinearOperator) -> LinearOperator:
     return ScaledLinearOperator(lsqrt(a.operator), jnp.sqrt(a.scalar))
 
 
+@diagonal.dispatch
+def _(a: ScaledLinearOperator) -> jax.Array:
+    return a.scalar * diagonal(a.operator)
+
+
 # inverse special behavior:
 # ScaledLinearOperator(inverse(operator), inverse(Scalar))
 def _broadcast_shapes(shapes: Iterable[ShapeLike]) -> ShapeLike:
