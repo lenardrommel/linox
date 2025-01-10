@@ -128,11 +128,13 @@ def _(a: IsotropicScalingPlusSymmetricLowRank) -> IsotropicScalingPlusSymmetricL
 
 
 class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
+    """A = D + a U S U^T."""
+
     def __init__(
         self,
-        diagonal: Diagonal,
-        low_rank: SymmetricLowRank,
-        low_rank_scale: float = 1.0,
+        diagonal: Diagonal,  # D
+        low_rank: SymmetricLowRank,  # U S U^T
+        low_rank_scale: float = 1.0,  # a
     ) -> None:
         self._diagonal = diagonal
         self._low_rank = low_rank
@@ -154,7 +156,7 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
 
     @functools.cached_property
     def _id_plus_low_rank(self) -> IsotropicScalingPlusSymmetricLowRank:
-        """1 + (D^{-1/2} U) S (D^{-1/2} U)^T = D^{-1/2} (D + U S U^T) D^{-1/2}"""
+        """1 + a (D^{-1/2} U) S (D^{-1/2} U)^T = D^{-1/2} (D + a U S U^T) D^{-1/2}"""
         U, sqrt_S, _ = jnp.linalg.svd(
             (
                 (self.low_rank.U * jnp.sqrt(self.low_rank.S))
@@ -175,29 +177,30 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
 
 
 @linverse.dispatch
-def _(a: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricLowRank:
-    # (D + U S U^T)^-1 = D^{-1} - D^{-1} U (S^{-1} + U^T D^{-1} U)^-1 U^T D^{-1}
-    D_inv = linverse(a.diagonal)
+def _(A: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricLowRank:
+    # (D + a U S U^T)^{-1} = D^{-1} - a D^{-1} U (S^{-1} + a U^T D^{-1} U)^-1 U^T D^{-1}
 
-    schur = a.low_rank.U.T @ D_inv @ a.low_rank.U + jnp.diag(
-        1 / (jnp.abs(a.low_rank_scale) * a.low_rank.S)
+    D_inv = linverse(A.diagonal)
+
+    schur = A.low_rank_scale * A.low_rank.U.T @ D_inv @ A.low_rank.U + jnp.diag(
+        1 / A.low_rank.S
     )
     schur_eigvals, schur_eigvecs = jnp.linalg.eigh(schur)
 
-    # Compute eigendecomposition of (D^{-1} U schur^{1/2}) (D^{-1} U schur^{1/2})^T
+    # Compute eigendecomposition of (D^{-1} U schur^{-1/2}) (D^{-1} U schur^{-1/2})^T
     U, sqrt_S, _ = jnp.linalg.svd(
-        D_inv @ a.low_rank.U @ schur_eigvecs * jnp.sqrt(schur_eigvals),
+        D_inv @ A.low_rank.U @ schur_eigvecs / jnp.sqrt(schur_eigvals),
         full_matrices=False,
         compute_uv=True,
     )
 
     return PositiveDiagonalPlusSymmetricLowRank(
-        linverse(a.diagonal),
+        linverse(A.diagonal),
         SymmetricLowRank(U, sqrt_S**2),
-        low_rank_scale=-jnp.sign(a.low_rank_scale),
+        low_rank_scale=-A.low_rank_scale,
     )
 
 
 @lsqrt.dispatch
-def _(a: PositiveDiagonalPlusSymmetricLowRank):
-    return lsqrt(a.diagonal) @ lsqrt(a._id_plus_low_rank)
+def _(A: PositiveDiagonalPlusSymmetricLowRank):
+    return lsqrt(A.diagonal) @ lsqrt(A._id_plus_low_rank)
