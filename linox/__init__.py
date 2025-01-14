@@ -26,6 +26,7 @@ from ._low_rank import (
     SymmetricLowRank,
 )
 from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
+from ._padding import SymmetricCroppingOperator
 from ._permutation import Permutation
 
 # Explicitly declare public API
@@ -37,14 +38,18 @@ __all__ = [
     "EigenD",
     "Identity",
     "IsotropicScalingPlusSymmetricLowRank",
-    "PositiveDiagonalPlusSymmetricLowRank",
     "Kronecker",
     "LinearOperator",
     "LowRank",
     "Matrix",
     "Ones",
     "Permutation",
+    "PositiveDiagonalPlusSymmetricLowRank",
+    "Scalar",
+    "SymmetricCroppingOperator",
+    "SymmetricLowRank",
     "Zero",
+    "congruence_transform",
     "diagonal",
     "is_square",
     "is_symmetric",
@@ -52,5 +57,4 @@ __all__ = [
     "lsqrt",
     "symmetrize",
     "transpose",
-    "congruence_transform",
 ]
