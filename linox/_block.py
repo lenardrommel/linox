@@ -50,10 +50,8 @@ class BlockMatrix(LinearOperator):
             # Initialize the super class
             super().__init__(shape=(num_rows, num_cols), dtype=dtype)
 
-            # Calculate the split indices for splitting input
-            self._split_indices = jnp.array(
-                tuple(block.shape[1] for block in self._blocks[0])
-            ).cumsum()[:-1]
+            # Store the column sizes instead of precomputing indices
+            self._col_sizes = [block.shape[1] for block in self._blocks[0]]
 
     @property
     def blocks(self) -> jnp.ndarray:
@@ -61,8 +59,13 @@ class BlockMatrix(LinearOperator):
         return self._blocks
 
     def _split_input(self, x: jnp.ndarray) -> list[jnp.ndarray]:
-        """Split the input into blocks."""
-        return jnp.split(x, self._split_indices, axis=-2)
+        """Split the input into blocks using column sizes."""
+        results = []
+        start_idx = 0
+        for size in self._col_sizes:
+            results.append(x[..., start_idx:start_idx + size, :])
+            start_idx += size
+        return results
 
     def _matmul(self, arr: jnp.ndarray) -> jnp.ndarray:
         # Split the input according to the block structure
@@ -101,10 +104,40 @@ class BlockMatrix(LinearOperator):
             for j in range(self._block_shape[1])
         ]
 
-        # for i, j in np.ndindex(self._blocks.shape):
-        #     blocks_t[i][j] = self._blocks[i][j].transpose()
-
         return BlockMatrix(blocks_t)
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        # Flatten the nested list of blocks into a single tuple
+        flattened_blocks = []
+        for row in self._blocks:
+            flattened_blocks.extend(row)
+
+        children = tuple(flattened_blocks)
+        aux_data = {"block_shape": self._block_shape, "col_sizes": self._col_sizes}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "BlockMatrix":
+        block_shape = aux_data["block_shape"]
+
+        # Reconstruct the nested list structure
+        blocks = []
+        idx = 0
+        for i in range(block_shape[0]):
+            row = []
+            for j in range(block_shape[1]):
+                row.append(children[idx])
+                idx += 1
+            blocks.append(row)
+
+        # Create the instance
+        instance = cls(blocks=blocks)
+
+        # If col_sizes was saved, restore it to avoid recomputation
+        if "col_sizes" in aux_data:
+            instance._col_sizes = aux_data["col_sizes"]
+
+        return instance
 
 
 class BlockMatrix2x2(LinearOperator):
@@ -177,6 +210,17 @@ class BlockMatrix2x2(LinearOperator):
             D=self.D.transpose(),
         )
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.A, self.B, self.C, self.D)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "BlockMatrix2x2":
+        del aux_data
+        A, B, C, D = children
+        return cls(A=A, B=B, C=C, D=D)
+
 
 class BlockDiagonal(LinearOperator):
     def __init__(self, *blocks: LinearOperator) -> None:
@@ -216,3 +260,19 @@ class BlockDiagonal(LinearOperator):
 
     def transpose(self) -> "BlockDiagonal":
         return BlockDiagonal(*[block.transpose() for block in self.blocks])
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = tuple(self.blocks)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "BlockDiagonal":
+        del aux_data
+        return cls(*children)
+
+
+# Register all block operators as PyTrees
+jax.tree_util.register_pytree_node_class(BlockMatrix)
+jax.tree_util.register_pytree_node_class(BlockMatrix2x2)
+jax.tree_util.register_pytree_node_class(BlockDiagonal)

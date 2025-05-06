@@ -59,7 +59,7 @@ into :class:`jax.numpy.dtype`\\ s before further internal processing."""
 
 # Scalars, Arrays and Matrices
 ScalarLike = (
-    int | float | complex | jax.core.Primitive | jnp.number  # | linox._matrix.Scalar
+    int | float | complex | jnp.number  # | linox._matrix.Scalar
 )
 """Object that can be converted to a scalar value.
 

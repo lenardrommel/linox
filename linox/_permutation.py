@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import partial
 
+import jax
 import jax.numpy as jnp
 
 from linox._linear_operator import LinearOperator
@@ -18,9 +19,9 @@ def _perm_op(_arr, _indices):
 # TODO(2bys): Write tests and docstrings for class.
 class Permutation(LinearOperator):
     def __init__(self, perm: ArrayLike, perm_inv: ArrayLike | None = None) -> None:
-        self._perm = jnp.asarray(perm, dtype=jnp.int_)
+        self._perm = jnp.asarray(perm, dtype=jnp.int32)
         self._perm_inv = (
-            jnp.asarray(perm_inv, dtype=jnp.int_)
+            jnp.asarray(perm_inv, dtype=jnp.int32)
             if perm_inv is not None
             else jnp.argsort(self._perm, axis=-1)
         )
@@ -38,3 +39,18 @@ class Permutation(LinearOperator):
 
     def inverse(self) -> Permutation:
         return self.transpose()
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self._perm, self._perm_inv)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> Permutation:
+        del aux_data
+        perm, perm_inv = children
+        return cls(perm=perm, perm_inv=perm_inv)
+
+
+# Register Permutation as a PyTree
+jax.tree_util.register_pytree_node_class(Permutation)

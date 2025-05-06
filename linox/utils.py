@@ -32,10 +32,14 @@ def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
     TypeError
         If ``x`` does not feature the required number of dimensions.
     """
-    if isinstance(x, int | numbers.Integral | jnp.integer):
-        shape = (int(x),)
-    elif isinstance(x, tuple) and all(isinstance(item, int) for item in x):
+    # Handle JAX traced values
+    if isinstance(x, tuple) and all(
+        isinstance(item, (int, numbers.Integral, jnp.integer)) or hasattr(item, "aval")
+        for item in x
+    ):
         shape = x
+    elif isinstance(x, int | numbers.Integral | jnp.integer):
+        shape = (int(x),)
     else:
         try:
             _ = iter(x)
@@ -44,12 +48,13 @@ def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
             raise TypeError(msg) from e
 
         if not all(
-            isinstance(item, int | numbers.Integral | jnp.integer) for item in x
+            isinstance(item, (int, numbers.Integral, jnp.integer)) or hasattr(item, "aval")
+            for item in x
         ):
             msg = f"The given shape {x} must only contain integer values."
             raise TypeError(msg)
 
-        shape = tuple(int(item) for item in x)
+        shape = tuple(item for item in x)
 
     if isinstance(ndim, numbers.Integral) and len(shape) != ndim:
         msg = f"The given shape {shape} must have {ndim} dimensions."
@@ -124,11 +129,10 @@ def _broadcast_to(x: ArrayLike, shape: ShapeLike) -> jnp.ndarray:
     """Broadcast an array to a given shape."""
     if isinstance(x, jnp.ndarray):
         return x
-    elif isinstance(x, LinearOperator):
+    if isinstance(x, LinearOperator):
         return x.toshape(shape)
-    else:
-        msg = f"Unsupported broadcast type {type(x)}."
-        raise ValueError(msg)  # noqa: TRY004
+    msg = f"Unsupported broadcast type {type(x)}."
+    raise ValueError(msg)
     # except ValueError as e:
     #     msg = f"Array of shape {x.shape} cannot be broadcasted to {shape}."
     #     raise ValueError(msg) from e

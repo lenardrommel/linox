@@ -16,6 +16,7 @@ from linox._arithmetic import (
 )
 from linox._linear_operator import LinearOperator
 from linox.typing import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
+from linox.utils import as_shape
 
 # --------------------------------------------------------------------------- #
 # Matrix
@@ -42,6 +43,17 @@ class Matrix(LinearOperator):
 
     def transpose(self) -> "Matrix":
         return Matrix(self.A.swapaxes(-1, -2))
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.A,)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Matrix":
+        del aux_data
+        (A,) = children
+        return cls(A=A)
 
 
 # register matrix special behavior
@@ -111,13 +123,13 @@ class Identity(LinearOperator):
         The data type of the identity operator.
     """
 
-    def __init__(self, shape: int, *, dtype: DTypeLike = jnp.float32) -> None:
-        super().__init__((shape, shape), dtype)
+    def __init__(self, shape: ShapeLike, *, dtype: DTypeLike = jnp.float32) -> None:
+        shape = as_shape(shape)
+        super().__init__((*shape, shape[-1]), dtype)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return jnp.broadcast_to(
             arr,
-            #            jnp.tile(arr, _fill_ones(jnp.max(arr.ndim, self.ndim))),
             shape=(
                 *jnp.broadcast_shapes(arr.shape[:-2], self.shape[:-2]),
                 self.shape[-2],
@@ -125,17 +137,21 @@ class Identity(LinearOperator):
             ),
         )
 
-    # def mv(self, vector: jax.Array) -> jax.Array:
-    #     ndim_diff = self.ndim - vector.ndim
-    #     return jnp.tile(
-    #         vector, (*self.shape[: -(ndim_diff + 2)], *_fill_ones(vector.ndim))
-    #     )
-
     def todense(self) -> jax.Array:
         return jnp.broadcast_to(jnp.eye(self.shape[-1], dtype=self.dtype), self.shape)
 
     def transpose(self) -> "Identity":
         return self
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = ()
+        aux_data = {"shape": self.shape[:-1], "dtype": self.dtype}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Identity":
+        del children
+        return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
 
 
 @ladd.dispatch
@@ -216,6 +232,17 @@ class Diagonal(LinearOperator):
     def transpose(self) -> "Diagonal":
         return self
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.diag,)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Diagonal":
+        del aux_data
+        (diag,) = children
+        return cls(diag=diag)
+
 
 @ladd.dispatch
 def _(a: Diagonal, b: Diagonal) -> Diagonal:
@@ -281,6 +308,17 @@ class Scalar(LinearOperator):
     def transpose(self) -> "Scalar":
         return self
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.scalar,)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Scalar":
+        del aux_data
+        (scalar,) = children
+        return cls(scalar=scalar)
+
 
 @ladd.dispatch
 def _(a: Scalar, b: Scalar) -> Scalar:
@@ -344,6 +382,16 @@ class Zero(LinearOperator):
         return Zero(
             shape=(*self.shape[:-2], self.shape[-1], self.shape[-2]), dtype=self.dtype
         )
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = ()
+        aux_data = {"shape": self.shape, "dtype": self.dtype}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Zero":
+        del children
+        return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
 
 
 @ladd.dispatch(precedence=1)
@@ -436,6 +484,16 @@ class Ones(LinearOperator):
             shape=(*self.shape[:-2], self.shape[-1], self.shape[-2]), dtype=self.dtype
         )
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = ()
+        aux_data = {"shape": self.shape, "dtype": self.dtype}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Ones":
+        del children
+        return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
+
 
 @ladd.dispatch
 def _(a: Ones, b: Matrix) -> LinearOperator:
@@ -463,4 +521,10 @@ def _(a: Ones, b: Ones) -> Zero:
     )
 
 
-# TODO(2bys): Implement more special behaviors, e.g. summation via lmatmul.
+# Register all matrix operators as PyTrees
+jax.tree_util.register_pytree_node_class(Matrix)
+jax.tree_util.register_pytree_node_class(Identity)
+jax.tree_util.register_pytree_node_class(Diagonal)
+jax.tree_util.register_pytree_node_class(Scalar)
+jax.tree_util.register_pytree_node_class(Zero)
+jax.tree_util.register_pytree_node_class(Ones)

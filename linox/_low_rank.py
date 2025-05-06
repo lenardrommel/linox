@@ -23,7 +23,7 @@ class LowRank(LinearOperator):
         if S is not None:
             assert U.shape[-1] == S.shape[-1]  # noqa: S101
         if V is not None:
-            assert U.shape[-1] == V.shape[-1]  # noqa: B015
+            assert U.shape[-1] == V.shape[-1]
 
         self._U = U
         self._S = S if S is not None else jnp.ones(U.shape[-1])
@@ -53,6 +53,17 @@ class LowRank(LinearOperator):
     def transpose(self) -> "LowRank":
         return LowRank(self.V, self.S, self.U)
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self._U, self._S, self._V)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "LowRank":
+        del aux_data
+        U, S, V = children
+        return cls(U=U, S=S, V=V)
+
 
 class SymmetricLowRank(LowRank):
     def __init__(self, U: jax.Array, S: jax.Array | None = None) -> None:
@@ -61,12 +72,23 @@ class SymmetricLowRank(LowRank):
     def transpose(self) -> "SymmetricLowRank":
         return self
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self._U, self._S)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "SymmetricLowRank":
+        del aux_data
+        U, S = children
+        return cls(U=U, S=S)
+
 
 class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
     def __init__(self, scalar: jax.Array, U: jax.Array, S: jax.Array) -> None:
         # assert (
         #     scalar > 0
-        # ), "Scalar must be positive in current implementation."  # noqa: S101
+        # ), "Scalar must be positive in current implementation."
         self._scalar = scalar
 
         self._U = U
@@ -101,6 +123,18 @@ class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
 
     def transpose(self) -> "IsotropicScalingPlusSymmetricLowRank":
         return self
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        # We need to override the AddLinearOperator's tree_flatten
+        children = (self._scalar, self._U, self._S)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "IsotropicScalingPlusSymmetricLowRank":
+        del aux_data
+        scalar, U, S = children
+        return cls(scalar=scalar, U=U, S=S)
 
 
 @linverse.dispatch
@@ -175,6 +209,18 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
     def transpose(self) -> "PositiveDiagonalPlusSymmetricLowRank":
         return self
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        # We need to override the AddLinearOperator's tree_flatten
+        children = (self._diagonal, self._low_rank, self._low_rank_scale)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "PositiveDiagonalPlusSymmetricLowRank":
+        del aux_data
+        diagonal, low_rank, low_rank_scale = children
+        return cls(diagonal=diagonal, low_rank=low_rank, low_rank_scale=low_rank_scale)
+
 
 @linverse.dispatch
 def _(A: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricLowRank:
@@ -204,3 +250,10 @@ def _(A: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricL
 @lsqrt.dispatch
 def _(A: PositiveDiagonalPlusSymmetricLowRank):
     return lsqrt(A.diagonal) @ lsqrt(A._id_plus_low_rank)
+
+
+# Register all low rank operators as PyTrees
+jax.tree_util.register_pytree_node_class(LowRank)
+jax.tree_util.register_pytree_node_class(SymmetricLowRank)
+jax.tree_util.register_pytree_node_class(IsotropicScalingPlusSymmetricLowRank)
+jax.tree_util.register_pytree_node_class(PositiveDiagonalPlusSymmetricLowRank)

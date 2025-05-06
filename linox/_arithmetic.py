@@ -128,6 +128,16 @@ class ScaledLinearOperator(LinearOperator):
     def transpose(self) -> LinearOperator:
         return self.operator.transpose() * self.scalar
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.operator, self.scalar)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "ScaledLinearOperator":
+        operator, scalar = children
+        return cls(operator=operator, scalar=scalar)
+
 
 @lsqrt.dispatch
 def _(a: ScaledLinearOperator) -> LinearOperator:
@@ -174,6 +184,16 @@ class AddLinearOperator(LinearOperator):
 
     def transpose(self) -> "AddLinearOperator":
         return AddLinearOperator(*(op.transpose() for op in self.operator_list))
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = tuple(self.operator_list)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "AddLinearOperator":
+        del aux_data
+        return cls(*children)
 
 
 class ProductLinearOperator(LinearOperator):
@@ -223,6 +243,16 @@ class ProductLinearOperator(LinearOperator):
             *(op.transpose() for op in reversed(self.operator_list))
         )
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = tuple(self.operator_list)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "ProductLinearOperator":
+        del aux_data
+        return cls(*children)
+
 
 # not properly tested
 class CongruenceTransform(ProductLinearOperator):
@@ -236,6 +266,17 @@ class CongruenceTransform(ProductLinearOperator):
 
     def transpose(self) -> LinearOperator:
         return CongruenceTransform(self._A, self._B.T)
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self._A, self._B)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "CongruenceTransform":
+        del aux_data
+        A, B = children
+        return cls(A=A, B=B)
 
 
 @plum.dispatch
@@ -261,6 +302,17 @@ class TransposedLinearOperator(LinearOperator):
     def transpose(self) -> LinearOperator:
         return self.operator
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.operator,)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "TransposedLinearOperator":
+        del aux_data
+        (operator,) = children
+        return cls(operator=operator)
+
 
 # NOT TESTED
 class InverseLinearOperator(LinearOperator):
@@ -277,7 +329,26 @@ class InverseLinearOperator(LinearOperator):
     def transpose(self) -> LinearOperator:
         return InverseLinearOperator(self.operator.transpose())
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.operator,)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "InverseLinearOperator":
+        del aux_data
+        (operator,) = children
+        return cls(operator=operator)
+
 
 # @inverse.dispatch
 # def _(a: InverseLinearOperator):
 #     return a.operatorm
+
+# Register all linear operators as PyTrees
+jax.tree_util.register_pytree_node_class(ScaledLinearOperator)
+jax.tree_util.register_pytree_node_class(AddLinearOperator)
+jax.tree_util.register_pytree_node_class(ProductLinearOperator)
+jax.tree_util.register_pytree_node_class(CongruenceTransform)
+jax.tree_util.register_pytree_node_class(TransposedLinearOperator)
+jax.tree_util.register_pytree_node_class(InverseLinearOperator)

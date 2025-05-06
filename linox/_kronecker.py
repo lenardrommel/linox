@@ -63,6 +63,17 @@ class Kronecker(LinearOperator):
     def transpose(self) -> "Kronecker":
         return Kronecker(self.A.transpose(), self.B.transpose())
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.A, self.B)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Kronecker":
+        del aux_data
+        A, B = children
+        return cls(A=A, B=B)
+
 
 # Not properly tested yet.
 @linverse.dispatch
@@ -74,3 +85,7 @@ def _(op: Kronecker) -> Kronecker:
 @lsqrt.dispatch
 def _(op: Kronecker) -> Kronecker:
     return Kronecker(lsqrt(op.A), lsqrt(op.B))
+
+
+# Register Kronecker as a PyTree
+jax.tree_util.register_pytree_node_class(Kronecker)
