@@ -1,3 +1,12 @@
+r"""Kronecker product operations for linear operators.
+
+This module includes a linear operator that represents the Kronecker product
+of two linear operators.
+
+- :class:`Kronecker`: Represents the Kronecker product :math:`A \otimes B` of two
+    linear operators :math:`A` and :math:`B`
+"""
+
 import jax
 import jax.numpy as jnp
 
@@ -7,17 +16,16 @@ from linox.utils import as_linop
 
 
 class Kronecker(LinearOperator):
-    """A Kronecker product of two linear operators.
+    r"""Kronecker product of two linear operators.
 
-    Example usage:
+    For linear operators :math:`A` and :math:`B`, this represents their Kronecker
+    product :math:`A \otimes B`. The action on a vector :math:`x` is given by
+    :math:`(A \otimes B)x = \text{vec}(A \cdot \text{unvec}(x) \cdot B^T)`
+    where :math:`\text{vec}` and :math:`\text{unvec}` are vectorization operations.
 
-    A = jnp.array([[1, 2], [3, 4]], dtype=jnp.float32)
-    B = jnp.array([[5, 6], [7, 8]], dtype=jnp.float32)
-    op = Kronecker(A, B)
-    vec = jnp.ones((4,))
-    result = op @ vec
-    result_true = jnp.kron(A, B) @ vec
-    jnp.allclose(result, result_true)
+    Args:
+        A: First linear operator
+        B: Second linear operator
     """
 
     def __init__(
@@ -30,14 +38,6 @@ class Kronecker(LinearOperator):
         super().__init__(shape, dtype)
 
     def _matmul(self, vec: jax.Array) -> jax.Array:
-        # flatten = False
-        # if len(vec.shape) == 1:
-        #     vec = vec[:, None]
-        #     flatten = True
-        # elif vec.shape[-1] != 1:
-        #     msg = "The input vector must have a single column."
-        #     raise ValueError(msg)
-
         _, mA = self.A.shape
         _, mB = self.B.shape
 
@@ -69,21 +69,33 @@ class Kronecker(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Kronecker":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "Kronecker":
         del aux_data
         A, B = children
         return cls(A=A, B=B)
 
 
-# Not properly tested yet.
 @linverse.dispatch
 def _(op: Kronecker) -> Kronecker:
+    r"""Inverse of a Kronecker product.
+
+    For a Kronecker product :math:`A \otimes B`, this represents
+    :math:`(A \otimes B)^{-1} = A^{-1} \otimes B^{-1}`
+    """
     return Kronecker(linverse(op.A), linverse(op.B))
 
 
-# Not properly tested yet.
 @lsqrt.dispatch
 def _(op: Kronecker) -> Kronecker:
+    r"""Square root of a Kronecker product.
+
+    For a Kronecker product :math:`A \otimes B`, this represents
+    :math:`\sqrt{A \otimes B} = \sqrt{A} \otimes \sqrt{B}`
+    """
     return Kronecker(lsqrt(op.A), lsqrt(op.B))
 
 

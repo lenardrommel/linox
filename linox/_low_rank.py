@@ -1,4 +1,16 @@
-"""Low rank (plus isotropic scaling) operator."""
+r"""Low rank representations as linear operators.
+
+This module implements various low rank representations as linear operators, including:
+
+- :class:`LowRank`: Represents a low rank matrix :math:`A = U \text{diag}(S) V^T`
+- :class:`SymmetricLowRank`: Represents a symmetric low rank matrix
+    :math:`A = U \text{diag}(S) U^T`
+- :class:`IsotropicScalingPlusSymmetricLowRank`: Represents
+    :math:`\sigma I + U \text{diag}(S) U^T`
+- :class:`PositiveDiagonalPlusSymmetricLowRank`: Represents
+    :math:`D + \alpha U \text{diag}(S) U^T`
+    where :math:`D` is a positive diagonal matrix
+"""
 
 import functools
 
@@ -11,9 +23,17 @@ from linox._matrix import Diagonal, Identity
 
 
 class LowRank(LinearOperator):
-    """Low rank operator.
+    r"""Low rank operator.
 
-    Low rank operator implements the following matrix A = U @ diag(S) @ V.T.
+    For matrices :math:`U`, :math:`S`, and :math:`V`, this represents the low rank
+    matrix :math:`A = U \text{diag}(S) V^T`. The action on a vector :math:`x` is given
+    by :math:`Ax = U(S \odot (V^T x))` where :math:`\odot` denotes element-wise
+    multiplication.
+
+    Args:
+        U: Left factor matrix
+        S: Vector of singular values (optional, defaults to ones)
+        V: Right factor matrix (optional, defaults to U)
     """
 
     def __init__(
@@ -23,7 +43,7 @@ class LowRank(LinearOperator):
         if S is not None:
             assert U.shape[-1] == S.shape[-1]  # noqa: S101
         if V is not None:
-            assert U.shape[-1] == V.shape[-1]
+            assert U.shape[-1] == V.shape[-1]  # noqa: S101
 
         self._U = U
         self._S = S if S is not None else jnp.ones(U.shape[-1])
@@ -59,13 +79,29 @@ class LowRank(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "LowRank":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "LowRank":
         del aux_data
         U, S, V = children
         return cls(U=U, S=S, V=V)
 
 
 class SymmetricLowRank(LowRank):
+    r"""Symmetric low rank operator.
+
+    For matrices :math:`U` and :math:`S`, this represents the symmetric low rank matrix
+    :math:`A = U \text{diag}(S) U^T`. The action on a vector :math:`x` is given by
+    :math:`Ax = U(S \odot (U^T x))` where :math:`\odot` denotes element-wise
+    multiplication.
+
+    Args:
+        U: Factor matrix
+        S: Vector of singular values (optional, defaults to ones)
+    """
+
     def __init__(self, U: jax.Array, S: jax.Array | None = None) -> None:
         super().__init__(U, S)
 
@@ -78,22 +114,35 @@ class SymmetricLowRank(LowRank):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "SymmetricLowRank":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "SymmetricLowRank":
         del aux_data
         U, S = children
         return cls(U=U, S=S)
 
 
 class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
+    r"""Isotropic scaling plus symmetric low rank operator.
+
+    For scalar :math:`\sigma`, matrix :math:`U`, and vector :math:`S`, this represents
+    :math:`A = \sigma I + U \text{diag}(S) U^T`. The action on a vector :math:`x` is
+    given by :math:`Ax = \sigma x + U(S \odot (U^T x))` where :math:`\odot` denotes
+    element-wise multiplication.
+
+    Args:
+        scalar: Isotropic scaling factor :math:`\sigma`
+        U: Factor matrix
+        S: Vector of singular values
+    """
+
     def __init__(self, scalar: jax.Array, U: jax.Array, S: jax.Array) -> None:
-        # assert (
-        #     scalar > 0
-        # ), "Scalar must be positive in current implementation."
         self._scalar = scalar
 
         self._U = U
         self._S = S
-        # TODO: Check if dtype are not equal.
 
         # Move to an abstract base class instead
         super().__init__(
@@ -131,7 +180,11 @@ class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "IsotropicScalingPlusSymmetricLowRank":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "IsotropicScalingPlusSymmetricLowRank":
         del aux_data
         scalar, U, S = children
         return cls(scalar=scalar, U=U, S=S)
@@ -139,6 +192,12 @@ class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
 
 @linverse.dispatch
 def _(a: IsotropicScalingPlusSymmetricLowRank) -> IsotropicScalingPlusSymmetricLowRank:
+    r"""Inverse of an isotropic scaling plus symmetric low rank operator.
+
+    For :math:`A = \sigma I + U \text{diag}(S) U^T`, this represents
+    :math:`A^{-1} = \frac{1}{\sigma}I - \frac{1}{\sigma}U \text{diag}
+    (\frac{S}{\sigma(S + \sigma)}) U^T`
+    """
     scalar_inv = 1 / a.scalar
     Q, lr_eigvals = a.lr_eigh
     return IsotropicScalingPlusSymmetricLowRank(
@@ -152,6 +211,12 @@ def _(a: IsotropicScalingPlusSymmetricLowRank) -> IsotropicScalingPlusSymmetricL
 
 @lsqrt.dispatch
 def _(a: IsotropicScalingPlusSymmetricLowRank) -> IsotropicScalingPlusSymmetricLowRank:
+    r"""Square root of an isotropic scaling plus symmetric low rank operator.
+
+    For :math:`A = \sigma I + U \text{diag}(S) U^T`, this represents
+    :math:`A^{1/2} = \sqrt{\sigma}I + U \text{diag}
+    (\sqrt{\sigma}(\sqrt{\frac{S}{\sigma} + 1} - 1)) U^T`
+    """
     scalar_sqrt = jnp.sqrt(a.scalar)
     Q, lr_eigvals = a.lr_eigh
     return IsotropicScalingPlusSymmetricLowRank(
@@ -162,7 +227,19 @@ def _(a: IsotropicScalingPlusSymmetricLowRank) -> IsotropicScalingPlusSymmetricL
 
 
 class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
-    """A = D + a U S U^T."""
+    r"""Positive diagonal plus symmetric low rank operator.
+
+    For positive diagonal matrix :math:`D`, matrix :math:`U`, vector :math:`S`, and
+    scalar :math:`\alpha`, this represents :math:`A = D + \alpha U \text{diag}(S) U^T`.
+    The action on a vector :math:`x` is given by
+    :math:`Ax = Dx + \alpha U(S \odot (U^T x))` where :math:`\odot` denotes
+    element-wise multiplication.
+
+    Args:
+        diagonal: Positive diagonal matrix :math:`D`
+        low_rank: Symmetric low rank component :math:`U \text{diag}(S) U^T`
+        low_rank_scale: Scaling factor :math:`\alpha` (default: 1.0)
+    """
 
     def __init__(
         self,
@@ -190,7 +267,7 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
 
     @functools.cached_property
     def _id_plus_low_rank(self) -> IsotropicScalingPlusSymmetricLowRank:
-        """1 + a (D^{-1/2} U) S (D^{-1/2} U)^T = D^{-1/2} (D + a U S U^T) D^{-1/2}"""
+        """1 + a (D^{-1/2} U) S (D^{-1/2} U)^T = D^{-1/2} (D + a U S U^T) D^{-1/2}."""
         U, sqrt_S, _ = jnp.linalg.svd(
             (
                 (self.low_rank.U * jnp.sqrt(self.low_rank.S))
@@ -216,7 +293,11 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "PositiveDiagonalPlusSymmetricLowRank":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "PositiveDiagonalPlusSymmetricLowRank":
         del aux_data
         diagonal, low_rank, low_rank_scale = children
         return cls(diagonal=diagonal, low_rank=low_rank, low_rank_scale=low_rank_scale)
@@ -224,6 +305,11 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
 
 @linverse.dispatch
 def _(A: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricLowRank:
+    r"""Inverse of a positive diagonal plus symmetric low rank operator.
+
+    For :math:`A = D + \alpha U \text{diag}(S) U^T`, this represents
+    :math:`A^{-1} = D^{-1} - \alpha D^{-1}U(S^{-1} + \alpha U^TD^{-1}U)^{-1}U^TD^{-1}`
+    """
     # (D + a U S U^T)^{-1} = D^{-1} - a D^{-1} U (S^{-1} + a U^T D^{-1} U)^-1 U^T D^{-1}
 
     D_inv = linverse(A.diagonal)
@@ -248,8 +334,15 @@ def _(A: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricL
 
 
 @lsqrt.dispatch
-def _(A: PositiveDiagonalPlusSymmetricLowRank):
-    return lsqrt(A.diagonal) @ lsqrt(A._id_plus_low_rank)
+def _(
+    A: PositiveDiagonalPlusSymmetricLowRank,
+) -> "PositiveDiagonalPlusSymmetricLowRank":
+    r"""Square root of a positive diagonal plus symmetric low rank operator.
+
+    For :math:`A = D + \alpha U \text{diag}(S) U^T`, this represents
+    :math:`A^{1/2} = D^{1/2}(I + \alpha D^{-1/2}U \text{diag}(S) U^TD^{-1/2})^{1/2}`
+    """
+    return lsqrt(A.diagonal) @ lsqrt(A._id_plus_low_rank)  # noqa: SLF001
 
 
 # Register all low rank operators as PyTrees

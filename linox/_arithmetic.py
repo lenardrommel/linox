@@ -1,3 +1,22 @@
+r"""Arithmetic operations for linear operators.
+
+This module implements various arithmetic operations for linear operators, including:
+
+- :class:`ScaledLinearOperator`: Represents :math:`\alpha A` for scalar :math:`\alpha`
+    and operator :math:`A`
+- :class:`AddLinearOperator`: Represents :math:`A_1 + A_2 + \ldots + A_n` for
+    operators :math:`A_i`
+- :class:`ProductLinearOperator`: Represents :math:`A_1A_2\ldots A_n` for operators
+    :math:`A_i`
+- :class:`CongruenceTransform`: Represents :math:`ABA^T` for operators
+    :math:`A` and :math:`B`
+- :class:`TransposedLinearOperator`: Represents :math:`A^T` for operator :math:`A`
+- :class:`InverseLinearOperator`: Represents :math:`A^{-1}` for operator :math:`A`
+
+These operators can be combined to form complex linear transformations while maintaining
+efficient computation through lazy evaluation.
+"""
+
 import operator
 from collections.abc import Iterable
 from functools import reduce
@@ -110,7 +129,15 @@ def _(a: jax.Array, b: LinearOperator) -> LinearOperator:
 
 
 class ScaledLinearOperator(LinearOperator):
-    """Linear operator scaled with a scalar."""
+    r"""Linear operator scaled with a scalar.
+
+    For a linear operator :math:`A` and scalar :math:`\alpha`, this represents
+    :math:`\alpha A` where :math:`(\alpha A)x = \alpha(Ax)` for any vector :math:`x`
+
+    Args:
+        operator: A linear operator to be scaled
+        scalar: A scalar value to multiply the operator with
+    """
 
     def __init__(self, operator: LinearOperator, scalar: ScalarLike) -> None:
         self.operator = utils.as_linop(operator)
@@ -134,7 +161,12 @@ class ScaledLinearOperator(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "ScaledLinearOperator":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "ScaledLinearOperator":
+        del aux_data
         operator, scalar = children
         return cls(operator=operator, scalar=scalar)
 
@@ -160,7 +192,16 @@ def _broadcast_shapes(shapes: Iterable[ShapeLike]) -> ShapeLike:
 
 
 class AddLinearOperator(LinearOperator):
-    """A linear operator formed by adding two other linear operators together."""
+    r"""A linear operator formed by adding two or more linear operators together.
+
+    For linear operators :math:`A_1, A_2, \ldots, A_n`, this represents
+    :math:`A_1 + A_2 + \ldots + A_n`where
+    :math:`(A_1 + A_2 + \ldots + A_n)x = A_1x + A_2x + \ldots + A_nx`
+    for any vector :math:`x`
+
+    Args:
+        *operator_list: Variable number of linear operators to be added
+    """
 
     def __init__(self, *operator_list: ArithmeticType) -> None:
         self.operator_list = [
@@ -191,13 +232,25 @@ class AddLinearOperator(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "AddLinearOperator":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "AddLinearOperator":
         del aux_data
         return cls(*children)
 
 
 class ProductLinearOperator(LinearOperator):
-    """(Operator) Product of linear operators."""
+    r"""Product of linear operators.
+
+    For linear operators :math:`A_1, A_2, \ldots, A_n`, this represents
+    :math:`A_1A_2\ldots A_n` where :math:`(A_1A_2\ldots A_n)x = A_1(A_2(\ldots(A_nx)))`
+    for any vector :math:`x`
+
+    Args:
+        *operator_list: Variable number of linear operators to be multiplied
+    """
 
     def __init__(self, *operator_list: LinearOperator) -> None:
         self.operator_list = [
@@ -249,14 +302,24 @@ class ProductLinearOperator(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "ProductLinearOperator":
+    def tree_unflatten(
+        cls, aux_data: dict[str, any], children: tuple[any, ...]
+    ) -> "ProductLinearOperator":
         del aux_data
         return cls(*children)
 
 
 # not properly tested
 class CongruenceTransform(ProductLinearOperator):
-    r""":math:`A B A^\top`."""
+    r"""Congruence transformation of linear operators.
+
+    For linear operators :math:`A` and :math:`B`, this represents :math:`ABA^T`
+    where :math:`(ABA^T)x = A(B(A^T x))` for any vector :math:`x`
+
+    Args:
+        A: First linear operator
+        B: Second linear operator
+    """
 
     def __init__(self, A: ArithmeticType, B: ArithmeticType) -> None:
         self._A = utils.as_linop(A)
@@ -273,7 +336,11 @@ class CongruenceTransform(ProductLinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "CongruenceTransform":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "CongruenceTransform":
         del aux_data
         A, B = children
         return cls(A=A, B=B)
@@ -285,6 +352,15 @@ def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator
 
 
 class TransposedLinearOperator(LinearOperator):
+    r"""Transpose of a linear operator.
+
+    For a linear operator :math:`A`, this represents :math:`A^T`
+    where :math:`(A^T)_{ij} = A_{ji}` for all :math:`i,j`
+
+    Args:
+        operator: A linear operator to be transposed
+    """
+
     def __init__(self, operator: LinearOperator) -> None:
         self.operator = utils.as_linop(operator)
         batch_shape = operator.shape[:-2]
@@ -308,7 +384,11 @@ class TransposedLinearOperator(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "TransposedLinearOperator":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "TransposedLinearOperator":
         del aux_data
         (operator,) = children
         return cls(operator=operator)
@@ -316,6 +396,16 @@ class TransposedLinearOperator(LinearOperator):
 
 # NOT TESTED
 class InverseLinearOperator(LinearOperator):
+    """Inverse of a linear operator.
+
+    For a linear operator :math:`A`, this represents :math:`A^{-1}`
+    where :math:`A^{-1}` is the unique operator such that :math:`AA^{-1} = A^{-1}A = I`
+    where :math:`I` is the identity operator
+
+    Args:
+        operator: A linear operator to be inverted
+    """
+
     def __init__(self, operator: LinearOperator) -> None:
         self.operator = operator
         super().__init__(shape=operator.shape, dtype=operator.dtype)
@@ -335,15 +425,15 @@ class InverseLinearOperator(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "InverseLinearOperator":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "InverseLinearOperator":
         del aux_data
         (operator,) = children
         return cls(operator=operator)
 
-
-# @inverse.dispatch
-# def _(a: InverseLinearOperator):
-#     return a.operatorm
 
 # Register all linear operators as PyTrees
 jax.tree_util.register_pytree_node_class(ScaledLinearOperator)

@@ -1,5 +1,19 @@
+r"""Type definitions for linear operators in JAX.
+
+This module defines type aliases and type hints used throughout the package, including:
+
+- Array types: :attr:`ArrayLike`, :attr:`MatrixType`, :attr:`ScalarType`
+- Shape and dimension types: :attr:`ShapeType`, :attr:`ShapeLike`
+- Numeric types: :attr:`IntLike`, :attr:`FloatLike`, :attr:`ScalarLike`
+- Operator types: :attr:`LinearOperatorLike`
+- Utility types: :attr:`DTypeLike`, :attr:`NotImplementedType`
+
+These types are used to provide type hints and ensure consistent type handling across
+the package.
+"""
+
 # The following file follows the implementation of probnum.typing
-# see:
+# see: https://github.com/probabilistic-numerics/probnum/blob/main/src/probnum/typing.py
 from collections.abc import Iterable
 from typing import Union
 

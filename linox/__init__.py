@@ -1,4 +1,23 @@
-"""Package for Linear operators in JAX."""
+r"""`linox`: Linear operators in JAX.
+
+This package provides a collection of linear operators for JAX, including:
+
+- Basic operators: :class:`Matrix`, :class:`Identity`, :class:`Diagonal`,
+    :class:`Scalar`, :class:`Zero`, :class:`Ones`
+- Block operators: :class:`BlockMatrix`, :class:`BlockMatrix2x2`, :class:`BlockDiagonal`
+- Low rank operators: :class:`LowRank`, :class:`SymmetricLowRank`,
+    :class:`IsotropicScalingPlusSymmetricLowRank`,
+    :class:`PositiveDiagonalPlusSymmetricLowRank`
+- Special operators: :class:`Kronecker`, :class:`Permutation`, :class:`EigenD`
+
+Common operations:
+- Arithmetic: :func:`linverse`, :func:`lsqrt`, :func:`transpose`
+- Properties: :func:`is_square`, :func:`is_symmetric`
+- Transformations: :func:`congruence_transform`, :func:`diagonal`, :func:`symmetrize`
+
+All operators support lazy evaluation and can be combined to form complex linear
+transformations.
+"""
 
 __version__ = "0.0.1"
 

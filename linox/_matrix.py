@@ -1,4 +1,14 @@
-"""Classic matrix operators as linear operator classes."""
+r"""Classic matrix operators as linear operator classes.
+
+This module implements various classic matrix operators as linear operators, including:
+
+- :class:`Matrix`: Represents a general matrix :math:`A`
+- :class:`Identity`: Represents the identity matrix :math:`I`
+- :class:`Diagonal`: Represents a diagonal matrix :math:`\text{diag}(d)`
+- :class:`Scalar`: Represents a scalar multiple of the identity :math:`\alpha I`
+- :class:`Zero`: Represents the zero matrix :math:`0`
+- :class:`Ones`: Represents a matrix of ones :math:`\mathbf{1}\mathbf{1}^T`
+"""
 
 import jax
 import jax.numpy as jnp
@@ -24,11 +34,13 @@ from linox.utils import as_shape
 
 
 class Matrix(LinearOperator):
-    """A linear operator defined via a matrix.
+    r"""A linear operator defined via a matrix.
 
-    Parameters
-    ----------
-    A : ArrayLike
+    For a matrix :math:`A`, this represents the linear operator :math:`x \mapsto Ax`.
+    The action on a vector :math:`x` is given by matrix multiplication :math:`Ax`.
+
+    Args:
+        A: The matrix defining the linear operator
     """
 
     def __init__(self, A: ArrayLike) -> None:  # type: ignore  # noqa: PGH003
@@ -50,7 +62,8 @@ class Matrix(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Matrix":
+    def tree_unflatten(cls,
+                       aux_data: dict[str, any], children: tuple[any, ...]) -> "Matrix":
         del aux_data
         (A,) = children
         return cls(A=A)
@@ -113,14 +126,14 @@ def _fill_ones(ndim: int) -> jnp.ndarray:
 
 
 class Identity(LinearOperator):
-    """The identity operator.
+    r"""The identity operator.
 
-    Parameters
-    ----------
-    shape :
-        The shape of the identity operator.
-    dtype :
-        The data type of the identity operator.
+    This represents the identity matrix :math:`I`. The action on a vector :math:`x` is
+    given by :math:`Ix = x`, i.e., the identity operator leaves vectors unchanged.
+
+    Args:
+        shape: The shape of the identity operator
+        dtype: The data type of the identity operator (default: float32)
     """
 
     def __init__(self, shape: ShapeLike, *, dtype: DTypeLike = jnp.float32) -> None:
@@ -149,7 +162,11 @@ class Identity(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Identity":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "Identity":
         del children
         return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
 
@@ -208,12 +225,15 @@ _batch_jnp_diag = jnp.vectorize(jnp.diag, signature="(n)->(n,n)")
 
 
 class Diagonal(LinearOperator):
-    """A linear operator defined via a diagonal matrix.
+    r"""A linear operator defined via a diagonal matrix.
 
-    Parameters
-    ----------
-    diag :
-        The diagonal of the matrix.
+    For a vector :math:`d`, this represents the diagonal matrix :math:`\text{diag}(d)`.
+    The action on a vector :math:`x` is given by element-wise multiplication
+    :math:`\text{diag}(d)x = d \odot x` where :math:`\odot` denotes element-wise
+    multiplication.
+
+    Args:
+        diag: The diagonal elements of the matrix
     """
 
     def __init__(self, diag: ArrayLike) -> None:  # type: ignore  # noqa: PGH003
@@ -238,7 +258,11 @@ class Diagonal(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Diagonal":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "Diagonal":
         del aux_data
         (diag,) = children
         return cls(diag=diag)
@@ -286,12 +310,14 @@ def _(a: Diagonal, b: Diagonal) -> Diagonal:
 
 # Special behavior for the diagonal, i.e. reutrn jnp.diag(self.diag)
 class Scalar(LinearOperator):
-    """A linear operator defined via a scalar.
+    r"""A linear operator defined via a scalar.
 
-    Parameters
-    ----------
-    scalar :
-        The scalar.
+    For a scalar :math:`\alpha`, this represents :math:`\alpha I` where :math:`I`
+    is the identity matrix. The action on a vector :math:`x` is given by scalar
+    multiplication :math:`(\alpha I)x = \alpha x`.
+
+    Args:
+        scalar: The scalar value defining the operator
     """
 
     def __init__(self, scalar: ScalarLike) -> None:
@@ -314,7 +340,9 @@ class Scalar(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Scalar":
+    def tree_unflatten(
+        cls, aux_data: dict[str, any], children: tuple[any, ...],
+    ) -> "Scalar":
         del aux_data
         (scalar,) = children
         return cls(scalar=scalar)
@@ -362,6 +390,16 @@ def _(A: Scalar) -> Scalar:
 
 
 class Zero(LinearOperator):
+    r"""The zero operator.
+
+    This represents the zero matrix :math:`0`. The action on a vector :math:`x` is
+    given by :math:`0x = 0`, i.e., the zero operator maps all vectors to zero.
+
+    Args:
+        shape: The shape of the zero operator
+        dtype: The data type of the zero operator (default: float32)
+    """
+
     def __init__(self, shape: ShapeLike, dtype: DTypeLike = jnp.float32) -> None:
         super().__init__(shape, dtype)
 
@@ -389,7 +427,9 @@ class Zero(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Zero":
+    def tree_unflatten(
+        cls, aux_data: dict[str, any], children: tuple[any, ...],
+    ) -> "Zero":
         del children
         return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
 
@@ -463,6 +503,18 @@ def _(a: Zero, b: LinearOperator | Zero) -> Zero:
 
 
 class Ones(LinearOperator):
+    r"""The ones operator.
+
+    This represents the matrix :math:`\mathbf{1}\mathbf{1}^T` where :math:`\mathbf{1}`
+    is a vector of ones. The action on a vector :math:`x` is given by
+    :math:`(\mathbf{1}\mathbf{1}^T)x = \mathbf{1}(\mathbf{1}^T x)`, i.e., it sums the
+    elements of :math:`x` and returns a vector of that sum.
+
+    Args:
+        shape: The shape of the ones operator
+        dtype: The data type of the ones operator (default: float32)
+    """
+
     def __init__(self, shape: ShapeLike, dtype: DTypeLike = jnp.float32) -> None:
         super().__init__(shape, dtype)
 
@@ -490,7 +542,9 @@ class Ones(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Ones":
+    def tree_unflatten(
+        cls, aux_data: dict[str, any], children: tuple[any, ...],
+    ) -> "Ones":
         del children
         return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
 

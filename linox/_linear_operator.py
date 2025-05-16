@@ -221,9 +221,10 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
     def __call__(self, arr: BinaryOperandType) -> "LinearOperator":
         return self @ arr
 
-    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+    @classmethod
+    def tree_flatten(cls) -> tuple[tuple[any, ...], dict[str, any]]:
         """Default implementation for PyTree flattening.
-        
+
         Subclasses should override this method to provide proper PyTree support.
         """
         children = ()  # No children by default
@@ -231,7 +232,9 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "LinearOperator":
+    def tree_unflatten(
+        cls, aux_data: dict[str, any], children: tuple[any, ...],
+    ) -> "LinearOperator":
         """Default implementation for PyTree unflattening."""
         del children
         if cls is LinearOperator:

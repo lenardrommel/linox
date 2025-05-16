@@ -1,4 +1,3 @@
-# as_scalar(scalar, dtype)
 """Utility functions for argument types."""
 
 import numbers
@@ -18,23 +17,19 @@ __all__ = ["_broadcast_shapes", "as_linop", "as_scalar", "as_shape"]
 def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
     """Convert a shape representation into a shape defined as a tuple of ints.
 
-    Parameters
-    ----------
-    x
-        Shape representation.
-    ndim
-        The required number of dimensions in the shape.
+    Args:
+        x: Shape representation.
+        ndim: The required number of dimensions in the shape.
 
     Raises:
-    ------
-    TypeError
-        If ``x`` is not a valid :const:`ShapeLike`.
-    TypeError
-        If ``x`` does not feature the required number of dimensions.
+        TypeError
+            If ``x`` is not a valid :const:`ShapeLike`.
+        TypeError
+            If ``x`` does not feature the required number of dimensions.
     """
     # Handle JAX traced values
     if isinstance(x, tuple) and all(
-        isinstance(item, (int, numbers.Integral, jnp.integer)) or hasattr(item, "aval")
+        isinstance(item, int | numbers.Integral | jnp.integer) or hasattr(item, "aval")
         for item in x
     ):
         shape = x
@@ -48,7 +43,8 @@ def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
             raise TypeError(msg) from e
 
         if not all(
-            isinstance(item, (int, numbers.Integral, jnp.integer)) or hasattr(item, "aval")
+            isinstance(item, int | numbers.Integral | jnp.integer)
+            or hasattr(item, "aval")
             for item in x
         ):
             msg = f"The given shape {x} must only contain integer values."
@@ -66,16 +62,13 @@ def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
 def as_scalar(x: ScalarLike, dtype: DTypeLike = None) -> jnp.ndarray:
     """Convert a scalar into a scalar JAX array.
 
-    Parameters
-    ----------
-    x
+    Args:
+        x: Scalar value.
         Scalar value.
-    dtype
-        Data type of the scalar.
+        dtype: Data type of the scalar.
 
     Raises:
-    ------
-    ValueError
+        ValueError
         If :code:`x` can not be interpreted as a scalar.
     """
     if jnp.ndim(x) != 0:
@@ -93,14 +86,11 @@ LinearOperatorLike = jax.Array | LinearOperator
 def as_linop(A: LinearOperatorLike) -> LinearOperator:
     """Convert an object into a linear operator.
 
-    Parameters
-    ----------
-    A
-        Object to convert.
+    Args:
+        A: Object to convert.
 
     Raises:
-    ------
-    TypeError
+        TypeError
         If ``A`` is not a valid linear operator.
     """
     if isinstance(A, LinearOperator):
@@ -118,6 +108,15 @@ def as_linop(A: LinearOperatorLike) -> LinearOperator:
 
 # inverse special behavior:
 def _broadcast_shapes(shapes: Iterable[ShapeLike]) -> ShapeLike:
+    """Broadcast shapes.
+
+    Args:
+        shapes: Shapes to broadcast.
+
+    Raises:
+        ValueError
+            If the shapes cannot be broadcasted.
+    """
     try:
         return jnp.broadcast_shapes(*shapes)
     except ValueError:
@@ -126,13 +125,19 @@ def _broadcast_shapes(shapes: Iterable[ShapeLike]) -> ShapeLike:
 
 
 def _broadcast_to(x: ArrayLike, shape: ShapeLike) -> jnp.ndarray:
-    """Broadcast an array to a given shape."""
+    """Broadcast an array to a given shape.
+
+    Args:
+        x: Array to broadcast.
+        shape: Shape to broadcast to.
+
+    Raises:
+        ValueError
+            If the array cannot be broadcasted to the given shape.
+    """
     if isinstance(x, jnp.ndarray):
         return x
     if isinstance(x, LinearOperator):
         return x.toshape(shape)
     msg = f"Unsupported broadcast type {type(x)}."
     raise ValueError(msg)
-    # except ValueError as e:
-    #     msg = f"Array of shape {x.shape} cannot be broadcasted to {shape}."
-    #     raise ValueError(msg) from e

@@ -1,4 +1,18 @@
-"""Block class for Linox."""
+r"""Block matrix operations for linear operators.
+
+This module implements various block matrix operations for linear operators, including:
+
+- :class:`BlockMatrix`: Represents a general block matrix
+    :math:`\begin{bmatrix} A_{11} & \cdots & A_{1n} \\
+    \vdots & \ddots & \vdots \\ A_{m1} & \cdots & A_{mn} \end{bmatrix}`
+- :class:`BlockMatrix2x2`: Represents a 2x2 block matrix
+    :math:`\begin{bmatrix} A & B \\ C & D \end{bmatrix}`
+- :class:`BlockDiagonal`: Represents a block diagonal matrix
+    :math:`\begin{bmatrix} A_1 & & \\ & \ddots & \\ & & A_n \end{bmatrix}`
+
+These operators allow efficient representation and computation of 
+structured linear transformations through block matrix operations.
+"""
 
 from functools import reduce
 from itertools import product
@@ -14,14 +28,17 @@ LinearOperatorLike = LinearOperator | jax.Array
 
 
 class BlockMatrix(LinearOperator):
-    """A block matrix where each block is represented by a linear operator.
+    r"""A block matrix where each block is represented by a linear operator.
 
-    Parameters
-    ----------
-    blocks : List[List[LinearOperatorLike]]
-        A nested list of `LinearOperatorLike` instances representing the blocks
-        of the matrix.
-        Shapes must be valid such that creating a block matrix is possible.
+    For linear operators :math:`A_{ij}`, this represents the block matrix
+    :math:`\begin{bmatrix} A_{11} & \cdots & A_{1n} \\
+    \vdots & \ddots & \vdots \\ A_{m1} & \cdots & A_{mn} \end{bmatrix}`
+    where each block :math:`A_{ij}` is a linear operator of compatible shape.
+
+    Args:
+        blocks: A nested list of `LinearOperatorLike` instances representing the blocks
+            of the matrix. Shapes must be valid such that creating a block matrix 
+            is possible.
     """
 
     def __init__(self, blocks: list[list[LinearOperatorLike]]) -> None:
@@ -117,15 +134,19 @@ class BlockMatrix(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "BlockMatrix":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "BlockMatrix":
         block_shape = aux_data["block_shape"]
 
         # Reconstruct the nested list structure
         blocks = []
         idx = 0
-        for i in range(block_shape[0]):
+        for _i in range(block_shape[0]):
             row = []
-            for j in range(block_shape[1]):
+            for _j in range(block_shape[1]):
                 row.append(children[idx])
                 idx += 1
             blocks.append(row)
@@ -135,29 +156,25 @@ class BlockMatrix(LinearOperator):
 
         # If col_sizes was saved, restore it to avoid recomputation
         if "col_sizes" in aux_data:
-            instance._col_sizes = aux_data["col_sizes"]
+            instance._col_sizes = aux_data["col_sizes"] # noqa: SLF001
 
         return instance
 
 
 class BlockMatrix2x2(LinearOperator):
-    """2x2 Block Matrix.
+    r"""2x2 Block Matrix.
 
-    A linear operator that represents a linear system of the form:
+    For linear operators :math:`A, B, C, D`, this represents the block matrix
+    :math:`\begin{bmatrix} A & B \\ C & D \end{bmatrix}`
+    where :math:`\begin{bmatrix} A & B \\ C & D \end{bmatrix}
+    \begin{bmatrix} x \\ y \end{bmatrix} = 
+    \begin{bmatrix} Ax + By \\ Cx + Dy \end{bmatrix}`
 
-        | A B | | x | = | u |
-        | C D | | y | = | v |
-
-    Parameters
-    ----------
-    A : LinearOperatorLike
-        The top-left block of the matrix.
-    B : LinearOperatorLike
-        The top-right block of the matrix.
-    C : LinearOperatorLike
-        The bottom-left block of the matrix.
-    D : LinearOperatorLike
-        The bottom-right block of the matrix.
+    Args:
+        A: The top-left block of the matrix.
+        B: The top-right block of the matrix.
+        C: The bottom-left block of the matrix.
+        D: The bottom-right block of the matrix.
     """
 
     def __init__(
@@ -216,13 +233,30 @@ class BlockMatrix2x2(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "BlockMatrix2x2":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "BlockMatrix2x2":
         del aux_data
         A, B, C, D = children
         return cls(A=A, B=B, C=C, D=D)
 
 
 class BlockDiagonal(LinearOperator):
+    r"""Block diagonal matrix.
+
+    For linear operators :math:`A_1, \ldots, A_n`, this represents the block diagonal
+    matrix :math:`\begin{bmatrix} A_1 & & \\ & \ddots & \\ & & A_n \end{bmatrix}`
+    where :math:`\begin{bmatrix} A_1 & & \\ & \ddots & \\ & & A_n \end{bmatrix}
+    \begin{bmatrix} x_1 \\ \vdots \\ x_n \end{bmatrix} =
+    \begin{bmatrix} A_1x_1 \\ \vdots \\ A_nx_n \end{bmatrix}`
+
+    Args:
+        *blocks: Variable number of linear operators to be placed on the diagonal.
+            All blocks must have compatible shapes.
+    """
+
     def __init__(self, *blocks: LinearOperator) -> None:
         if len(blocks) < 1:
             msg = "At least one block must be given."
@@ -267,7 +301,11 @@ class BlockDiagonal(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "BlockDiagonal":
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "BlockDiagonal":
         del aux_data
         return cls(*children)
 
