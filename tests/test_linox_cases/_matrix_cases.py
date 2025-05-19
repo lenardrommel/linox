@@ -8,10 +8,10 @@ import pytest
 import linox
 from linox import LinearOperator
 from linox._arithmetic import (
-    AddLinearOperator,  # noqa: PLC2701
-    ProductLinearOperator,  # noqa: PLC2701
-    ScaledLinearOperator,  # noqa: PLC2701
-    TransposedLinearOperator,  # noqa: PLC2701
+    AddLinearOperator,
+    ProductLinearOperator,
+    ScaledLinearOperator,
+    TransposedLinearOperator,
 )
 from linox.typing import ShapeType
 
@@ -116,7 +116,7 @@ def sample_transposed_operator(shape: ShapeType) -> CaseType:
 def sample_diagonal(shape: ShapeType) -> CaseType:
     key = jax.random.PRNGKey(1)
     arr = jax.random.normal(key, shape)
-    return linox.Diagonal(arr), linox._matrix._batch_jnp_diag(arr)  # noqa: SLF001
+    return linox.Diagonal(arr), linox._matrix._batch_jnp_diag(arr)
 
 
 def sample_zero(shape: ShapeType) -> CaseType:

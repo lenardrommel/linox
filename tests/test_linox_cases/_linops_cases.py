@@ -1,6 +1,5 @@
 import jax
 import jax.numpy as jnp
-import probnum as pn
 import pytest
 import pytest_cases
 
@@ -75,7 +74,7 @@ def draw_random_permutation(n: int) -> jnp.ndarray:
 
 def get_identity(shape: tuple[int, int]) -> CASE_TYPE:
     dim = shape[0]
-    return linox.Identity(shape=(dim, dim), dtype=DTYPE), jnp.eye(dim, dtype=DTYPE)
+    return linox.Identity(dim, dtype=DTYPE), jnp.eye(dim, dtype=DTYPE)
 
 
 def get_zero(shape: tuple[int, int]) -> CASE_TYPE:
@@ -113,11 +112,11 @@ def get_add(linop1: LinearOperator, linop2: LinearOperator) -> CASE_TYPE:
 
 
 def get_transpose(linop1: LinearOperator) -> CASE_TYPE:
-    return linox._arithmetic.TransposedLinearOperator(linop1), linop1.todense().T  # noqa: SLF001
+    return linox._arithmetic.TransposedLinearOperator(linop1), linop1.todense().T
 
 
 linops_options = [
-    #    get_identity,
+    # get_identity,
     get_zero,
     get_ones,
 ]
@@ -131,42 +130,42 @@ all_base_options = linops_options + symmetric_options
 
 
 @pytest.mark.parametrize("matrix", matrices)
-def case_matrix(matrix: jnp.ndarray) -> tuple[pn.linops.LinearOperator, jnp.ndarray]:
+def case_matrix(matrix: jnp.ndarray) -> tuple[linox.LinearOperator, jnp.ndarray]:
     linop = linox.Matrix(matrix)
     return linop, matrix
 
 
 @pytest_cases.case(id="identity")
 @pytest.mark.parametrize("dim", dim)
-def case_identity(dim: int) -> tuple[pn.linops.LinearOperator, jnp.ndarray]:
+def case_identity(dim: int) -> tuple[linox.LinearOperator, jnp.ndarray]:
     return get_identity((dim, dim))
 
 
 @pytest.mark.parametrize("dim", dim)
-def case_zero(dim: int) -> tuple[pn.linops.LinearOperator, jnp.ndarray]:
+def case_zero(dim: int) -> tuple[linox.LinearOperator, jnp.ndarray]:
     return get_zero((dim, dim))
 
 
 @pytest.mark.parametrize("dim", dim)
-def case_ones(dim: int) -> tuple[pn.linops.LinearOperator, jnp.ndarray]:
+def case_ones(dim: int) -> tuple[linox.LinearOperator, jnp.ndarray]:
     return get_ones((dim, dim))
 
 
-@pytest.mark.parametrize("shape", mul_shapes)
-@pytest.mark.parametrize("linop1", linops_options)
-@pytest.mark.parametrize("linop2", linops_options)
-def case_product(shape, linop1_fn, linop2_fn):
-    linop1, _ = linop1_fn(shape[0])
-    linop2, _ = linop2_fn(shape[1])
+@pytest.mark.parametrize(("shape1", "shape2"), mul_shapes)
+@pytest.mark.parametrize("linop1_fn", linops_options)
+@pytest.mark.parametrize("linop2_fn", linops_options)
+def case_product(shape1, shape2, linop1_fn, linop2_fn):
+    linop1, _ = linop1_fn(shape1)
+    linop2, _ = linop2_fn(shape2)
     return get_product(linop1, linop2)
 
 
 @pytest.mark.parametrize("shape", add_shapes)
-@pytest.mark.parametrize("linop1", linops_options)
-@pytest.mark.parametrize("linop2", linops_options)
+@pytest.mark.parametrize("linop1_fn", linops_options)
+@pytest.mark.parametrize("linop2_fn", linops_options)
 def case_add(shape, linop1_fn, linop2_fn):
-    linop1, _ = linop1_fn(shape[0])
-    linop2, _ = linop2_fn(shape[1])
+    linop1, _ = linop1_fn(shape)
+    linop2, _ = linop2_fn(shape)
     return get_add(linop1, linop2)
 
 
@@ -204,119 +203,3 @@ def case_mul_combinations(
 ) -> tuple[linox.LinearOperator, linox.LinearOperator]:
     shape1, shape2 = shapes
     return linop1(shape1), linop2(shape2)
-
-
-# @pytest.mark.parametrize()
-
-# @pytest_cases.case(tags=("square", "symmetric", "positive-definite"))
-# @pytest_cases.parametrize("matrix", spd_matrices)
-# def case_matvec_spd(matrix: np.ndarray):
-#     @pn.linops.LinearOperator.broadcast_matvec
-#     def _matmul(vec: np.ndarray):
-#         return matrix @ vec
-
-#     linop = pn.linops.LambdaLinearOperator(
-#         shape=matrix.shape, dtype=matrix.dtype, matmul=_matmul
-#     )
-
-#     linop.is_symmetric = True
-
-#     return linop, matrix
-
-
-# @pytest.mark.parametrize("matrix", matrices)
-# def case_matrix(matrix: np.ndarray) -> Tuple[pn.linops.LinearOperator, np.ndarray]:
-#     return pn.linops.Matrix(matrix), matrix
-
-
-# @pytest_cases.case(tags=("square", "symmetric", "positive-definite"))
-# @pytest_cases.parametrize("matrix", spd_matrices)
-# def case_matrix_spd(matrix: np.ndarray) -> Tuple[pn.linops.LinearOperator, np.ndarray]:
-#     linop = pn.linops.Matrix(matrix)
-#     linop.is_symmetric = True
-
-#     return linop, matrix
-
-
-# @pytest_cases.case(tags=("square", "lower-triangular"))
-# @pytest_cases.parametrize("matrix", lower_triangular_matrices)
-# def case_matrix_lower_triangular(
-#     matrix: np.ndarray,
-# ) -> Tuple[pn.linops.LinearOperator, np.ndarray]:
-#     linop = pn.linops.Matrix(matrix)
-#     linop.is_lower_triangular = True
-
-#     return linop, matrix
-
-
-# @pytest_cases.case(tags=("square", "upper-triangular"))
-# @pytest_cases.parametrize("matrix", upper_triangular_matrices)
-# def case_matrix_upper_triangular(
-#     matrix: np.ndarray,
-# ) -> Tuple[pn.linops.LinearOperator, np.ndarray]:
-#     linop = pn.linops.Matrix(matrix)
-#     linop.is_upper_triangular = True
-
-#     return linop, matrix
-
-
-# @pytest_cases.case(tags=("square", "symmetric"))
-# def case_matrix_symmetric_indefinite() -> Tuple[pn.linops.LinearOperator, np.ndarray]:
-#     matrix = np.diag((2.1, 1.3, -0.5))
-
-#     linop = pn.linops.aslinop(matrix)
-#     linop.is_symmetric = True
-
-#     return linop, matrix
-
-
-# @pytest_cases.case(tags=("square", "symmetric", "positive-definite"))
-# @pytest.mark.parametrize("n", [3, 4, 8, 12, 15])
-# def case_identity(n: int) -> Tuple[pn.linops.LinearOperator, np.ndarray]:
-#     return pn.linops.Identity(shape=n), np.eye(n)
-
-
-# @pytest.mark.parametrize("shape", [(3, 3), (3, 4), (6, 5)])
-# def case_zero(shape: tuple) -> Tuple[pn.linops.LinearOperator, np.ndarray]:
-#     return pn.linops.Zero(shape=shape), np.zeros(shape)
-
-
-# @pytest.mark.parametrize("rng", [np.random.default_rng(42)])
-# def case_sparse_matrix(
-#     rng: np.random.Generator,
-# ) -> Tuple[pn.linops.LinearOperator, np.ndarray]:
-#     matrix = scipy.sparse.rand(
-#         10, 10, density=0.1, format="coo", dtype=np.double, random_state=rng
-#     )
-#     matrix.setdiag(2)
-#     matrix = matrix.tocsr()
-
-#     return pn.linops.Matrix(matrix), matrix.toarray()
-
-
-# @pytest.mark.parametrize("rng", [np.random.default_rng(42)])
-# def case_sparse_matrix_singular(
-#     rng: np.random.Generator,
-# ) -> Tuple[pn.linops.LinearOperator, np.ndarray]:
-#     matrix = scipy.sparse.rand(
-#         10, 10, density=0.01, format="csr", dtype=np.double, random_state=rng
-#     )
-
-#     return pn.linops.Matrix(matrix), matrix.toarray()
-
-
-# @pytest.mark.parametrize("rng", [np.random.default_rng(422)])
-# def case_inverse(
-#     rng: np.random.Generator,
-# ) -> Tuple[pn.linops.LinearOperator, np.ndarray]:
-#     N = 21
-
-#     v = rng.uniform(0.2, 0.5, N)
-
-#     linop = pn.linops.LambdaLinearOperator(
-#         shape=(N, N),
-#         dtype=np.double,
-#         matmul=lambda x: 2.0 * x + v[:, None] @ (v[None, :] @ x),
-#     )
-
-#     return linop.inv(), linop.inv().todense()
