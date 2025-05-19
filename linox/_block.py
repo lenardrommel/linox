@@ -10,7 +10,7 @@ This module implements various block matrix operations for linear operators, inc
 - :class:`BlockDiagonal`: Represents a block diagonal matrix
     :math:`\begin{bmatrix} A_1 & & \\ & \ddots & \\ & & A_n \end{bmatrix}`
 
-These operators allow efficient representation and computation of 
+These operators allow efficient representation and computation of
 structured linear transformations through block matrix operations.
 """
 
@@ -37,7 +37,7 @@ class BlockMatrix(LinearOperator):
 
     Args:
         blocks: A nested list of `LinearOperatorLike` instances representing the blocks
-            of the matrix. Shapes must be valid such that creating a block matrix 
+            of the matrix. Shapes must be valid such that creating a block matrix
             is possible.
     """
 
@@ -106,13 +106,13 @@ class BlockMatrix(LinearOperator):
 
     def todense(self) -> jax.Array:
         """Convert the block matrix to a dense matrix."""
-        _blocks = [
+        blocks = [
             [None for _ in range(self._block_shape[1])]
             for _ in range(self._block_shape[0])
         ]
         for i, j in np.ndindex(self._block_shape):
-            _blocks[i][j] = self._blocks[i][j].todense()
-        return jnp.block(_blocks)
+            blocks[i][j] = self._blocks[i][j].todense()
+        return jnp.block(blocks)
 
     def transpose(self) -> "BlockMatrix":
         """Transpose the block matrix."""
@@ -156,7 +156,7 @@ class BlockMatrix(LinearOperator):
 
         # If col_sizes was saved, restore it to avoid recomputation
         if "col_sizes" in aux_data:
-            instance._col_sizes = aux_data["col_sizes"] # noqa: SLF001
+            instance._col_sizes = aux_data["col_sizes"]
 
         return instance
 
@@ -167,7 +167,7 @@ class BlockMatrix2x2(LinearOperator):
     For linear operators :math:`A, B, C, D`, this represents the block matrix
     :math:`\begin{bmatrix} A & B \\ C & D \end{bmatrix}`
     where :math:`\begin{bmatrix} A & B \\ C & D \end{bmatrix}
-    \begin{bmatrix} x \\ y \end{bmatrix} = 
+    \begin{bmatrix} x \\ y \end{bmatrix} =
     \begin{bmatrix} Ax + By \\ Cx + Dy \end{bmatrix}`
 
     Args:

@@ -15,12 +15,13 @@ the package.
 # The following file follows the implementation of probnum.typing
 # see: https://github.com/probabilistic-numerics/probnum/blob/main/src/probnum/typing.py
 from collections.abc import Iterable
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 import jax
 import jax.numpy as jnp
 
-import linox  # noqa: TCH001
+if TYPE_CHECKING:
+    import linox
 
 # from linox._matrix import Scalar
 

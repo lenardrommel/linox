@@ -111,7 +111,7 @@ def _(a: Matrix, b: Matrix) -> Matrix:
 
 
 @lsqrt.register
-def _(A: LinearOperator) -> LinearOperator:  # noqa: ARG001
+def _(A: LinearOperator) -> LinearOperator:
     msg = "The square root of a general linear operator is not defined."
     raise NotImplementedError(msg)
 

@@ -46,6 +46,7 @@ from ._low_rank import (
 )
 from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
+from .utils import todense
 
 # Explicitly declare public API
 __all__ = [
@@ -73,5 +74,6 @@ __all__ = [
     "linverse",
     "lsqrt",
     "symmetrize",
+    "todense",
     "transpose",
 ]

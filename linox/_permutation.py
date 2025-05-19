@@ -42,9 +42,9 @@ class Permutation(LinearOperator):
             if perm_inv is not None
             else jnp.argsort(self._perm, axis=-1)
         )
-        _perm_size = self._perm.shape[-1]
+        perm_size = self._perm.shape[-1]
         super().__init__(
-            shape=(*self._perm.shape[:-1], _perm_size, _perm_size),
+            shape=(*self._perm.shape[:-1], perm_size, perm_size),
             dtype=DTYPE,  # Otherwise operation not allowed
         )
 

@@ -17,7 +17,7 @@ import functools
 import jax
 import jax.numpy as jnp
 
-from linox._arithmetic import AddLinearOperator, linverse, lsqrt
+from linox._arithmetic import AddLinearOperator, ProductLinearOperator, linverse, lsqrt
 from linox._linear_operator import LinearOperator
 from linox._matrix import Diagonal, Identity
 
@@ -336,7 +336,7 @@ def _(A: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricL
 @lsqrt.dispatch
 def _(
     A: PositiveDiagonalPlusSymmetricLowRank,
-) -> "PositiveDiagonalPlusSymmetricLowRank":
+) -> ProductLinearOperator:
     r"""Square root of a positive diagonal plus symmetric low rank operator.
 
     For :math:`A = D + \alpha U \text{diag}(S) U^T`, this represents

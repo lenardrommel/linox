@@ -67,7 +67,7 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
     ) -> None:
         self.__shape = utils.as_shape(
             shape, ndim=len(shape)
-        )  # TODO(2bys): Needs to be implemented.
+        )
 
         # DType
         self.__dtype = jnp.dtype(dtype)
@@ -106,10 +106,7 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
 
     @property
     def dtype(self) -> jnp.dtype:
-        """Data type of the linear operator.
-
-        # TODO(2bys): Check how this could be expanded to pytrees.
-        """
+        """Data type of the linear operator."""
         return self.__dtype
 
     def __repr__(self) -> str:
@@ -178,7 +175,6 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
         return lmul(other, self)
 
     def __matmul__(self, other: BinaryOperandType) -> "LinearOperator":
-        # TODO(2bys): Add shape checks.
         from ._arithmetic import lmatmul  # noqa: PLC0415
 
         # Shape checks
@@ -202,8 +198,10 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
         return res if not flatten else res[..., 0]
 
     def __rmatmul__(self, other: BinaryOperandType) -> "LinearOperator":
-        # TODO(2bys): Add shape checks.
         from ._arithmetic import lmatmul  # noqa: PLC0415
+
+        # lazy evaluation
+        isLazyEvaluation = True
 
         if other.shape[-1] != self.shape[-2]:
             msg = (
@@ -216,7 +214,16 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
             msg = "Only 2D arrays are supported."
             raise ValueError(msg)
 
-        return lmatmul(other, self)
+        if len(other.shape) == 1:
+            other = other[None, :]
+            isLazyEvaluation = False
+
+        res = lmatmul(other, self)
+        return (
+            res if isLazyEvaluation else (
+                res[0, :] if isinstance(res, jnp.ndarray) else res.todense()[0]
+            )
+        )
 
     def __call__(self, arr: BinaryOperandType) -> "LinearOperator":
         return self @ arr

@@ -43,7 +43,7 @@ class Kronecker(LinearOperator):
 
         # vec(X) -> X, i.e., reshape into stack of matrices
         y = jnp.swapaxes(vec, -2, -1)
-        y = y.reshape(y.shape[:-1] + (mA, mB))
+        y = y.reshape((*y.shape[:-1], mA, mB))
 
         # (X @ B.T).T = B @ X.T
         y = self.B @ jnp.swapaxes(y, -1, -2)
@@ -52,7 +52,7 @@ class Kronecker(LinearOperator):
         y = self.A @ jnp.swapaxes(y, -1, -2)
 
         # vec(A @ X @ B.T), i.e., revert to stack of vectorized matrices
-        y = y.reshape(y.shape[:-2] + (-1,))
+        y = y.reshape((*y.shape[:-2], -1))
         y = jnp.swapaxes(y, -1, -2)
 
         return y
