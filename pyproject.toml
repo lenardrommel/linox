@@ -34,7 +34,7 @@ requires-python = ">=3.10"
 
 [project.optional-dependencies]
 dev = ["ruff", "jupyterlab", "pre-commit", "pytest", "tox-uv", "pyright"]
-test = ["pytest", "tox-uv", "pytest_cases", "probnum"]
+test = ["pytest", "tox-uv", "pytest_cases"]
 
 # PEP 518 Build System Configuration
 # See https://peps.python.org/pep-0518/
