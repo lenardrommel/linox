@@ -9,7 +9,7 @@ from linox.typing import ShapeLike
 CaseType = tuple[LinearOperator, Kronecker]
 
 
-def sample_kronecker(shapeA: ShapeLike, shapeB: ShapeLike) -> CaseType:  # noqa: D103
+def sample_kronecker(shapeA: ShapeLike, shapeB: ShapeLike) -> CaseType:
     key = jax.random.key(5)
     key1, key2 = jax.random.split(key)
     A = jax.random.normal(key1, shapeA)
@@ -18,7 +18,7 @@ def sample_kronecker(shapeA: ShapeLike, shapeB: ShapeLike) -> CaseType:  # noqa:
     return op, jnp.kron(A, B)
 
 
-def test_kronecker() -> None:  # noqa: D103
+def test_kronecker() -> None:
     op, arr = sample_kronecker((2, 2), (3, 2))
     key = jax.random.key(1)
     vec = jax.random.normal(key, op.shape[::-1])

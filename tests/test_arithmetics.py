@@ -39,24 +39,24 @@ CaseType = tuple[linox.LinearOperator, jax.Array]
 @pytest.fixture(
     params=[pytest.param(seed, id=f"seed{seed}") for seed in [2, 43, 257]],
 )
-def key(request: pytest.FixtureRequest) -> jax.random.PRNGKey:  # noqa: D103
+def key(request: pytest.FixtureRequest) -> jax.random.PRNGKey:
     return jax.random.PRNGKey(request.param)
 
 
 @pytest.fixture(
     params=[pytest.param(ncols, id=f"ncols{ncols}") for ncols in [1, 3, 5]],
 )
-def ncols(request: pytest.FixtureRequest) -> int:  # noqa: D103
+def ncols(request: pytest.FixtureRequest) -> int:
     return request.param
 
 
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=special_linops)
-def test_to_dense(linop: linox.LinearOperator, matrix: jax.Array) -> None:  # noqa: D103
+def test_to_dense(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     assert jnp.allclose(linop.todense(), matrix)
 
 
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=special_linops)
-def test_mv(  # noqa: D103
+def test_mv(
     linop: linox.LinearOperator, matrix: jax.Array, key: jax.random.PRNGKey
 ) -> None:
     vector = jax.random.normal(key, matrix.shape[-1])
@@ -64,7 +64,7 @@ def test_mv(  # noqa: D103
 
 
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=special_linops)
-def test_matmat(  # noqa: D103
+def test_matmat(
     linop: linox.LinearOperator, matrix: jax.Array, key: jax.random.PRNGKey, ncols: int
 ) -> None:
     mat = jax.random.normal(key, (matrix.shape[-1], ncols))
@@ -72,7 +72,7 @@ def test_matmat(  # noqa: D103
 
 
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=special_linops)
-def test_scalar_mul(  # noqa: D103
+def test_scalar_mul(
     linop: linox.LinearOperator, matrix: jax.Array, key: jax.random.PRNGKey
 ) -> None:
     scalar = jax.random.normal(key, ())
@@ -80,7 +80,7 @@ def test_scalar_mul(  # noqa: D103
 
 
 @pytest_cases.parametrize_with_cases("linop1, linop2", cases=[case_add])
-def test_add(  # noqa: D103
+def test_add(
     linop1: CaseType,
     linop2: CaseType,
 ) -> None:
@@ -90,7 +90,7 @@ def test_add(  # noqa: D103
 
 
 @pytest_cases.parametrize_with_cases("linop1, linop2", cases=[case_matmul])
-def test_lmatmul(  # noqa: D103
+def test_lmatmul(
     linop1: CaseType,
     linop2: CaseType,
 ) -> None:

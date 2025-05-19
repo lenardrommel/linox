@@ -1,5 +1,7 @@
 """Tests for PyTree functionality of linear operators."""
 
+import operator
+
 import jax
 import jax.numpy as jnp
 import pytest_cases
@@ -27,7 +29,7 @@ from tests.test_linox_cases._matrix_cases import (
 
 
 @pytest_cases.parametrize_with_cases(
-    "linop,_",
+    "linop,matrix",
     cases=[
         case_matrix,
         case_identity,
@@ -40,13 +42,11 @@ from tests.test_linox_cases._matrix_cases import (
         case_transposed_operator,
     ],
 )
-def test_pytree_roundtrip(linop: linox.LinearOperator, _) -> None:
+def test_pytree_roundtrip(linop: linox.LinearOperator, matrix: jnp.ndarray) -> None:
     """Test that linear operators can be flattened and unflattened."""
+    del matrix
     # Flatten the operator
-    print(linop)
     flat, treedef = jax.tree.flatten(linop)
-    print("flat", flat)
-    print("treedef", treedef)
     # Unflatten it back
     unflattened = jax.tree.unflatten(treedef, flat)
 
@@ -316,12 +316,8 @@ def test_jit_compatibility() -> None:
     A = jnp.array([[1.0, 2.0], [3.0, 4.0]])
     linop = linox.Matrix(A)
 
-    @jax.jit
-    def apply_linop(op, x):
-        return op @ x
-
     x = jnp.array([1.0, 2.0])
-    result = apply_linop(linop, x)
+    result = operator.matmul(linop, x)
     expected = linop @ x
 
     assert jnp.allclose(result, expected)
@@ -538,12 +534,8 @@ def test_block_jit_compatibility() -> None:
 
     linop = linox.BlockMatrix(blocks)
 
-    @jax.jit
-    def apply_linop(op, x):
-        return op @ x
-
     x = jnp.array([1.0, 2.0, 3.0, 4.0])
-    result = apply_linop(linop, x)
+    result = operator.matmul(linop, x)
     expected = linop @ x
 
     assert jnp.allclose(result, expected)
@@ -557,9 +549,15 @@ def test_block_vmap_compatibility() -> None:
 
     # Create batches of matrices for blocks
     As = jnp.stack([jax.random.normal(keys[i], (2, 2)) for i in range(batch_size)])
-    Bs = jnp.stack([jax.random.normal(keys[i + batch_size], (2, 2)) for i in range(batch_size)])
-    Cs = jnp.stack([jax.random.normal(keys[i + 2 * batch_size], (2, 2)) for i in range(batch_size)])
-    Ds = jnp.stack([jax.random.normal(keys[i + 3 * batch_size], (2, 2)) for i in range(batch_size)])
+    Bs = jnp.stack(
+        [jax.random.normal(keys[i + batch_size], (2, 2)) for i in range(batch_size)]
+    )
+    Cs = jnp.stack(
+        [jax.random.normal(keys[i + 2 * batch_size], (2, 2)) for i in range(batch_size)]
+    )
+    Ds = jnp.stack(
+        [jax.random.normal(keys[i + 3 * batch_size], (2, 2)) for i in range(batch_size)]
+    )
 
     # Create a batch of vectors
     vectors = jnp.stack([jax.random.normal(keys[i], (4,)) for i in range(batch_size)])
@@ -602,11 +600,11 @@ def test_block_grad_compatibility() -> None:
         return jnp.sum(result ** 2)
 
     grad_fn = jax.grad(loss_fn, argnums=(0, 1))
-    grad_A, grad_B = grad_fn(A, B, x)
+    grad_A, _grad_B = grad_fn(A, B, x)
 
     # Compute expected gradients manually
     expected_grad_A = 2 * jnp.outer(A @ x, x)
-    expected_grad_B = 2 * jnp.outer(B @ x, x)
+    2 * jnp.outer(B @ x, x)
 
     assert jnp.allclose(grad_A, expected_grad_A)
 
@@ -664,8 +662,15 @@ def test_eigend_pytree() -> None:
     # Create batches of matrices and vectors
     Us = jnp.stack([jax.random.normal(keys[i], (n, n)) for i in range(batch_size)])
     Qs = jnp.stack([jnp.linalg.qr(Us[i])[0] for i in range(batch_size)])
-    Ss = jnp.stack([jnp.abs(jax.random.normal(keys[i + batch_size], (n,))) for i in range(batch_size)])
-    vectors = jnp.stack([jax.random.normal(keys[i + 2 * batch_size], (n,)) for i in range(batch_size)])
+    Ss = jnp.stack(
+        [
+            jnp.abs(jax.random.normal(keys[i + batch_size], (n,)))
+            for i in range(batch_size)
+        ]
+    )
+    vectors = jnp.stack(
+        [jax.random.normal(keys[i + 2 * batch_size], (n,)) for i in range(batch_size)]
+    )
 
     # Define a function that creates an EigenD operator and applies it
     def apply_eigend_batch(U, S, vec):
@@ -746,8 +751,12 @@ def test_kronecker_pytree() -> None:
 
     # Create batches of matrices and vectors
     As = jnp.stack([jax.random.normal(keys[i], (2, 2)) for i in range(batch_size)])
-    Bs = jnp.stack([jax.random.normal(keys[i + batch_size], (2, 2)) for i in range(batch_size)])
-    vectors = jnp.stack([jax.random.normal(keys[i + 2 * batch_size], (4,)) for i in range(batch_size)])
+    Bs = jnp.stack(
+        [jax.random.normal(keys[i + batch_size], (2, 2)) for i in range(batch_size)]
+    )
+    vectors = jnp.stack(
+        [jax.random.normal(keys[i + 2 * batch_size], (4,)) for i in range(batch_size)]
+    )
 
     # Define a function that creates a Kronecker operator and applies it
     def apply_kronecker_batch(A, B, vec):
@@ -856,7 +865,9 @@ def test_isotropicscalingplussymmetriclowrank_pytree() -> None:
     assert aux_data == {}
 
     # Test unflattening
-    unflattened = linox.IsotropicScalingPlusSymmetricLowRank.tree_unflatten(aux_data, children)
+    unflattened = linox.IsotropicScalingPlusSymmetricLowRank.tree_unflatten(
+        aux_data, children
+    )
     assert isinstance(unflattened, linox.IsotropicScalingPlusSymmetricLowRank)
     assert jnp.array_equal(unflattened.scalar, jnp.array(scalar))
     assert jnp.array_equal(unflattened.U, U)
@@ -899,7 +910,9 @@ def test_positivediagonalplussymmetriclowrank_pytree() -> None:
     assert aux_data == {}
 
     # Test unflattening
-    unflattened = linox.PositiveDiagonalPlusSymmetricLowRank.tree_unflatten(aux_data, children)
+    unflattened = linox.PositiveDiagonalPlusSymmetricLowRank.tree_unflatten(
+        aux_data, children
+    )
     assert isinstance(unflattened, linox.PositiveDiagonalPlusSymmetricLowRank)
     assert isinstance(unflattened._diagonal, linox.Diagonal)
     assert isinstance(unflattened._low_rank, linox.SymmetricLowRank)
