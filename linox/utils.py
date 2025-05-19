@@ -141,3 +141,15 @@ def _broadcast_to(x: ArrayLike, shape: ShapeLike) -> jnp.ndarray:
         return x.toshape(shape)
     msg = f"Unsupported broadcast type {type(x)}."
     raise ValueError(msg)
+
+
+def todense(x: LinearOperatorLike) -> jnp.ndarray:
+    """Convert a linear operator to a dense matrix.
+
+    Args:
+        x: Linear operator to convert.
+
+    Returns:
+        Dense matrix.
+    """
+    return x.todense() if isinstance(x, LinearOperator) else x
