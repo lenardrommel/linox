@@ -84,6 +84,80 @@ def linverse(a: LinearOperator) -> ArithmeticType:
     return InverseLinearOperator(a)
 
 
+@plum.dispatch
+def lpinverse(a: LinearOperator) -> ArithmeticType:
+    return PseudoInverseLinearOperator(a)
+
+
+@plum.dispatch
+def leigh(a: LinearOperator) -> ArithmeticType:
+    return jnp.linalg.eigh(a.todense())
+
+
+@plum.dispatch
+def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
+    """
+    QR decomposition of a linear operator.
+    Returns:
+        Q: Orthogonal matrix
+        R: Upper triangular matrix
+    """
+    return jnp.linalg.qr(a.todense())
+
+
+@plum.dispatch
+def lsolve(a: LinearOperator, b: jax.Array) -> jax.Array:
+    """Solve the linear system Ax = b."""
+    if a.shape[-1] != b.shape[0]:
+        msg = f"Shape mismatch: {a.shape} and {b.shape}"
+        raise ValueError(msg)
+    return jax.scipy.linalg.solve(a.todense(), b, assume_a="sym")
+
+
+@plum.dispatch
+def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:
+    """Solve the linear system Ax = b."""
+    if a.shape[-1] != b.shape[0]:
+        msg = f"Shape mismatch: {a.shape} and {b.shape}"
+        raise ValueError(msg)
+
+    return jnp.linalg.pinv(a.to_dense(), rtol) @ b
+
+
+@plum.dispatch
+def lcholesky(a: LinearOperator) -> jax.Array:
+    return jnp.linalg.cholesky(a.todense())
+
+
+@plum.dispatch
+def ldet(a: LinearOperator) -> jax.Array:
+    """Compute the determinant of a linear operator."""
+    if not is_square(a):
+        msg = f"Operator {a} is not square."
+        raise ValueError(msg)
+    if not is_symmetric(a):
+        msg = f"Operator {a} is not symmetric."
+        raise ValueError(msg)
+
+    return jnp.linalg.det(a.todense())
+
+
+@plum.dispatch
+def slogdet(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
+    """
+    Compute the sign and log determinant of a linear operator.
+
+    Returns:
+        sign: Sign of the determinant
+        logdet: Logarithm of the determinant
+    """
+    if not is_square(a):
+        msg = f"Operator {a} is not square."
+        raise ValueError(msg)
+
+    return jnp.linalg.slogdet(a.todense())
+
+
 # --------------------------------------------------------------------------- #
 # Linear Operator checks
 # --------------------------------------------------------------------------- #
@@ -179,6 +253,45 @@ def _(a: ScaledLinearOperator) -> LinearOperator:
 @diagonal.dispatch
 def _(a: ScaledLinearOperator) -> jax.Array:
     return a.scalar * diagonal(a.operator)
+
+
+@lsolve.dispatch
+def _(a: ScaledLinearOperator, b: jax.Array) -> jax.Array:
+    return lsolve(a.operator, b) / a.scalar
+
+
+@lpsolve.dispatch
+def _(a: ScaledLinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:
+    return lpsolve(a.operator, b) / a.scalar
+
+
+@lcholesky.dispatch
+def _(a: ScaledLinearOperator) -> ScaledLinearOperator:
+    return ScaledLinearOperator(lcholesky(a.operator), jnp.sqrt(a.scalar))
+
+
+@ldet.dispatch
+def _(a: ScaledLinearOperator) -> jax.Array:
+    """Compute the determinant of a scaled linear operator."""
+    if not is_square(a):
+        msg = f"Operator {a} is not square."
+        raise ValueError(msg)
+    if not is_symmetric(a):
+        msg = f"Operator {a} is not symmetric."
+        raise ValueError(msg)
+
+    return a.scalar ** a.shape[-1] * ldet(a.operator)
+
+
+@slogdet.dispatch
+def _(a: ScaledLinearOperator) -> tuple[jax.Array, jax.Array]:
+    """Compute the sign and log determinant of a scaled linear operator."""
+    if not is_square(a):
+        msg = f"Operator {a} is not square."
+        raise ValueError(msg)
+
+    sign, logdet = slogdet(a.operator)
+    return sign, logdet + (jnp.log(a.scalar) * a.shape[-1])
 
 
 # inverse special behavior:
@@ -435,6 +548,52 @@ class InverseLinearOperator(LinearOperator):
         return cls(operator=operator)
 
 
+@ldet.dispatch
+def ldet(a: InverseLinearOperator) -> jax.Array:
+    """Compute the determinant of a linear operator."""
+    if not is_square(a):
+        msg = f"Operator {a} is not square."
+        raise ValueError(msg)
+    if not is_symmetric(a):
+        msg = f"Operator {a} is not symmetric."
+        raise ValueError(msg)
+
+    return 1 / ldet(a.operator)
+
+
+# TODO: write tests for this class
+class CongruenceTransform(ProductLinearOperator):
+    r""":math:`A B A^\top`."""
+
+    def __init__(self, A: ArithmeticType, B: ArithmeticType) -> None:
+        self._A = utils.as_linop(A)
+        self._B = utils.as_linop(B)
+
+        super().__init__(self._A, self._B, self._A.T)
+
+    def transpose(self) -> LinearOperator:
+        return CongruenceTransform(self._A, self._B.T)
+
+
+@plum.dispatch
+def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:
+    return CongruenceTransform(A, B)
+
+
+# TODO: write tests for this class
+class PseudoInverseLinearOperator(LinearOperator):
+    def __init__(self, operator: LinearOperator, tol: float = 1e-6) -> None:
+        self.operator = operator
+        self.tol = tol
+        super().__init__(shape=operator.shape, dtype=operator.dtype)
+
+    def _matmul(self, arr: jax.Array) -> jax.Array:
+        return lpinverse(self.operator) @ arr
+
+    def todense(self) -> jax.Array:
+        return jnp.linalg.pinv(self.operator.todense(), rtol=self.tol)
+
+
 # Register all linear operators as PyTrees
 jax.tree_util.register_pytree_node_class(ScaledLinearOperator)
 jax.tree_util.register_pytree_node_class(AddLinearOperator)
@@ -442,3 +601,4 @@ jax.tree_util.register_pytree_node_class(ProductLinearOperator)
 jax.tree_util.register_pytree_node_class(CongruenceTransform)
 jax.tree_util.register_pytree_node_class(TransposedLinearOperator)
 jax.tree_util.register_pytree_node_class(InverseLinearOperator)
+jax.tree_util.register_pytree_node_class(PseudoInverseLinearOperator)
