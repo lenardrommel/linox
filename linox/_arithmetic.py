@@ -27,7 +27,7 @@ import plum
 
 from linox import utils
 from linox._linear_operator import LinearOperator
-from linox.typing import ScalarLike, ShapeLike
+from linox.types import ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
 

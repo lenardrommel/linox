@@ -5,7 +5,7 @@ from typing import Union
 import jax.numpy as jnp
 
 from linox import utils
-from linox.typing import DTypeLike, ScalarLike, ShapeLike
+from linox.types import DTypeLike, ScalarLike, ShapeLike
 
 BinaryOperandType = Union["LinearOperator", ScalarLike, jnp.ndarray]
 
@@ -65,9 +65,7 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
         shape: ShapeLike,
         dtype: DTypeLike,
     ) -> None:
-        self.__shape = utils.as_shape(
-            shape, ndim=len(shape)
-        )
+        self.__shape = utils.as_shape(shape, ndim=len(shape))
 
         # DType
         self.__dtype = jnp.dtype(dtype)
@@ -220,9 +218,9 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
 
         res = lmatmul(other, self)
         return (
-            res if isLazyEvaluation else (
-                res[0, :] if isinstance(res, jnp.ndarray) else res.todense()[0]
-            )
+            res
+            if isLazyEvaluation
+            else (res[0, :] if isinstance(res, jnp.ndarray) else res.todense()[0])
         )
 
     def __call__(self, arr: BinaryOperandType) -> "LinearOperator":
@@ -240,7 +238,9 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
 
     @classmethod
     def tree_unflatten(
-        cls, aux_data: dict[str, any], children: tuple[any, ...],
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
     ) -> "LinearOperator":
         """Default implementation for PyTree unflattening."""
         del children

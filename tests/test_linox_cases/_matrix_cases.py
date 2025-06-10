@@ -13,7 +13,7 @@ from linox._arithmetic import (
     ScaledLinearOperator,
     TransposedLinearOperator,
 )
-from linox.typing import ShapeType
+from linox.types import ShapeType
 
 DType = jnp.float32
 CaseType = tuple[LinearOperator, jax.Array]

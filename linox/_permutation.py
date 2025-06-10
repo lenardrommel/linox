@@ -12,7 +12,7 @@ import jax
 import jax.numpy as jnp
 
 from linox._linear_operator import LinearOperator
-from linox.typing import ArrayLike
+from linox.types import ArrayLike
 
 DTYPE = jnp.float32
 

@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "jax",
     "plum-dispatch",
+    "numpy",
 ]
 description = "Linear operators in JAX."
 dynamic = ["version"]

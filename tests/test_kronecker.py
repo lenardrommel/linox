@@ -4,7 +4,7 @@ import jax
 import jax.numpy as jnp
 
 from linox import Kronecker, LinearOperator
-from linox.typing import ShapeLike
+from linox.types import ShapeLike
 
 CaseType = tuple[LinearOperator, Kronecker]
 

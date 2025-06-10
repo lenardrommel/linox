@@ -25,7 +25,7 @@ from linox._arithmetic import (
     lsub,
 )
 from linox._linear_operator import LinearOperator
-from linox.typing import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
+from linox.types import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
 from linox.utils import as_shape
 
 # --------------------------------------------------------------------------- #
@@ -62,8 +62,9 @@ class Matrix(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(cls,
-                       aux_data: dict[str, any], children: tuple[any, ...]) -> "Matrix":
+    def tree_unflatten(
+        cls, aux_data: dict[str, any], children: tuple[any, ...]
+    ) -> "Matrix":
         del aux_data
         (A,) = children
         return cls(A=A)
@@ -341,7 +342,9 @@ class Scalar(LinearOperator):
 
     @classmethod
     def tree_unflatten(
-        cls, aux_data: dict[str, any], children: tuple[any, ...],
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
     ) -> "Scalar":
         del aux_data
         (scalar,) = children
@@ -428,7 +431,9 @@ class Zero(LinearOperator):
 
     @classmethod
     def tree_unflatten(
-        cls, aux_data: dict[str, any], children: tuple[any, ...],
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
     ) -> "Zero":
         del children
         return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
@@ -543,7 +548,9 @@ class Ones(LinearOperator):
 
     @classmethod
     def tree_unflatten(
-        cls, aux_data: dict[str, any], children: tuple[any, ...],
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
     ) -> "Ones":
         del children
         return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
