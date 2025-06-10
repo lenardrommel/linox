@@ -10,7 +10,18 @@ of two linear operators.
 import jax
 import jax.numpy as jnp
 
-from linox._arithmetic import linverse, lsqrt
+from linox._arithmetic import (
+    ProductLinearOperator,
+    lcholesky,
+    ldet,
+    leigh,
+    linverse,
+    lpsolve,
+    lqr,
+    lsolve,
+    lsqrt,
+    slogdet,
+)
 from linox._linear_operator import LinearOperator
 from linox.utils import as_linop
 
@@ -97,6 +108,79 @@ def _(op: Kronecker) -> Kronecker:
     :math:`\sqrt{A \otimes B} = \sqrt{A} \otimes \sqrt{B}`
     """
     return Kronecker(lsqrt(op.A), lsqrt(op.B))
+
+
+# Not properly tested yet.
+@leigh.dispatch
+def _(op: Kronecker) -> Kronecker:
+    wA, QA = leigh(op.A)
+    wB, QB = leigh(op.B)
+    eigvals = jnp.outer(wA, wB).flatten()
+    return eigvals, Kronecker(QA, QB)
+
+
+# Not properly tested yet.
+@lqr.dispatch
+def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
+    """
+    QR decomposition of a kronecker product.
+    Returns:
+        Q(Q_A, Q_B): Orthogonal matrix
+        R(R_A, R_B): Upper triangular matrix
+    """
+    Q_A, R_A = lqr(op.A)
+    Q_B, R_B = lqr(op.B)
+    return Kronecker(Q_A, Q_B), Kronecker(R_A, R_B)
+
+
+# Not properly tested yet.
+@lsolve.dispatch
+def _(op: Kronecker, v: jax.Array) -> jax.Array:
+    m_A, nA = op.A.shape
+    m_B, nB = op.B.shape
+    V = v.reshape((m_A, m_B))
+    return jnp.ravel(lsolve(op.A, lsolve(op.B, V.T).T))  # op.A.solve(op.B.solve(V.T).T)
+
+
+# Not properly tested yet.
+@lpsolve.dispatch
+def _(op: Kronecker, v: jax.Array) -> jax.Array:
+    m_A, nA = op.A.shape
+    m_B, nB = op.B.shape
+    V = v.reshape((m_A, m_B))
+    return jnp.ravel(lpsolve(op.A, lpsolve(op.B, V.T).T))
+
+
+# Not properly tested yet.
+@lcholesky.dispatch
+def _(op: Kronecker) -> tuple[jax.Array, jax.Array]:
+    L_A, U_A = lcholesky(op.A)
+    L_B, U_B = lcholesky(op.B)
+    return Kronecker(L_A, L_B), Kronecker(U_A, U_B)
+
+
+# Not properly tested yet.
+@ldet.dispatch
+def _(op: Kronecker) -> ProductLinearOperator:
+    return ProductLinearOperator([
+        ldet(op.A) ** op.B.shape[0],
+        ldet(op.B) ** op.A.shape[0],
+    ])
+
+
+# Not properly tested yet.
+@slogdet.dispatch
+def _(op: Kronecker) -> tuple[jax.Array, jax.Array]:
+    sign_A, logdet_A = slogdet(op.A)
+    sign_B, logdet_B = slogdet(op.B)
+
+    dim_A = op.A.shape[0]
+    dim_B = op.B.shape[0]
+
+    final_sign = sign_A**dim_B * sign_B**dim_A
+    final_logdet = dim_B * logdet_A + dim_A * logdet_B
+
+    return final_sign, final_logdet
 
 
 # Register Kronecker as a PyTree

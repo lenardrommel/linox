@@ -38,8 +38,7 @@ class ArrayKernel(Kernel):
         return (self.x0.shape[0], self.x1.shape[0])
 
     def _compute_kernel_matrix(self) -> Matrix:
-        """
-        Compute kernel matrix appropriately based on kernel type
+        """Compute kernel matrix appropriately based on kernel type.
 
         Args:
             x_batch: Optional batch of points/domains
@@ -59,9 +58,8 @@ class ArrayKernel(Kernel):
             out_axes=0,
         )(self.x0, self.x1)
 
-    def __matmul__(self, v):
-        """
-        Compute matrix-vector product: K @ v
+    def __matmul__(self, v):  # noqa: ANN204
+        """Compute matrix-vector product: K @ v.
 
         Args:
             v: Vector to multiply with (batch_size,)
@@ -70,7 +68,6 @@ class ArrayKernel(Kernel):
         Returns:
             K @ v: Result (batch_size,)
         """
-
         # Use either precomputed or newly computed kernel matrix
         if self._kernel_matrix is None:
             self._kernel_matrix = self._compute_kernel_matrix()
@@ -80,23 +77,22 @@ class ArrayKernel(Kernel):
     def transpose(self):
         return ArrayKernel(self.kernel, self.x1, self.x0)
 
-    def todense(self):
-        """
-        Convert the kernel matrix to a dense format.
+    def todense(self):  # noqa: ANN202
+        """Convert the kernel matrix to a dense format.
 
         Returns:
             Dense kernel matrix.
         """
         return jnp.asarray(self._kernel_matrix)
 
-    def _matmul(self, other):
+    def _matmul(self, other):  # noqa: ANN202
         return super()._matmul(other)
 
-    def diagonal(self):
+    def diagonal(self):  # noqa: ANN202
         D = np.min(self.shape)
         diag = jnp.zeros(D, dtype=self.dtype)
 
-        def body_function(i, diag):
+        def body_function(i, diag):  # noqa: ANN202
             vec = jnp.zeros(self.shape[1], dtype=self.dtype)
             vec = vec.at[i].set(1.0)
             diag_val = (self._kernel_matrix @ vec)[i]

@@ -33,7 +33,7 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
     def shape(self) -> tuple[int, int]:
         return self._A.shape
 
-    def _matmul(self, arr):
+    def _matmul(self, arr):  # noqa: ANN202
         return self._s @ arr + self._A @ arr
 
     def todense(self) -> jax.Array:
