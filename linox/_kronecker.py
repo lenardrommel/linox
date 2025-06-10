@@ -122,12 +122,11 @@ def _(op: Kronecker) -> Kronecker:
 # Not properly tested yet.
 @lqr.dispatch
 def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
-    """
-    QR decomposition of a kronecker product.
+    """QR decomposition of a kronecker product.
     Returns:
         Q(Q_A, Q_B): Orthogonal matrix
-        R(R_A, R_B): Upper triangular matrix
-    """
+        R(R_A, R_B): Upper triangular matrix.
+    """  # noqa: D205
     Q_A, R_A = lqr(op.A)
     Q_B, R_B = lqr(op.B)
     return Kronecker(Q_A, Q_B), Kronecker(R_A, R_B)
@@ -145,8 +144,8 @@ def _(op: Kronecker, v: jax.Array) -> jax.Array:
 # Not properly tested yet.
 @lpsolve.dispatch
 def _(op: Kronecker, v: jax.Array) -> jax.Array:
-    m_A, nA = op.A.shape
-    m_B, nB = op.B.shape
+    m_A, _ = op.A.shape
+    m_B, _ = op.B.shape
     V = v.reshape((m_A, m_B))
     return jnp.ravel(lpsolve(op.A, lpsolve(op.B, V.T).T))
 
