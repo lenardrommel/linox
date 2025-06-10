@@ -1,10 +1,10 @@
 import jax
-import jax.numpy as jnp
-from scipy import linalg as jsp
+from jax import numpy as jnp
+from jax import scipy as jsp
+from scipy.linalg import solve_toeplitz
 
 from linox._arithmetic import lsolve
 from linox._linear_operator import LinearOperator
-from linox._matrix import solve_toeplitz
 from linox.utils import ArrayLike
 
 # --------------------------------------------------------------------------- #
