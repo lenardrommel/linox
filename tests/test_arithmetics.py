@@ -128,13 +128,14 @@ def test_lmatmul(
 def test_transpose(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     """Test transpose operation."""
     result_linop = linox.transpose(linop)
-    assert jnp.allclose(result_linop.todense(), matrix.T)
-    # Test with .T property
+    expected_transposed = matrix.swapaxes(-1, -2)
+    assert jnp.allclose(result_linop.todense(), expected_transposed)
+
     result_t = linop.T
-    assert jnp.allclose(result_t.todense(), matrix.T)
-    # Test with .transpose() method
+    assert jnp.allclose(result_t.todense(), expected_transposed)
+
     result_transpose = linop.transpose()
-    assert jnp.allclose(result_transpose.todense(), matrix.T)
+    assert jnp.allclose(result_transpose.todense(), expected_transposed)
 
 
 # ============================================================================
@@ -145,10 +146,13 @@ def test_transpose(linop: linox.LinearOperator, matrix: jax.Array) -> None:
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=special_linops)
 def test_diagonal(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     """Test diagonal extraction."""
-    if matrix.shape[0] == matrix.shape[1]:  # Only for square matrices
+    if matrix.shape[-2] == matrix.shape[-1]:
         result = linox.diagonal(linop)
-        expected = jnp.diag(matrix)
-        assert jnp.allclose(result, expected)
+        n = matrix.shape[-1]
+        diag_indices = jnp.arange(n)
+        expected_diag = matrix[..., diag_indices, diag_indices]
+
+        assert jnp.allclose(result, expected_diag)
 
 
 # ============================================================================

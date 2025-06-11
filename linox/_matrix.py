@@ -58,6 +58,10 @@ class Matrix(LinearOperator):
     def transpose(self) -> "Matrix":
         return Matrix(self.A.swapaxes(-1, -2))
 
+    def __T__(self) -> "Matrix":
+        """Alias for transpose."""
+        return self.transpose()
+
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self.A,)
         aux_data = {}

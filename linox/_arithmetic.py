@@ -72,7 +72,13 @@ def lsqrt(a: LinearOperator) -> LinearOperator:
 @plum.dispatch
 def diagonal(a: LinearOperator) -> ArithmeticType:
     print(f"Warning: Linear operator {a} is densed for diagonal computation.")  # noqa: T201
-    return jnp.diag(a.todense())
+    dense_matrix = a.todense()
+    if len(a.shape) <= 2:
+        return jnp.diag(dense_matrix)
+    else:
+        n = dense_matrix.shape[-1]
+        diag_indices = jnp.arange(n)
+        return dense_matrix[..., diag_indices, diag_indices]
 
 
 def transpose(a: LinearOperator) -> ArithmeticType:
