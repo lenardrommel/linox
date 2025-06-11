@@ -23,6 +23,7 @@ from linox._arithmetic import (
     slogdet,
 )
 from linox._linear_operator import LinearOperator
+from linox._matrix import Matrix
 from linox.utils import as_linop
 
 
@@ -116,7 +117,7 @@ def _(op: Kronecker) -> Kronecker:
     wA, QA = leigh(op.A)
     wB, QB = leigh(op.B)
     eigvals = jnp.outer(wA, wB).flatten()
-    return eigvals, Kronecker(QA, QB)
+    return Matrix(eigvals), Kronecker(QA, QB)
 
 
 # Not properly tested yet.
@@ -135,8 +136,8 @@ def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
 # Not properly tested yet.
 @lsolve.dispatch
 def _(op: Kronecker, v: jax.Array) -> jax.Array:
-    m_A, nA = op.A.shape
-    m_B, nB = op.B.shape
+    m_A, _ = op.A.shape
+    m_B, _ = op.B.shape
     V = v.reshape((m_A, m_B))
     return jnp.ravel(lsolve(op.A, lsolve(op.B, V.T).T))  # op.A.solve(op.B.solve(V.T).T)
 

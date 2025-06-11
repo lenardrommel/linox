@@ -90,8 +90,9 @@ def lpinverse(a: LinearOperator) -> ArithmeticType:
 
 
 @plum.dispatch
-def leigh(a: LinearOperator) -> ArithmeticType:
-    return jnp.linalg.eigh(a.todense())
+def leigh(a: LinearOperator) -> tuple[jax.Array, jax.Array]:  # type: ignore
+    eigvals, eigvecs = jnp.linalg.eigh(a.todense())
+    return eigvals, eigvecs
 
 
 @plum.dispatch
@@ -121,7 +122,7 @@ def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
 
-    return jnp.linalg.pinv(a.to_dense(), rtol) @ b
+    return jnp.linalg.pinv(a.todense(), rtol) @ b
 
 
 @plum.dispatch
@@ -227,7 +228,7 @@ class ScaledLinearOperator(LinearOperator):
         return self.operator.todense() * self.scalar
 
     def transpose(self) -> LinearOperator:
-        return self.operator.transpose() * self.scalar
+        return self.scalar * self.operator.transpose()
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self.operator, self.scalar)
@@ -580,18 +581,35 @@ def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator
     return CongruenceTransform(A, B)
 
 
-# TODO: write tests for this class
 class PseudoInverseLinearOperator(LinearOperator):
     def __init__(self, operator: LinearOperator, tol: float = 1e-6) -> None:
         self.operator = operator
-        self.tol = tol
         super().__init__(shape=operator.shape, dtype=operator.dtype)
+        self.tol = tol
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return lpinverse(self.operator) @ arr
 
+    def _matmul(self, arr: jax.Array) -> jax.Array:
+        return linverse(self.operator) @ arr
+
     def todense(self) -> jax.Array:
         return jnp.linalg.pinv(self.operator.todense(), rtol=self.tol)
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.operator,)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "PseudoInverseLinearOperator":
+        del aux_data
+        (operator,) = children
+        return cls(operator=operator)
 
 
 # Register all linear operators as PyTrees
