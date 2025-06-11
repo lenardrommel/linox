@@ -96,19 +96,18 @@ def lpinverse(a: LinearOperator) -> ArithmeticType:
 
 
 @plum.dispatch
-def leigh(a: LinearOperator) -> tuple[jax.Array, jax.Array]:  # type: ignore
+def leigh(a: LinearOperator) -> tuple[jax.Array, jax.Array]:  # type: ignore  # noqa: PGH003
     eigvals, eigvecs = jnp.linalg.eigh(a.todense())
     return eigvals, eigvecs
 
 
 @plum.dispatch
 def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
-    """
-    QR decomposition of a linear operator.
+    """QR decomposition of a linear operator.
     Returns:
         Q: Orthogonal matrix
-        R: Upper triangular matrix
-    """
+        R: Upper triangular matrix.
+    """  # noqa: D205
     return jnp.linalg.qr(a.todense())
 
 
@@ -151,8 +150,7 @@ def ldet(a: LinearOperator) -> jax.Array:
 
 @plum.dispatch
 def slogdet(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
-    """
-    Compute the sign and log determinant of a linear operator.
+    """Compute the sign and log determinant of a linear operator.
 
     Returns:
         sign: Sign of the determinant
@@ -268,7 +266,7 @@ def _(a: ScaledLinearOperator, b: jax.Array) -> jax.Array:
 
 
 @lpsolve.dispatch
-def _(a: ScaledLinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:
+def _(a: ScaledLinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001, ARG001
     return lpsolve(a.operator, b) / a.scalar
 
 
@@ -568,8 +566,7 @@ def ldet(a: InverseLinearOperator) -> jax.Array:
     return 1 / ldet(a.operator)
 
 
-# TODO: write tests for this class
-class CongruenceTransform(ProductLinearOperator):
+class CongruenceTransform(ProductLinearOperator):  # noqa: F811
     r""":math:`A B A^\top`."""
 
     def __init__(self, A: ArithmeticType, B: ArithmeticType) -> None:
@@ -583,7 +580,7 @@ class CongruenceTransform(ProductLinearOperator):
 
 
 @plum.dispatch
-def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:
+def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:  # noqa: F811
     return CongruenceTransform(A, B)
 
 
