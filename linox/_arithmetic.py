@@ -23,7 +23,7 @@ from functools import reduce
 
 import jax
 import jax.numpy as jnp
-import plum
+import plum  # type: ignore  # noqa: PGH003
 
 from linox import utils
 from linox._linear_operator import LinearOperator
@@ -75,10 +75,9 @@ def diagonal(a: LinearOperator) -> ArithmeticType:
     dense_matrix = a.todense()
     if len(a.shape) <= 2:
         return jnp.diag(dense_matrix)
-    else:
-        n = dense_matrix.shape[-1]
-        diag_indices = jnp.arange(n)
-        return dense_matrix[..., diag_indices, diag_indices]
+    n = dense_matrix.shape[-1]
+    diag_indices = jnp.arange(n)
+    return dense_matrix[..., diag_indices, diag_indices]
 
 
 def transpose(a: LinearOperator) -> ArithmeticType:
@@ -104,10 +103,11 @@ def leigh(a: LinearOperator) -> tuple[jax.Array, jax.Array]:  # type: ignore  # 
 @plum.dispatch
 def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
     """QR decomposition of a linear operator.
+
     Returns:
         Q: Orthogonal matrix
         R: Upper triangular matrix.
-    """  # noqa: D205
+    """
     return jnp.linalg.qr(a.todense())
 
 
@@ -121,7 +121,7 @@ def lsolve(a: LinearOperator, b: jax.Array) -> jax.Array:
 
 
 @plum.dispatch
-def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:
+def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001
     """Solve the linear system Ax = b."""
     if a.shape[-1] != b.shape[0]:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
