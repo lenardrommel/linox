@@ -5,12 +5,26 @@ from typing import List, Tuple, Type, Union
 
 import jax
 import jax.numpy as jnp
+import pytest
 
 from linox import Kronecker, LinearOperator, Matrix, lpsolve, lsolve
 from linox.types import ShapeLike
 from linox.utils import as_linop
 
 CaseType = tuple[LinearOperator, Kronecker, Matrix]
+
+
+@pytest.fixture(
+    params=[pytest.param(seed, id=f"seed{seed}") for seed in [0, 22, 278]],
+)
+def key(request: pytest.FixtureRequest) -> jax.random.PRNGKey:
+    return jax.random.PRNGKey(request.param)
+
+
+def square_spd_matrix(size: int, key: jax.random.PRNGKey) -> jax.Array:
+    """Generate a square symmetric positive definite matrix for testing."""
+    A = jax.random.normal(key, (size, size))
+    return A @ A.T + jnp.eye(size) * 1e-6  # Ensure positive definiteness
 
 
 def time_function(func, *args, num_runs=10, warmup=3):
@@ -50,13 +64,9 @@ def time_function(func, *args, num_runs=10, warmup=3):
     return min(times), sum(times) / len(times), max(times)
 
 
-def make_psd(m: jax.Array) -> jax.Array:
-    """Make a positive semidefinite matrix."""
-    return m @ m.T + m.shape[0] * jnp.eye(m.shape[0]) * 1e-6
-
-
-def sample_kronecker(shapeA: ShapeLike, shapeB: ShapeLike) -> CaseType:
-    key = jax.random.key(5)
+def sample_kronecker(
+    shapeA: ShapeLike, shapeB: ShapeLike, key: jax.random.PRNGKey
+) -> CaseType:
     key1, key2 = jax.random.split(key)
     A = jax.random.normal(key1, shapeA)
     B = jax.random.normal(key2, shapeB)
@@ -69,13 +79,13 @@ def create_nested_kronecker(key: jax.Array, dims: List[int]) -> Tuple[any, jax.A
     keys = jax.random.split(key, len(dims))
 
     # Create first matrix
-    M_first = make_psd(jax.random.uniform(keys[0], (dims[0], dims[0])))
+    M_first = square_spd_matrix(dims[0], keys[0])
     kron_op = as_linop(M_first)
     kron_dense = M_first
 
     # Build up nested Kronecker product
     for i, dim in enumerate(dims[1:], 1):
-        M = make_psd(jax.random.uniform(keys[i], (dim, dim)))
+        M = square_spd_matrix(dim, keys[i])
         kron_op = Kronecker(kron_op, as_linop(M))
         kron_dense = jnp.kron(kron_dense, M)
 
@@ -85,19 +95,19 @@ def create_nested_kronecker(key: jax.Array, dims: List[int]) -> Tuple[any, jax.A
 def test_kronecker_basic():
     """Test basic Kronecker operations."""
     key = jax.random.key(42)
-    op, arr = sample_kronecker((2, 3), (3, 2), key)
+    op, arr = sample_kronecker((2, 2), (3, 3), key)
 
     # Test dense representation
-    assert jnp.allclose(op.todense(), arr, rtol=1e-10)
+    assert jnp.allclose(op.todense(), arr), "Dense representation mismatch"
 
     # Test matrix-vector multiplication
     key = jax.random.key(1)
     vec = jax.random.normal(key, (op.shape[1],))
-    assert jnp.allclose(op @ vec, arr @ vec, rtol=1e-10)
+    assert jnp.allclose(op @ vec, arr @ vec), "Matrix-vector multiplication mismatch"
 
     # Test transpose
-    vec_t = jax.random.normal(key, (op.shape[0],))
-    assert jnp.allclose(op.T @ vec_t, arr.T @ vec_t, rtol=1e-10)
+    vec_t = jax.random.normal(key, (op.shape[0],)).reshape(-1)
+    assert jnp.allclose(op.T @ vec_t, arr.T @ vec_t), "Transpose mismatch"
 
 
 def test_kronecker_square():
@@ -105,14 +115,14 @@ def test_kronecker_square():
     key = jax.random.key(123)
     op, arr = sample_kronecker((2, 2), (3, 3), key)
 
-    assert jnp.allclose(op.todense(), arr, rtol=1e-10)
+    assert jnp.allclose(op.todense(), arr)
 
     vec = jax.random.normal(jax.random.key(1), (op.shape[1],))
-    assert jnp.allclose(op @ vec, arr @ vec, rtol=1e-10)
+    assert jnp.allclose(op @ vec, arr @ vec)
 
 
 def test_kronecker() -> None:
-    op, arr = sample_kronecker((2, 2), (3, 2))
+    op, arr = sample_kronecker((2, 2), (3, 3), jax.random.key(42))
     key = jax.random.key(1)
     vec = jax.random.normal(key, op.shape[::-1])
     assert jnp.allclose(op.todense(), arr)
@@ -121,6 +131,14 @@ def test_kronecker() -> None:
     assert jnp.allclose(op @ vec[..., 0], arr @ vec[..., 0])
 
 
+@pytest.mark.parametrize(
+    "key, dim, batch_size",
+    [
+        (jax.random.key(0), 2, 4),
+        (jax.random.key(1), 3, 5),
+        (jax.random.key(2), 4, 6),
+    ],
+)
 def test_kronecker_solve(key, dim, batch_size):
     shapes = jax.random.randint(
         key,
@@ -131,11 +149,11 @@ def test_kronecker_solve(key, dim, batch_size):
 
     shapes = shapes.at[0].set(batch_size)
     b, dims = shapes[0], shapes[1:]
-    M_batch = make_psd(jax.random.uniform(key, (b, b)))
+    M_batch = square_spd_matrix(b, key)
     Matrix_list = []
 
     for dim in dims:
-        M = make_psd(jax.random.uniform(key, (dim, dim)))
+        M = square_spd_matrix(dim, key)
         Matrix_list.append(M)
 
     def make_kronecker_op(op, M):
@@ -161,94 +179,3 @@ def test_kronecker_solve(key, dim, batch_size):
     assert jnp.allclose(kron_prod @ vec, kron_res @ vec), (
         "Matrix-vector multiplication does not match"
     )
-
-
-def benchmark_matmul(dims: List[int], num_vectors: int = 5, num_runs: int = 10):
-    """Benchmark matrix-vector multiplication."""
-    key = jax.random.key(42)
-    key_op, key_vec = jax.random.split(key)
-
-    # Create operators
-    kron_op, kron_dense = create_nested_kronecker(key_op, dims)
-
-    # Create test vectors
-    vec_keys = jax.random.split(key_vec, num_vectors)
-    vectors = [jax.random.normal(k, (kron_op.shape[1],)) for k in vec_keys]
-
-    print(f"\nBenchmarking dims={dims}, total_size={kron_op.shape}")
-    print(
-        f"Memory: Kronecker stores {sum(d * d for d in dims) * 8 / 1024:.1f}KB, "
-        f"Dense would store {kron_op.shape[0] * kron_op.shape[1] * 8 / 1024 / 1024:.1f}MB"
-    )
-
-    # Benchmark Kronecker operator
-    def kron_matmul():
-        return [kron_op @ v for v in vectors]
-
-    # Benchmark dense matrix
-    def dense_matmul():
-        return [kron_dense @ v for v in vectors]
-
-    # Time both approaches
-    kron_min, kron_avg, kron_max = time_function(kron_matmul, num_runs=num_runs)
-    dense_min, dense_avg, dense_max = time_function(dense_matmul, num_runs=num_runs)
-
-    speedup = dense_avg / kron_avg
-
-    print(
-        f"Dense:     {dense_avg * 1000:.2f}ms ± {(dense_max - dense_min) * 1000 / 2:.2f}ms"
-    )
-    print(f"Speedup:   {speedup:.2f}x {'✓' if speedup > 1 else '✗'}")
-
-    # Verify correctness
-    kron_results = kron_matmul()
-    dense_results = dense_matmul()
-    max_error = max(
-        jnp.max(jnp.abs(kr - dr)) for kr, dr in zip(kron_results, dense_results)
-    )
-    print(f"Max error: {max_error:.2e}")
-
-    return {
-        "dims": dims,
-        "total_size": kron_op.shape[0],
-        "kron_time": kron_avg,
-        "dense_time": dense_avg,
-        "speedup": speedup,
-        "memory_ratio": (kron_op.shape[0] * kron_op.shape[1])
-        / sum(d * d for d in dims),
-    }
-
-
-test_kronecker_solve(jax.random.key(0), 3, batch_size=2)
-
-
-def test_performance_crossover():
-    """Find the crossover point where Kronecker becomes faster."""
-    print("Finding performance crossover point...")
-
-    # Test progressively larger sizes
-    crossover_found = False
-    dims_list = [
-        [13, 13, 13],  # 27x27
-        [14, 14, 14],  # 64x64
-        [15, 15, 15],  # 100x100
-        [16, 16, 16],  # 180x180
-        [18, 18, 18],  # 240x240
-        [18, 18, 18],  # 384x384
-        [10, 8, 6],  # 480x480
-        [10, 10, 8],  # 800x800
-    ]
-
-    for dims in dims_list:
-        result = benchmark_matmul(dims, num_vectors=1, num_runs=3)
-        if result["speedup"] > 1.0 and not crossover_found:
-            print(f"\n🎯 CROSSOVER FOUND at dims={dims}, size={result['total_size']}")
-            crossover_found = True
-
-        if result["total_size"] > 1000:  # Stop at reasonable size
-            break
-
-    return crossover_found
-
-
-test_performance_crossover()

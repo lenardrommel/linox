@@ -50,8 +50,12 @@ class Kronecker(LinearOperator):
         super().__init__(shape, dtype)
 
     def _matmul(self, vec: jax.Array) -> jax.Array:
-        mA, nA = self.A.shape  # nA == mA if square
-        mB, nB = self.B.shape  # nB == mB if square
+        mA, nA = self.A.shape
+        mB, nB = self.B.shape
+        assert mA == nA and mB == nB, (  # noqa: PT018
+            f"Kronecker product requires square matrices, got {self.A.shape} and {self.B.shape}"
+        )
+
         # vec(X) -> X, i.e., reshape into stack of matrices
         y = jnp.swapaxes(vec, -2, -1)
         y = y.reshape((*y.shape[:-1], mA, mB))
