@@ -18,7 +18,6 @@ from linox._arithmetic import (
     ScaledLinearOperator,
     congruence_transform,
     ladd,
-    lcholesky,
     linverse,
     lmatmul,
     lmul,

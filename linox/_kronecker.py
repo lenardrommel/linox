@@ -50,9 +50,8 @@ class Kronecker(LinearOperator):
         super().__init__(shape, dtype)
 
     def _matmul(self, vec: jax.Array) -> jax.Array:
-        _, mA = self.A.shape
-        _, mB = self.B.shape
-
+        mA, nA = self.A.shape  # nA == mA if square
+        mB, nB = self.B.shape  # nB == mB if square
         # vec(X) -> X, i.e., reshape into stack of matrices
         y = jnp.swapaxes(vec, -2, -1)
         y = y.reshape((*y.shape[:-1], mA, mB))
@@ -134,12 +133,23 @@ def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
 
 
 # Not properly tested yet.
+# @lsolve.dispatch
+# def _(op: Kronecker, v: jax.Array) -> jax.Array:
+#     m_A, _ = op.A.shape
+#     m_B, _ = op.B.shape
+
+
+#     V = v.reshape((m_A, m_B))
+#     return jnp.ravel(lsolve(op.A, lsolve(op.B, V.T).T))  # op.A.solve(op.B.solve(V.T).T)
 @lsolve.dispatch
 def _(op: Kronecker, v: jax.Array) -> jax.Array:
-    m_A, _ = op.A.shape
-    m_B, _ = op.B.shape
-    V = v.reshape((m_A, m_B))
-    return jnp.ravel(lsolve(op.A, lsolve(op.B, V.T).T))  # op.A.solve(op.B.solve(V.T).T)
+    mA, nA = op.A.shape
+    mB, nB = op.B.shape
+    if mA == nA and mB == nB:
+        return linverse(op) @ v.reshape(-1)  # noqa: SLF001
+    raise ValueError(  # noqa: TRY003
+        f"Cannot solve Kronecker({mA}×{nA}, {mB}×{nB}) unless both factors are square"  # noqa: EM102
+    )
 
 
 # Not properly tested yet.
