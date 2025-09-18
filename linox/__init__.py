@@ -43,6 +43,7 @@ from ._arithmetic import (
     lsolve,
     lsqrt,
     slogdet,
+    svd,
     symmetrize,
     transpose,
 )
@@ -60,7 +61,7 @@ from ._low_rank import (
 )
 from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
-from .utils import todense
+from .utils import allclose, todense
 
 # Explicitly declare public API
 __all__ = [
@@ -87,6 +88,7 @@ __all__ = [
     "SymmetricLowRank",
     "TransposedLinearOperator",
     "Zero",
+    "allclose",
     "congruence_transform",
     "diagonal",
     "is_square",
@@ -95,11 +97,13 @@ __all__ = [
     "ldet",
     "leigh",
     "linverse",
+    "lpinverse",
     "lpsolve",
     "lqr",
     "lsolve",
     "lsqrt",
     "slogdet",
+    "svd",
     "symmetrize",
     "todense",
     "transpose",

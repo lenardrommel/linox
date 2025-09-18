@@ -134,6 +134,7 @@ linops_options = [
     sample_add_operator,
     sample_scaled_operator,
     sample_product_operator,
+    sample_transposed_operator,
 ]
 
 symmetric_options = [

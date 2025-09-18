@@ -15,6 +15,8 @@ import jax.numpy as jnp
 
 from linox import utils
 from linox._arithmetic import (
+    InverseLinearOperator,
+    PseudoInverseLinearOperator,
     ScaledLinearOperator,
     congruence_transform,
     ladd,
@@ -108,6 +110,8 @@ def _(a: Matrix) -> Matrix:
 
 @linverse.dispatch
 def _(a: Matrix) -> Matrix:
+    # Solve via LU decomposition and Inverse Linear Operator
+
     return Matrix(jnp.linalg.inv(a.A))
 
 

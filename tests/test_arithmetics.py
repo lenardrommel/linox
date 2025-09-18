@@ -310,14 +310,36 @@ def test_linverse(square_spd_matrix: jax.Array, key: jax.random.PRNGKey) -> None
     assert jnp.allclose(identity_result.todense(), expected_identity, atol=1e-6)
 
 
-def test_lpinverse(square_matrix: jax.Array) -> None:
-    """Test pseudo-inverse operation."""
-    op = linox.Matrix(square_matrix)
+def test_lpinverse(key: jax.random.PRNGKey) -> None:
+    """Test pseudo-inverse linear system solving."""
+    matrix = jax.random.normal(key, (5, 3))
+    op = linox.Matrix(matrix)
+
+    assert linox.allclose(
+        linox.lpinverse(op).todense(), jnp.linalg.pinv(op.todense())
+    ), "Pseudo-inverse does not match numpy's pinv"
 
     pinv_op = linox.lpinverse(op)
-    expected = jnp.linalg.pinv(square_matrix)
+    pinv_op_test = linox.lpinverse(pinv_op)
+    assert linox.allclose(pinv_op_test, op, atol=1e-6), (
+        "Double pseudo-inverse does not return the original operator"
+    )
+    assert pinv_op_test.shape == op.shape
 
-    assert jnp.allclose(pinv_op.todense(), expected, atol=1e-6)
+    assert op.shape == pinv_op.T.shape, (
+        "Shape mismatch between operator and its pseudo-inverse"
+    )
+    assert op.todense().shape == pinv_op.todense().T.shape, (
+        "Dense shape mismatch between operator and its pseudo-inverse"
+    )
+    expected = jnp.linalg.pinv(matrix)
+    assert linox.allclose(pinv_op.todense(), expected, atol=1e-6)
+    # Test that A * A^+ * A = A
+    triple_product = op @ pinv_op @ op
+    assert triple_product.shape == matrix.shape, (
+        "Shape mismatch in triple product A * A^+ * A"
+    )
+    assert linox.allclose(triple_product.todense(), matrix, atol=1e-6)
 
 
 # ============================================================================

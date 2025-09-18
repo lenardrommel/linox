@@ -46,3 +46,5 @@ def _(a: IsotropicAdditiveLinearOperator, jitter: float = 1e-10) -> jax.Array:
 
 
 # we need a log-determinant function here
+# TODO: Implement lsolve for IsotropicAdditiveLinearOperator via eigendecomposition
+# A \kron B + s I = (Q_A \kron Q_B) (Lambda_A \kron Lambda_B + s I) (Q_A \kron Q_B)^T

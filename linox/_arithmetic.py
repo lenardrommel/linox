@@ -95,9 +95,33 @@ def lpinverse(a: LinearOperator) -> ArithmeticType:
 
 
 @plum.dispatch
-def leigh(a: LinearOperator) -> tuple[jax.Array, jax.Array]:  # type: ignore  # noqa: PGH003
+def leigh(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
     eigvals, eigvecs = jnp.linalg.eigh(a.todense())
     return eigvals, eigvecs
+
+
+@plum.dispatch
+def svd(
+    a: LinearOperator,
+    full_matrices: bool = True,
+    compute_uv: bool = True,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    """Singular Value Decomposition of a linear operator.
+    Args:
+        a: Linear operator
+        full_matrices: If True, return full-sized U and Vh matrices
+        compute_uv: If True, compute U and Vh in addition to S.
+
+    Returns:
+        U: Left singular vectors
+        S: Singular values
+        Vh: Right singular vectors (Hermitian)
+    """  # noqa: D205
+    return jax.scipy.linalg.svd(
+        a.todense(),
+        full_matrices=full_matrices,
+        compute_uv=compute_uv,
+    )
 
 
 @plum.dispatch
@@ -118,6 +142,25 @@ def lsolve(a: LinearOperator, b: jax.Array) -> jax.Array:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
     return jax.scipy.linalg.solve(a.todense(), b, assume_a="sym")
+
+
+@plum.dispatch
+def lu_factor(
+    a: LinearOperator,
+    overwrite_a: bool = False,  # noqa: FBT001
+) -> tuple[jax.Array, jax.Array]:
+    """LU factorization of a linear operator."""
+    return jax.scipy.linalg.lu_factor(a.todense(), overwrite_a=overwrite_a)
+
+
+@plum.dispatch
+def lu_solve(a: LinearOperator, b: jax.Array) -> jax.Array:
+    """Solve the linear system Ax = b given the LU factorization of A."""
+    if a.shape[-1] != b.shape[0]:
+        msg = f"Shape mismatch: {a.shape} and {b.shape}"
+        raise ValueError(msg)
+    lu, piv = lu_factor(a)
+    return jax.scipy.linalg.lu_solve((lu, piv), b, overwrite_b=False)
 
 
 @plum.dispatch
@@ -258,6 +301,16 @@ def _(a: ScaledLinearOperator) -> LinearOperator:
 @diagonal.dispatch
 def _(a: ScaledLinearOperator) -> jax.Array:
     return a.scalar * diagonal(a.operator)
+
+
+@linverse.dispatch
+def _(a: ScaledLinearOperator) -> LinearOperator:
+    return ScaledLinearOperator(linverse(a.operator), 1 / a.scalar)
+
+
+@lpinverse.dispatch
+def _(a: ScaledLinearOperator) -> LinearOperator:
+    return ScaledLinearOperator(lpinverse(a.operator), 1 / a.scalar)
 
 
 @lsolve.dispatch
@@ -414,6 +467,15 @@ class ProductLinearOperator(LinearOperator):
             *(op.transpose() for op in reversed(self.operator_list))
         )
 
+    def todense(self) -> jax.Array:
+        return reduce(
+            lambda x, y: y @ x,
+            [
+                self.operator_list[-1].todense(),
+                *reversed([op.todense() for op in self.operator_list[:-1]]),
+            ],
+        )
+
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = tuple(self.operator_list)
         aux_data = {}
@@ -529,7 +591,31 @@ class InverseLinearOperator(LinearOperator):
         super().__init__(shape=operator.shape, dtype=operator.dtype)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
-        return linverse(self.operator) @ arr
+        """Matrix multiplication via solving the linear system Ax = b.
+        This method implements matrix multiplication by solving the linear system
+        where the operator acts as matrix A and the input array as vector b.
+        For symmetric operators, it uses Cholesky decomposition for efficiency.
+        For general operators, it uses LU decomposition.
+            jax.Array: Solution array with shape (..., m) where m is the number of
+                       rows of the operator.
+        Note:
+            - Uses Cholesky decomposition for symmetric operators
+            - Uses LU decomposition for general operators
+            - Results are transposed to match expected output dimensions.
+        """  # noqa: D205
+        if is_symmetric(self.operator):
+            return jax.scipy.linalg.cho_solve(
+                (lcholesky(self.operator), False),
+                arr,
+                overwrite_b=False,
+            ).T
+
+        return jax.scipy.linalg.lu_solve(
+            lu_factor(self.operator),
+            arr,
+            trans=1,
+            overwrite_b=False,
+        ).T
 
     def todense(self) -> jax.Array:
         return jnp.linalg.inv(self.operator.todense())
@@ -587,16 +673,24 @@ def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator
 class PseudoInverseLinearOperator(LinearOperator):
     def __init__(self, operator: LinearOperator, tol: float = 1e-6) -> None:
         self.operator = operator
-        super().__init__(shape=operator.shape, dtype=operator.dtype)
+        super().__init__(shape=operator.T.shape, dtype=operator.dtype)
         self.tol = tol
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
-        return lpinverse(self.operator) @ arr
+        return jnp.linalg.pinv(self.operator.todense(), rtol=self.tol) @ arr
 
-    def _matmul(self, arr: jax.Array) -> jax.Array:
-        return linverse(self.operator) @ arr
+    def transpose(self) -> LinearOperator:
+        return PseudoInverseLinearOperator(self.operator).transpose()
 
     def todense(self) -> jax.Array:
+        r"""# TODO:
+        Compute the dense pseudo-inverse using SVD.
+        U, S, Vh = svd(self.operator)
+        Returns:
+            x_LS = \sum_i (u_i^T b) / s_i v_i
+            -> U, S, Vh = svd(self.operator)
+            return U @ jnp.diag(1 / S) @ Vh.
+        """  # noqa: D205
         return jnp.linalg.pinv(self.operator.todense(), rtol=self.tol)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
@@ -613,6 +707,25 @@ class PseudoInverseLinearOperator(LinearOperator):
         del aux_data
         (operator,) = children
         return cls(operator=operator)
+
+
+@lpinverse.dispatch
+def _(a: PseudoInverseLinearOperator) -> LinearOperator:
+    return a.operator
+
+
+@svd.dispatch
+def _(
+    a: PseudoInverseLinearOperator,
+    full_matrices: bool = True,
+    compute_uv: bool = True,
+    hermitian: bool = False,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    U, S, Vh = svd(a.operator, full_matrices, compute_uv, hermitian)
+    S_inv = jnp.where(S > a.tol, 1 / S, 0)
+    U = jnp.where(S > a.tol, U, 0)
+    Vh = jnp.where(S > a.tol, Vh, 0)
+    return U, S_inv, Vh
 
 
 # Register all linear operators as PyTrees

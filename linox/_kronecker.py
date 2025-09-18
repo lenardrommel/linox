@@ -10,55 +10,87 @@ of two linear operators.
 import jax
 import jax.numpy as jnp
 
+from linox import utils
 from linox._arithmetic import (
     ProductLinearOperator,
     lcholesky,
     ldet,
     leigh,
     linverse,
-    lpsolve,
+    lpinverse,
     lqr,
-    lsolve,
     lsqrt,
     slogdet,
+    svd,
 )
 from linox._linear_operator import LinearOperator
-from linox._matrix import Matrix
-from linox.utils import as_linop
 
 
 class Kronecker(LinearOperator):
-    r"""Kronecker product of two linear operators.
+    """A Kronecker product of two linear operators.
 
-    For linear operators :math:`A` and :math:`B`, this represents their Kronecker
-    product :math:`A \otimes B`. The action on a vector :math:`x` is given by
-    :math:`(A \otimes B)x = \text{vec}(A \cdot \text{unvec}(x) \cdot B^T)`
-    where :math:`\text{vec}` and :math:`\text{unvec}` are vectorization operations.
+    Example usage:
 
-    Args:
-        A: First linear operator
-        B: Second linear operator
+    A = jnp.array([[1, 2], [3, 4]], dtype=jnp.float32)
+    B = jnp.array([[5, 6], [7, 8]], dtype=jnp.float32)
+    op = Kronecker(A, B)
+    vec = jnp.ones((4,))
+    result = op @ vec
+    result_true = jnp.kron(A, B) @ vec
+    jnp.allclose(result, result_true)
     """
 
     def __init__(
         self, A: LinearOperator | jax.Array, B: LinearOperator | jax.Array
     ) -> None:
-        self.A = as_linop(A)
-        self.B = as_linop(B)
-        shape = (A.shape[0] * B.shape[0], A.shape[1] * B.shape[1])
+        self._A = utils.as_linop(A)
+        self._B = utils.as_linop(B)
+        self._shape = (
+            self._A.shape[0] * self._B.shape[0],
+            self._A.shape[1] * self._B.shape[1],
+        )
         dtype = A.dtype
-        super().__init__(shape, dtype)
+        super().__init__(self._shape, dtype)
+
+    @property
+    def A(self) -> LinearOperator:
+        return self._A
+
+    @property
+    def B(self) -> LinearOperator:
+        return self._B
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        return (
+            self._A.shape[0] * self._B.shape[0],
+            self._A.shape[1] * self._B.shape[1],
+        )
+
+    @classmethod
+    def tree_flatten(cls) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (cls.A, cls.B)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "Kronecker":
+        return cls(*children)
 
     def _matmul(self, vec: jax.Array) -> jax.Array:
-        mA, nA = self.A.shape
-        mB, nB = self.B.shape
-        assert mA == nA and mB == nB, (  # noqa: PT018
-            f"Kronecker product requires square matrices, got {self.A.shape} and {self.B.shape}"
-        )
+        if len(vec.shape) == 1:
+            vec = vec[:, None]
+
+        _, mA = self.A.shape
+        _, mB = self.B.shape
 
         # vec(X) -> X, i.e., reshape into stack of matrices
         y = jnp.swapaxes(vec, -2, -1)
-        y = y.reshape((*y.shape[:-1], mA, mB))
+        y = y.reshape(y.shape[:-1] + (mA, mB))
 
         # (X @ B.T).T = B @ X.T
         y = self.B @ jnp.swapaxes(y, -1, -2)
@@ -67,7 +99,7 @@ class Kronecker(LinearOperator):
         y = self.A @ jnp.swapaxes(y, -1, -2)
 
         # vec(A @ X @ B.T), i.e., revert to stack of vectorized matrices
-        y = y.reshape((*y.shape[:-2], -1))
+        y = y.reshape(y.shape[:-2] + (-1,))
         y = jnp.swapaxes(y, -1, -2)
 
         return y
@@ -78,30 +110,21 @@ class Kronecker(LinearOperator):
     def transpose(self) -> "Kronecker":
         return Kronecker(self.A.transpose(), self.B.transpose())
 
-    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
-        children = (self.A, self.B)
-        aux_data = {}
-        return children, aux_data
+    def diag(self) -> "Kronecker":
+        return Kronecker(self.A.diagonal(), self.B.diagonal())
 
-    @classmethod
-    def tree_unflatten(
-        cls,
-        aux_data: dict[str, any],
-        children: tuple[any, ...],
-    ) -> "Kronecker":
-        del aux_data
-        A, B = children
-        return cls(A=A, B=B)
+    def trace(self) -> jax.Array:
+        return jnp.trace(self.A) * jnp.trace(self.B)
 
 
 @linverse.dispatch
 def _(op: Kronecker) -> Kronecker:
-    r"""Inverse of a Kronecker product.
-
-    For a Kronecker product :math:`A \otimes B`, this represents
-    :math:`(A \otimes B)^{-1} = A^{-1} \otimes B^{-1}`
-    """
     return Kronecker(linverse(op.A), linverse(op.B))
+
+
+@lpinverse.dispatch
+def _(op: Kronecker) -> Kronecker:
+    return Kronecker(lpinverse(op.A), lpinverse(op.B))
 
 
 @lsqrt.dispatch
@@ -114,16 +137,14 @@ def _(op: Kronecker) -> Kronecker:
     return Kronecker(lsqrt(op.A), lsqrt(op.B))
 
 
-# Not properly tested yet.
 @leigh.dispatch
-def _(op: Kronecker) -> Kronecker:
+def _(op: Kronecker) -> tuple[jax.Array, Kronecker]:
     wA, QA = leigh(op.A)
     wB, QB = leigh(op.B)
     eigvals = jnp.outer(wA, wB).flatten()
-    return Matrix(eigvals), Kronecker(QA, QB)
+    return eigvals, Kronecker(QA, QB)
 
 
-# Not properly tested yet.
 @lqr.dispatch
 def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
     """QR decomposition of a kronecker product.
@@ -136,6 +157,25 @@ def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
     return Kronecker(Q_A, Q_B), Kronecker(R_A, R_B)
 
 
+@svd.dispatch
+def _(op: Kronecker) -> tuple[Kronecker, jax.Array, Kronecker]:
+    """SVD decomposition of a kronecker product.
+
+    Returns:
+        U(U_A, U_B): Left singular vectors
+        S: Singular values
+        Vh(Vh_A, Vh_B): Right singular vectors (Hermitian transposed).
+    """
+    U_A, S_A, Vh_A = svd(op.A)
+    U_B, S_B, Vh_B = svd(op.B)
+
+    return (
+        Kronecker(U_A, U_B),
+        jnp.outer(S_A, S_B).flatten(),
+        Kronecker(Vh_A, Vh_B),
+    )
+
+
 # Not properly tested yet.
 # @lsolve.dispatch
 # def _(op: Kronecker, v: jax.Array) -> jax.Array:
@@ -145,32 +185,13 @@ def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
 
 #     V = v.reshape((m_A, m_B))
 #     return jnp.ravel(lsolve(op.A, lsolve(op.B, V.T).T))  # op.A.solve(op.B.solve(V.T).T)
-@lsolve.dispatch
-def _(op: Kronecker, v: jax.Array) -> jax.Array:
-    mA, nA = op.A.shape
-    mB, nB = op.B.shape
-    if mA == nA and mB == nB:
-        return linverse(op) @ v.reshape(-1)  # noqa: SLF001
-    raise ValueError(  # noqa: TRY003
-        f"Cannot solve Kronecker({mA}×{nA}, {mB}×{nB}) unless both factors are square"  # noqa: EM102
-    )
 
 
-# Not properly tested yet.
-@lpsolve.dispatch
-def _(op: Kronecker, v: jax.Array) -> jax.Array:
-    m_A, _ = op.A.shape
-    m_B, _ = op.B.shape
-    V = v.reshape((m_A, m_B))
-    return jnp.ravel(lpsolve(op.A, lpsolve(op.B, V.T).T))
-
-
-# Not properly tested yet.
 @lcholesky.dispatch
-def _(op: Kronecker) -> tuple[jax.Array, jax.Array]:
-    L_A, U_A = lcholesky(op.A)
-    L_B, U_B = lcholesky(op.B)
-    return Kronecker(L_A, L_B), Kronecker(U_A, U_B)
+def _(op: Kronecker) -> Kronecker:
+    L_A = lcholesky(op.A)
+    L_B = lcholesky(op.B)
+    return Kronecker(L_A, L_B)
 
 
 # Not properly tested yet.
@@ -182,7 +203,6 @@ def _(op: Kronecker) -> ProductLinearOperator:
     ])
 
 
-# Not properly tested yet.
 @slogdet.dispatch
 def _(op: Kronecker) -> tuple[jax.Array, jax.Array]:
     sign_A, logdet_A = slogdet(op.A)
