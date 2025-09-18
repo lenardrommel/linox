@@ -19,6 +19,8 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
 
     def __init__(self, s: jax.Array, A: LinearOperator) -> None:
         self._A = A
+        if A.shape[-1] != A.shape[-2]:
+            raise ValueError("A must be a square matrix.")
         self._s = ScaledLinearOperator(
             Identity(self._A.shape[0], dtype=self._A.dtype), s
         )

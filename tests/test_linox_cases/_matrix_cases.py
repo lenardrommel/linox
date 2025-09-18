@@ -13,6 +13,7 @@ from linox._arithmetic import (
     ScaledLinearOperator,
     TransposedLinearOperator,
 )
+from linox._isotropicadd import IsotropicAdditiveLinearOperator
 from linox.types import ShapeType
 
 DType = jnp.float32
@@ -125,6 +126,16 @@ def sample_zero(shape: ShapeType) -> CaseType:
 
 def sample_ones(shape: ShapeType) -> CaseType:
     return linox.Ones(shape), jnp.ones(shape)
+
+
+def sample_isotropic_additive(shape: ShapeType) -> CaseType:
+    arr = jax.random.normal(jax.random.PRNGKey(18974), shape)
+    scalar = jax.random.normal(jax.random.PRNGKey(4221), ())
+    linop = IsotropicAdditiveLinearOperator(
+        scalar,
+        arr,
+    )
+    return linop, scalar * jnp.eye(shape[-1]) + arr
 
 
 linops_options = [
