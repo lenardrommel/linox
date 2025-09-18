@@ -252,3 +252,16 @@ def test_slogdet(square_spd_nested_kronecker: tuple[Kronecker, jax.Array]) -> No
 # ============================================================================
 # JAX Tree Registration Tests
 # ============================================================================
+
+
+def test_pytree_registration() -> None:
+    op = Kronecker(jnp.eye(3), jnp.eye(3))
+
+    flat, tree_def = jax.tree_util.tree_flatten(op)
+    reconstructed = jax.tree_util.tree_unflatten(tree_def, flat)
+
+    test_vector = jnp.ones(op.shape[-1])
+    original_result = op @ test_vector
+    reconstructed_result = reconstructed @ test_vector
+
+    assert jnp.allclose(original_result, reconstructed_result)

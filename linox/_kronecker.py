@@ -67,16 +67,15 @@ class Kronecker(LinearOperator):
             self._A.shape[1] * self._B.shape[1],
         )
 
-    @classmethod
-    def tree_flatten(cls) -> tuple[tuple[any, ...], dict[str, any]]:
-        children = (cls.A, cls.B)
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.A, self.B)
         aux_data = {}
         return children, aux_data
 
     @classmethod
     def tree_unflatten(
         cls,
-        aux_data: dict[str, any],
+        aux_data: dict[str, any],  # noqa: ARG003
         children: tuple[any, ...],
     ) -> "Kronecker":
         return cls(*children)
@@ -90,7 +89,7 @@ class Kronecker(LinearOperator):
 
         # vec(X) -> X, i.e., reshape into stack of matrices
         y = jnp.swapaxes(vec, -2, -1)
-        y = y.reshape(y.shape[:-1] + (mA, mB))
+        y = y.reshape((*y.shape[:-1], mA, mB))
 
         # (X @ B.T).T = B @ X.T
         y = self.B @ jnp.swapaxes(y, -1, -2)
@@ -99,7 +98,7 @@ class Kronecker(LinearOperator):
         y = self.A @ jnp.swapaxes(y, -1, -2)
 
         # vec(A @ X @ B.T), i.e., revert to stack of vectorized matrices
-        y = y.reshape(y.shape[:-2] + (-1,))
+        y = y.reshape((*y.shape[:-2], -1))
         y = jnp.swapaxes(y, -1, -2)
 
         return y
@@ -148,10 +147,11 @@ def _(op: Kronecker) -> tuple[jax.Array, Kronecker]:
 @lqr.dispatch
 def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
     """QR decomposition of a kronecker product.
+
     Returns:
         Q(Q_A, Q_B): Orthogonal matrix
         R(R_A, R_B): Upper triangular matrix.
-    """  # noqa: D205
+    """
     Q_A, R_A = lqr(op.A)
     Q_B, R_B = lqr(op.B)
     return Kronecker(Q_A, Q_B), Kronecker(R_A, R_B)
@@ -184,7 +184,8 @@ def _(op: Kronecker) -> tuple[Kronecker, jax.Array, Kronecker]:
 
 
 #     V = v.reshape((m_A, m_B))
-#     return jnp.ravel(lsolve(op.A, lsolve(op.B, V.T).T))  # op.A.solve(op.B.solve(V.T).T)
+#     return jnp.ravel(lsolve(op.A, lsolve(op.B, V.T).T))  # op.A.solve(op.B.solve(V.T)
+# .T)
 
 
 @lcholesky.dispatch
