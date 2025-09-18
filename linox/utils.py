@@ -9,7 +9,7 @@ import jax.numpy as jnp
 from linox._linear_operator import LinearOperator
 
 # from linox._matrix import Matrix, Scalar
-from linox.typing import ArrayLike, DTypeLike, ScalarLike, ShapeLike, ShapeType
+from linox.types import ArrayLike, DTypeLike, ScalarLike, ShapeLike, ShapeType
 
 __all__ = ["_broadcast_shapes", "as_linop", "as_scalar", "as_shape"]
 
@@ -32,7 +32,10 @@ def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
         isinstance(item, int | numbers.Integral | jnp.integer) or hasattr(item, "aval")
         for item in x
     ):
-        shape = x
+        if any(isinstance(item, jnp.ndarray) for item in x):
+            shape = tuple(int(item) for item in x)
+        else:
+            shape = x
     elif isinstance(x, int | numbers.Integral | jnp.integer):
         shape = (int(x),)
     else:
@@ -153,3 +156,24 @@ def todense(x: LinearOperatorLike) -> jnp.ndarray:
         Dense matrix.
     """
     return x.todense() if isinstance(x, LinearOperator) else x
+
+
+def allclose(
+    a: LinearOperatorLike,
+    b: LinearOperatorLike,
+    rtol: float = 1e-5,
+    atol: float = 1e-8,
+) -> bool:
+    """Check if two linear operators are close to each other.
+
+    Args:
+        a: First linear operator.
+        b: Second linear operator.
+        rtol: Relative tolerance.
+        atol: Absolute tolerance.
+    Returns:
+        Whether the two linear operators are close to each other.
+    """
+    a_dense = todense(a)
+    b_dense = todense(b)
+    return jnp.allclose(a_dense, b_dense, rtol=rtol, atol=atol)

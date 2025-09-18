@@ -23,12 +23,27 @@ __version__ = "0.0.1"
 
 # Import functions from _arithmetic module
 from ._arithmetic import (
+    AddLinearOperator,
+    InverseLinearOperator,
+    ProductLinearOperator,
+    PseudoInverseLinearOperator,
+    ScaledLinearOperator,
+    TransposedLinearOperator,
     congruence_transform,
     diagonal,
     is_square,
     is_symmetric,
+    lcholesky,
+    ldet,
+    leigh,
     linverse,
+    lpinverse,
+    lpsolve,
+    lqr,
+    lsolve,
     lsqrt,
+    slogdet,
+    svd,
     symmetrize,
     transpose,
 )
@@ -46,16 +61,18 @@ from ._low_rank import (
 )
 from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
-from .utils import todense
+from .utils import allclose, todense
 
 # Explicitly declare public API
 __all__ = [
+    "AddLinearOperator",
     "BlockDiagonal",
     "BlockMatrix",
     "BlockMatrix2x2",
     "Diagonal",
     "EigenD",
     "Identity",
+    "InverseLinearOperator",
     "IsotropicScalingPlusSymmetricLowRank",
     "Kronecker",
     "LinearOperator",
@@ -64,15 +81,29 @@ __all__ = [
     "Ones",
     "Permutation",
     "PositiveDiagonalPlusSymmetricLowRank",
+    "ProductLinearOperator",
+    "PseudoInverseLinearOperator",
     "Scalar",
+    "ScaledLinearOperator",
     "SymmetricLowRank",
+    "TransposedLinearOperator",
     "Zero",
+    "allclose",
     "congruence_transform",
     "diagonal",
     "is_square",
     "is_symmetric",
+    "lcholesky",
+    "ldet",
+    "leigh",
     "linverse",
+    "lpinverse",
+    "lpsolve",
+    "lqr",
+    "lsolve",
     "lsqrt",
+    "slogdet",
+    "svd",
     "symmetrize",
     "todense",
     "transpose",
