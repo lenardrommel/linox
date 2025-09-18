@@ -15,8 +15,6 @@ import jax.numpy as jnp
 
 from linox import utils
 from linox._arithmetic import (
-    InverseLinearOperator,
-    PseudoInverseLinearOperator,
     ScaledLinearOperator,
     congruence_transform,
     ladd,
@@ -28,7 +26,7 @@ from linox._arithmetic import (
     lsub,
 )
 from linox._linear_operator import LinearOperator
-from linox.types import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
+from linox.typing import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
 from linox.utils import as_shape
 
 # --------------------------------------------------------------------------- #

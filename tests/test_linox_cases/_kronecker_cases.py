@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import pytest
 
 from linox._kronecker import Kronecker
-from linox.types import ShapeLike, ShapeType
+from linox.typing import ShapeLike, ShapeType
 
 DType = jnp.float32
 CaseType = tuple[Kronecker, jax.Array]

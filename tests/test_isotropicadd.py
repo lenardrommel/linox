@@ -5,22 +5,15 @@ import pytest_cases
 
 import linox
 from linox._isotropicadd import IsotropicAdditiveLinearOperator
+from linox.typing import ShapeType
 
 CaseType = tuple[linox.Kronecker, jax.Array]
-jax.config.update("jax_enable_x64", True)
-from collections.abc import Callable
-from itertools import product
-
-import jax
-import jax.numpy as jnp
-import pytest
-
-from linox.types import ShapeType
-
 DType = jnp.float32
 CaseType = tuple[linox.LinearOperator, jax.Array]
 KeyType = jax.random.PRNGKey
 
+
+jax.config.update("jax_enable_x64")
 
 basic_shapes = [
     (2, 2),
