@@ -1,3 +1,5 @@
+# test_isotropicadd.py
+
 import jax
 import jax.numpy as jnp
 import pytest
@@ -7,13 +9,12 @@ import linox
 from linox._isotropicadd import IsotropicAdditiveLinearOperator
 from linox.typing import ShapeType
 
-CaseType = tuple[linox.Kronecker, jax.Array]
 DType = jnp.float32
 CaseType = tuple[linox.LinearOperator, jax.Array]
 KeyType = jax.random.PRNGKey
 
 
-jax.config.update("jax_enable_x64")
+jax.config.update("jax_enable_x64", True)
 
 basic_shapes = [
     (2, 2),

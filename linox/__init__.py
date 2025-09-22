@@ -1,3 +1,5 @@
+# __init__.py
+
 r"""`linox`: Linear operators in JAX.
 
 This package provides a collection of linear operators for JAX, including:
@@ -61,6 +63,7 @@ from ._low_rank import (
 )
 from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
+from ._toeplitz import Toeplitz
 from .utils import allclose, todense
 
 # Explicitly declare public API
@@ -86,6 +89,7 @@ __all__ = [
     "Scalar",
     "ScaledLinearOperator",
     "SymmetricLowRank",
+    "Toeplitz",
     "TransposedLinearOperator",
     "Zero",
     "allclose",
