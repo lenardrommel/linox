@@ -1,7 +1,6 @@
 # _toeplity.py
 
 import jax
-from jax import lax
 from jax import numpy as jnp
 from jax import scipy as jsp
 from scipy.linalg import solve_toeplitz
@@ -72,7 +71,7 @@ class Toeplitz(LinearOperator):
 @lsolve.dispatch
 def _(A: Toeplitz, b: jax.Array) -> jax.Array:
     """Solve a Toeplitz system."""
-    return solve_toeplitz(
+    return solve_toeplitz_jax(
         c=A.v,
         b=b,
         check_finite=False,
@@ -101,15 +100,14 @@ def levinson(a, b):
     g = g.at[0].set(a[n - 2] / a[n - 1])
     h = h.at[0].set(a[n] / a[n - 1])
 
-    # Main loop - regular Python for loop (unrolled by JAX)
     for m in range(1, n):
         # Compute numerator and denominator of x[m]
         x_num = -b[m]
         x_den = -a[n - 1]
         for j in range(m):
             nmj = n + m - (j + 1)
-            x_num = x_num + a[nmj] * x[j]
-            x_den = x_den + a[nmj] * g[m - j - 1]
+            x_num += a[nmj] * x[j]
+            x_den += a[nmj] * g[m - j - 1]
 
         x_m = x_num / x_den
         x = x.at[m].set(x_m)
@@ -127,9 +125,9 @@ def levinson(a, b):
         h_num = -a[n + m]
         g_den = -a[n - 1]
         for j in range(m):
-            g_num = g_num + a[n + j - m - 1] * g[j]
-            h_num = h_num + a[n + m - j - 1] * h[j]
-            g_den = g_den + a[n + j - m - 1] * h[m - j - 1]
+            g_num += a[n + j - m - 1] * g[j]
+            h_num += a[n + m - j - 1] * h[j]
+            g_den += a[n + j - m - 1] * h[m - j - 1]
 
         g = g.at[m].set(g_num / g_den)
         h = h.at[m].set(h_num / x_den)
@@ -150,82 +148,6 @@ def levinson(a, b):
     return x, reflection_coeff
 
 
-def _validate_args_for_toeplitz_ops(
-    c_or_cr, b, check_finite, keep_b_shape, enforce_square=True
-):
-    if isinstance(c_or_cr, tuple):
-        c, r = c_or_cr
-
-    else:
-        c = c_or_cr
-        r = c.conjugate()
-
-    if b is None:
-        raise ValueError("`b` must be an array, not None.")
-
-    b_shape = b.shape
-
-    is_not_square = r.shape[0] != c.shape[0]
-    if (enforce_square and is_not_square) or b.shape[0] != r.shape[0]:
-        raise ValueError("Incompatible dimensions.")
-
-    is_cmplx = jnp.iscomplexobj(r) or jnp.iscomplexobj(c) or jnp.iscomplexobj(b)
-    dtype = jnp.complex128 if is_cmplx else jnp.float64
-    r, c, b = (jnp.asarray(i, dtype=dtype) for i in (r, c, b))
-
-    if b.ndim == 1 and not keep_b_shape:
-        b = b.reshape(-1, 1)
-    elif b.ndim != 1:
-        b = b.reshape(b.shape[0], -1 if b.size > 0 else 0)
-
-    return r, c, b, dtype, b_shape
-
-
-def _solve_toeplitz(c, r, b, check_finite):
-    r, c, b, dtype, b_shape = _validate_args_for_toeplitz_ops(
-        (c, r), b, check_finite, keep_b_shape=True
-    )
-
-    # accommodate empty arrays
-    if b.size == 0:
-        return jnp.empty_like(b)
-
-    # Form a 1-D array of values to be used in the matrix, containing a
-    # reversed copy of r[1:], followed by c.
-    vals = jnp.concatenate((r[-1:0:-1], c))
-    if b is None:
-        raise ValueError("illegal value, `b` is a required argument")
-
-    if b.ndim == 1:
-        x, _ = levinson(vals, jnp.asarray(b))
-    else:
-        x = jnp.column_stack([
-            levinson(vals, jnp.asarray(b[:, i]))[0] for i in range(b.shape[1])
-        ])
-        x = x.reshape(*b_shape)
-
-    return x
-
-
-def test_solve_toeplitz():
-    key = jax.random.PRNGKey(0)
-    n = 5
-    r = jax.random.normal(key, (n,))
-    c = jax.random.normal(key, (n,))
-    A = jsp.linalg.toeplitz(c, r)
-    b = jax.random.normal(key, (n,))
-
-    x1 = solve_toeplitz_jax(c, b)
-    x2 = jnp.linalg.solve(A, b)
-
-    assert jnp.allclose(x1, x2), "Toeplitz solve does not match numpy.linalg.solve"
-
-
-def _scipy_solve_toeplitz(c_np, b_np):
-    """Pure numpy function for scipy solve."""
-    return solve_toeplitz(c_np, b_np, check_finite=False)
-
-
 @jax.custom_vjp
 def toeplitz_solve_hybrid(toeplitz_vec, b):
     """Hybrid Toeplitz solver: scipy forward pass with custom VJP.
@@ -243,7 +165,7 @@ def toeplitz_solve_hybrid(toeplitz_vec, b):
     def scipy_call(c, b_val):
         c_np = jnp.asarray(c)
         b_np = jnp.asarray(b_val)
-        return _scipy_solve_toeplitz(c_np, b_np)
+        return solve_toeplitz(c_np, b_np, check_finite=False)
 
     x = jax.pure_callback(
         scipy_call, result_shape, toeplitz_vec, b, vmap_method="sequential"
@@ -295,13 +217,11 @@ def hybrid_bwd(residuals, grad_output):
     return grad_toeplitz_vec, grad_b
 
 
-# Register the VJP
 toeplitz_solve_hybrid.defvjp(hybrid_fwd, hybrid_bwd)
 
 
 def solve_toeplitz_jax(c_or_cr, b, check_finite=True):
-    """
-    JAX-compatible Toeplitz solver using hybrid approach.
+    """JAX-compatible Toeplitz solver using hybrid approach.
 
     Args:
         c_or_cr: Either first column c, or tuple (c, r) for non-symmetric
@@ -318,9 +238,8 @@ def solve_toeplitz_jax(c_or_cr, b, check_finite=True):
         b_np = jnp.array(b)
         x_np = solve_toeplitz((c_np, r_np), b_np, check_finite=False)
         return jnp.array(x_np)
-    else:
-        # Symmetric case: use hybrid solver with custom VJP
-        return toeplitz_solve_hybrid(c_or_cr, b)
+    # Symmetric case: use hybrid solver with custom VJP
+    return toeplitz_solve_hybrid(c_or_cr, b)
 
 
 class TestToeplitzSolver:

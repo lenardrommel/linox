@@ -9,7 +9,7 @@ import pytest_cases
 from scipy.linalg import solve_toeplitz
 
 import linox
-from linox._toeplitz import Toeplitz
+from linox._toeplitz import Toeplitz, solve_toeplitz_jax
 
 DType = jnp.float32
 CaseType = tuple[linox.LinearOperator, jax.Array]
@@ -60,3 +60,20 @@ def test_mv(
 ) -> None:
     vector = jax.random.normal(key, matrix.shape[-1])
     assert jnp.allclose(linop @ vector, matrix @ vector, atol=1e-7)
+
+
+# ============================================================================
+# Specialized Methods Tests
+# ============================================================================
+@pytest_cases.parametrize_with_cases("linop,matrix", cases=case_toeplitz)
+def test_solve_toeplitz_jax(
+    linop: linox.LinearOperator, matrix: jax.Array, key: jax.random.PRNGKey
+) -> None:
+    b = jax.random.normal(key, (matrix.shape[0],))
+
+    x1 = solve_toeplitz_jax(linop.v, b)
+    x2 = jnp.linalg.solve(matrix, b)
+
+    assert jnp.allclose(x1, x2, atol=1e-5), (
+        "Toeplitz solve does not match numpy.linalg.solve"
+    )
