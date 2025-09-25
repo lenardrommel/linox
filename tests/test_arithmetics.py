@@ -1,3 +1,5 @@
+# test_arithmetics.py
+
 """Test for linear operator arithmetics."""
 
 import jax
@@ -53,6 +55,13 @@ def ncols(request: pytest.FixtureRequest) -> int:
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=special_linops)
 def test_to_dense(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     assert jnp.allclose(linop.todense(), matrix)
+
+
+@pytest_cases.parametrize_with_cases("linop,matrix", cases=special_linops)
+def test_shape(linop: linox.LinearOperator, matrix: jax.Array) -> None:
+    assert linop.shape == matrix.shape, "Shape does not match"
+    assert linop.todense().shape == matrix.shape, "Dense shape does not match"
+    assert linop.todense().shape == linop.shape, "Dense shape does not match"
 
 
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=special_linops)

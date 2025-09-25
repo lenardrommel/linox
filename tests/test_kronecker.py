@@ -1,3 +1,5 @@
+# test_kronecker.py
+
 import jax
 import jax.numpy as jnp
 import pytest
@@ -87,6 +89,13 @@ def square_kronecker(key: jax.random.PRNGKey) -> tuple[Kronecker, jax.Array]:
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=[case_kronecker])
 def test_to_dense(linop: linox.Kronecker, matrix: jax.Array) -> None:
     assert jnp.allclose(linop.todense(), matrix), "Dense matrix does not match"
+
+
+@pytest_cases.parametrize_with_cases("linop,matrix", cases=[case_kronecker])
+def test_shape(linop: linox.Kronecker, matrix: jax.Array) -> None:
+    assert linop.shape == matrix.shape, "Shape does not match"
+    assert linop.todense().shape == matrix.shape, "Dense shape does not match"
+    assert linop.todense().shape == linop.shape, "Dense shape does not match"
 
 
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=[case_kronecker])
