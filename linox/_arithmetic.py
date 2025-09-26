@@ -61,6 +61,12 @@ def lmul(a: ScalarLike | jax.Array, b: LinearOperator) -> LinearOperator:
 
 
 @plum.dispatch
+def ldiv(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    msg = f"Division only supported for Diagonal operators, got {type(a)} and {type(b)}"
+    raise TypeError(msg)
+
+
+@plum.dispatch
 def lmatmul(a: LinearOperator, b: LinearOperator) -> ArithmeticType:
     return ProductLinearOperator(a, b)
 

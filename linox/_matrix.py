@@ -1,3 +1,5 @@
+# _matrix.py
+
 r"""Classic matrix operators as linear operator classes.
 
 This module implements various classic matrix operators as linear operators, including:
@@ -18,6 +20,7 @@ from linox._arithmetic import (
     ScaledLinearOperator,
     congruence_transform,
     ladd,
+    ldiv,
     linverse,
     lmatmul,
     lmul,
@@ -287,6 +290,15 @@ def _(a: Diagonal, b: Diagonal) -> Diagonal:
     return Diagonal(a.diag + b.diag)
 
 
+@ladd.dispatch
+def _(a: Diagonal, b: jax.Array) -> Diagonal:
+    if b.shape == () or a.shape[-1] == b.shape[-1]:
+        return Diagonal(a.diag + b)
+
+    msg = f"Shapes not aligned for addition: {a.shape} and {b.shape}"
+    raise ValueError(msg)
+
+
 @lsub.dispatch
 def _(a: Diagonal, b: Diagonal) -> Diagonal:
     return Diagonal(a.diag - b.diag)
@@ -295,6 +307,11 @@ def _(a: Diagonal, b: Diagonal) -> Diagonal:
 @lmul.dispatch
 def _(a: ScalarType, b: Diagonal) -> Diagonal:
     return Diagonal(a * b.diag)
+
+
+@ldiv.dispatch
+def _(a: Diagonal, b: Diagonal) -> Diagonal:
+    return Diagonal(a.diag / b.diag)
 
 
 @lmatmul.dispatch

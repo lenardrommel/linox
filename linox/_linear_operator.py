@@ -1,3 +1,5 @@
+# _linear_operator.py
+
 import operator
 from functools import reduce
 from typing import Union
@@ -171,6 +173,11 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
         from ._arithmetic import lmul  # noqa: PLC0415
 
         return lmul(other, self)
+
+    def __truediv__(self, other: BinaryOperandType) -> "LinearOperator":
+        from ._arithmetic import ldiv  # noqa: PLC0415
+
+        return ldiv(self, other)
 
     def __matmul__(self, other: BinaryOperandType) -> "LinearOperator":
         from ._arithmetic import lmatmul  # noqa: PLC0415
