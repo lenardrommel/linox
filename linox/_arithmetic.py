@@ -1,3 +1,5 @@
+# _arithmetic.py
+
 r"""Arithmetic operations for linear operators.
 
 This module implements various arithmetic operations for linear operators, including:
@@ -38,9 +40,19 @@ def ladd(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     return AddLinearOperator(a, b)
 
 
+@ladd.dispatch
+def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
+    return AddLinearOperator(a, utils.as_linop(b))
+
+
 @plum.dispatch
 def lsub(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     return AddLinearOperator(a, -b)
+
+
+@lsub.dispatch
+def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
+    return AddLinearOperator(a, -utils.as_linop(b))
 
 
 @plum.dispatch

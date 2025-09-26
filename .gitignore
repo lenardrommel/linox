@@ -1,3 +1,4 @@
+
 # Dev environment
 local_*
 
@@ -9,6 +10,10 @@ __pycache__/
 
 # C extensions
 *.so
+
+# Images
+
+*.png
 
 # Distribution / packaging
 .Python
