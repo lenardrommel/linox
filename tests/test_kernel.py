@@ -111,3 +111,14 @@ def test_transpose(linop: lo.ArrayKernel, matrix: jax.Array) -> None:
 
     result_transpose = linop.transpose()
     assert jnp.allclose(result_transpose.todense(), expected_transposed)
+
+
+# ============================================================================
+# Test Positive Definiteness
+# ============================================================================
+@pytest_cases.parametrize_with_cases("linop,matrix", cases=[case_kernel])
+def test_positive_definiteness(linop: lo.ArrayKernel, matrix: jax.Array) -> None:
+    assert jnp.all(jnp.linalg.eigvals(matrix) >= 0), "Matrix is not positive definite"
+    assert jnp.all(jnp.linalg.eigvals(linop.todense()) >= 0), (
+        "Linop is not positive definite"
+    )
