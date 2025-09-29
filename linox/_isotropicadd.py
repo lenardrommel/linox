@@ -3,6 +3,7 @@
 import jax
 import jax.numpy as jnp
 
+from linox import utils
 from linox._arithmetic import (
     AddLinearOperator,
     ScaledLinearOperator,
@@ -112,10 +113,10 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
     a._ensure_eigh()  # noqa: SLF001
     Q, S = a.Q, a.S  # cached
     s = a.s.scalar
-    lam = Diagonal(S)
+
     inv_iso = linverse(a.s)
 
-    D = Diagonal(lam.diag / (s * (lam.diag + s)))
+    D = Diagonal(S / (s * (S + s)))
 
     return inv_iso - (Q @ D @ Q.T)
 
@@ -125,9 +126,18 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
     a._ensure_eigh()  # noqa: SLF001
     Q, S = a.Q, a.S  # cached
     s = a.s.scalar
-    lam = Diagonal(S)
+
     inv_iso = lpinverse(a.s)
 
-    D = Diagonal(lam.diag / (s * (lam.diag + s)))
+    D = Diagonal(S / (s * (S + s)))
 
     return inv_iso - (Q @ D @ Q.T)
+
+
+@leigh.dispatch
+def _(a: IsotropicAdditiveLinearOperator) -> tuple[LinearOperator, LinearOperator]:
+    a._ensure_eigh()  # noqa: SLF001
+    Q, S = a.Q, a.S  # cached
+    s = a.s.scalar
+    new_lam = utils.as_linop(S + s)
+    return new_lam, Q

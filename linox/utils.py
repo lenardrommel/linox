@@ -1,3 +1,5 @@
+# utils.py
+
 """Utility functions for argument types."""
 
 import numbers
@@ -175,3 +177,17 @@ def allclose(
     a_dense = todense(a)
     b_dense = todense(b)
     return jnp.allclose(a_dense, b_dense, rtol=rtol, atol=atol)
+
+
+def as_dense(a: LinearOperatorLike) -> jnp.ndarray:
+    """Convert a linear operator to a dense matrix.
+
+    Args:
+        a: Linear operator to convert.
+
+    Returns:
+        Dense matrix.
+    """
+    if isinstance(a, LinearOperator):
+        return a.todense()
+    return a

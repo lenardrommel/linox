@@ -1,3 +1,5 @@
+# _kronecker.py
+
 r"""Kronecker product operations for linear operators.
 
 This module includes a linear operator that represents the Kronecker product
@@ -13,10 +15,13 @@ import jax.numpy as jnp
 from linox import utils
 from linox._arithmetic import (
     ProductLinearOperator,
+    ladd,
     lcholesky,
     ldet,
+    ldiv,
     leigh,
     linverse,
+    lmul,
     lpinverse,
     lqr,
     lsqrt,
@@ -24,6 +29,7 @@ from linox._arithmetic import (
     svd,
 )
 from linox._linear_operator import LinearOperator
+from linox.typing import DTypeLike, ScalarLike, ShapeLike
 
 
 class Kronecker(LinearOperator):
@@ -49,7 +55,7 @@ class Kronecker(LinearOperator):
             self._A.shape[0] * self._B.shape[0],
             self._A.shape[1] * self._B.shape[1],
         )
-        dtype = A.dtype
+        dtype = jnp.result_type(self._A.dtype, self._B.dtype)
         super().__init__(self._shape, dtype)
 
     @property
@@ -140,8 +146,8 @@ def _(op: Kronecker) -> Kronecker:
 def _(op: Kronecker) -> tuple[jax.Array, Kronecker]:
     wA, QA = leigh(op.A)
     wB, QB = leigh(op.B)
-    eigvals = jnp.outer(wA, wB).flatten()
-    return eigvals, Kronecker(QA, QB)
+
+    return jnp.kron(wA, wB), Kronecker(QA, QB)
 
 
 @lqr.dispatch
@@ -216,6 +222,41 @@ def _(op: Kronecker) -> tuple[jax.Array, jax.Array]:
     final_logdet = dim_B * logdet_A + dim_A * logdet_B
 
     return final_sign, final_logdet
+
+
+class KroneckerVec(LinearOperator):
+    def __init__(self, A: jax.Array, B: jax.Array) -> None:
+        self._A = utils.as_linop(A)
+        self._B = utils.as_linop(B)
+        self._shape = (self._A.shape[0] * self._B.shape[0],)
+        dtype = jnp.result_type(self._A.dtype, self._B.dtype)
+        super().__init__(self._shape, dtype)
+
+    @property
+    def A(self) -> LinearOperator:
+        return self._A
+
+    @property
+    def B(self) -> LinearOperator:
+        return self._B
+
+    def todense(self) -> jax.Array:
+        return jnp.kron(self.A.todense(), self.B.todense())
+
+
+@ladd.dispatch
+def _(a: KroneckerVec, b: jax.Array) -> KroneckerVec:
+    return KroneckerVec(a.A + b, a.B + b)
+
+
+@lmul.dispatch
+def _(a: ScalarLike | jax.Array, b: KroneckerVec) -> KroneckerVec:
+    return KroneckerVec(a * b.A, a * b.B)
+
+
+@ldiv.dispatch
+def _(a: KroneckerVec, b: KroneckerVec) -> jax.Array:
+    return a.todense() / b.todense()
 
 
 # Register Kronecker as a PyTree

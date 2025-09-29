@@ -29,7 +29,7 @@ import plum  # type: ignore  # noqa: PGH003
 
 from linox import utils
 from linox._linear_operator import LinearOperator
-from linox.typing import ScalarLike, ShapeLike
+from linox.typing import ArrayLike, ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
 
@@ -62,6 +62,8 @@ def lmul(a: ScalarLike | jax.Array, b: LinearOperator) -> LinearOperator:
 
 @plum.dispatch
 def ldiv(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    if len(a.shape) < 2 and len(b.shape) < 2:
+        return a.todense() / b.todense()
     msg = f"Division only supported for Diagonal operators, got {type(a)} and {type(b)}"
     raise TypeError(msg)
 
@@ -113,9 +115,9 @@ def lpinverse(a: LinearOperator) -> ArithmeticType:
 
 
 @plum.dispatch
-def leigh(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
-    eigvals, eigvecs = jnp.linalg.eigh(a.todense())
-    return eigvals, eigvecs
+def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
+    ev, evec = jnp.linalg.eigh(a.todense())
+    return ev, utils.as_linop(evec)
 
 
 @plum.dispatch
@@ -222,6 +224,13 @@ def slogdet(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
         raise ValueError(msg)
 
     return jnp.linalg.slogdet(a.todense())
+
+
+@plum.dispatch
+def kron(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    from linox._kronecker import Kronecker  # noqa: PLC0415
+
+    return Kronecker(a, b)
 
 
 # --------------------------------------------------------------------------- #

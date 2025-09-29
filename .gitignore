@@ -6,7 +6,15 @@ local_*
 __pycache__/
 *.py[cod]
 *$py.class
+
+# IDEs and editors
 .vscode/
+
+# Local files
+examples/
+benchmarks/
+helper/
+TODO.md
 
 # C extensions
 *.so
