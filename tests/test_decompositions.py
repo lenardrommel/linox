@@ -6,7 +6,6 @@ import pytest_cases
 from jax import numpy as jnp
 
 import linox
-from linox import LinearOperator
 from linox.typing import ShapeLike, ShapeType
 from linox.utils import as_dense
 
