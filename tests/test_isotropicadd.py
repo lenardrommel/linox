@@ -211,6 +211,15 @@ def test_inverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     assert jnp.allclose(as_dense(lin_inv), inv_matrix, atol=1e-5), (
         f"Linop Inv:\n{lin_inv.todense()}\nMatrix Inv:\n{inv_matrix}"
     )
+    if not isinstance(lin_inv, linox.AddLinearOperator):
+        msg = f"Expected AddLinearOperator, got {type(lin_inv)}"
+        raise ValueError(msg)  # noqa: TRY004
+    vec = jax.random.normal(jax.random.PRNGKey(0), (matrix.shape[-1],))
+    linop_inv_vec = lin_inv @ vec
+    matrix_inv_vec = inv_matrix @ vec
+    assert jnp.allclose(linop_inv_vec, matrix_inv_vec, atol=1e-5), (
+        f"Linop Inv Vec:\n{linop_inv_vec}\nMatrix Inv Vec:\n{matrix_inv_vec}"
+    )
 
 
 @pytest_cases.parametrize_with_cases(
@@ -222,4 +231,13 @@ def test_pinverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     lin_inv = lpinverse(linop)
     assert jnp.allclose(as_dense(lin_inv), inv_matrix, atol=1e-5), (
         f"Linop Inv:\n{lin_inv.todense()}\nMatrix Inv:\n{inv_matrix}"
+    )
+    if not isinstance(lin_inv, linox.AddLinearOperator):
+        msg = f"Expected AddLinearOperator, got {type(lin_inv)}"
+        raise ValueError(msg)  # noqa: TRY004
+    vec = jax.random.normal(jax.random.PRNGKey(0), (matrix.shape[-1],))
+    linop_inv_vec = lin_inv @ vec
+    matrix_inv_vec = inv_matrix @ vec
+    assert jnp.allclose(linop_inv_vec, matrix_inv_vec, atol=1e-5), (
+        f"Linop Inv Vec:\n{linop_inv_vec}\nMatrix Inv Vec:\n{matrix_inv_vec}"
     )
