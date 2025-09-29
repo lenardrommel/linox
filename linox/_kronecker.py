@@ -224,40 +224,5 @@ def _(op: Kronecker) -> tuple[jax.Array, jax.Array]:
     return final_sign, final_logdet
 
 
-class KroneckerVec(LinearOperator):
-    def __init__(self, A: jax.Array, B: jax.Array) -> None:
-        self._A = utils.as_linop(A)
-        self._B = utils.as_linop(B)
-        self._shape = (self._A.shape[0] * self._B.shape[0],)
-        dtype = jnp.result_type(self._A.dtype, self._B.dtype)
-        super().__init__(self._shape, dtype)
-
-    @property
-    def A(self) -> LinearOperator:
-        return self._A
-
-    @property
-    def B(self) -> LinearOperator:
-        return self._B
-
-    def todense(self) -> jax.Array:
-        return jnp.kron(self.A.todense(), self.B.todense())
-
-
-@ladd.dispatch
-def _(a: KroneckerVec, b: jax.Array) -> KroneckerVec:
-    return KroneckerVec(a.A + b, a.B + b)
-
-
-@lmul.dispatch
-def _(a: ScalarLike | jax.Array, b: KroneckerVec) -> KroneckerVec:
-    return KroneckerVec(a * b.A, a * b.B)
-
-
-@ldiv.dispatch
-def _(a: KroneckerVec, b: KroneckerVec) -> jax.Array:
-    return a.todense() / b.todense()
-
-
 # Register Kronecker as a PyTree
 jax.tree_util.register_pytree_node_class(Kronecker)
