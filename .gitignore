@@ -9,12 +9,14 @@ __pycache__/
 
 # IDEs and editors
 .vscode/
+.DS_Store
 
 # Local files
 examples/
 benchmarks/
 helper/
 TODO.md
+
 
 # C extensions
 *.so
