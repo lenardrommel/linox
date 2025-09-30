@@ -66,6 +66,7 @@ from ._low_rank import (
 )
 from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
+from ._registry import list_ops, register
 from ._toeplitz import Toeplitz
 from .utils import allclose, todense
 
@@ -107,11 +108,13 @@ __all__ = [
     "ldet",
     "leigh",
     "linverse",
+    "list_ops",
     "lpinverse",
     "lpsolve",
     "lqr",
     "lsolve",
     "lsqrt",
+    "register",
     "slogdet",
     "svd",
     "symmetrize",
