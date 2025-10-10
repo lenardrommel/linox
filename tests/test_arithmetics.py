@@ -108,4 +108,47 @@ def test_lmatmul(
     assert jnp.allclose((linop1 @ linop2).todense(), matrix1 @ matrix2, atol=1e-6)
 
 
+@pytest_cases.parametrize_with_cases(
+    "linop, matrix",
+    cases=[case_product_operator],
+)
+def test_diagonal_product_matches_dense(
+    linop: linox.LinearOperator,
+    matrix: jax.Array,
+) -> None:
+    diag_linop = linox.diagonal(linop)
+    expected = jnp.diag(matrix)
+    assert jnp.allclose(diag_linop.todense(), expected, atol=1e-6)
+
+
+def test_diagonal_isotropic_add_scaled_product_in_kronecker() -> None:
+    mat_a = jnp.arange(4.0, dtype=jnp.float64).reshape(2, 2)
+    mat_b = jnp.linspace(1.0, 4.0, num=4).reshape(2, 2)
+
+    factor_left = linox.Matrix(mat_a)
+    factor_right = linox.Matrix(mat_b)
+    product = factor_left @ factor_right
+    scaled_product = linox.ScaledLinearOperator(product, jnp.array(1.3))
+    kron_wrapper = linox.Kronecker(scaled_product, linox.Matrix(jnp.ones((1, 1))))
+
+    additive = linox.AddLinearOperator(kron_wrapper, linox.Matrix(jnp.eye(2)))
+    iso = linox.IsotropicAdditiveLinearOperator(jnp.array(0.5), additive)
+
+    result = linox.diagonal(iso)
+    expected = jnp.diag(
+        jnp.kron(1.3 * (mat_a @ mat_b), jnp.ones((1, 1)))
+        + jnp.eye(2)
+        + jnp.eye(2) * 0.5
+    )
+    assert jnp.allclose(result.todense(), expected, atol=1e-6), (
+        "Diagonal does not match"
+    )
+
+
 # TODO(2bys): Add test for transpose.
+def test_diagonal():
+    mat = jnp.array([[1.0, 2.0], [3.0, 4.0]])
+    linop = linox.Matrix(mat)
+    diag_linop = linox.diagonal(linop)
+    expected = jnp.diag(mat)
+    assert jnp.allclose(diag_linop.todense(), expected, atol=1e-6)

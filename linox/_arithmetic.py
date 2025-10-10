@@ -325,8 +325,8 @@ def _(a: ScaledLinearOperator) -> LinearOperator:
     return ScaledLinearOperator(lsqrt(a.operator), jnp.sqrt(a.scalar))
 
 
-@diagonal.dispatch
-def _(a: ScaledLinearOperator) -> jax.Array:
+@diagonal.dispatch(precedence=1)
+def _(a: ScaledLinearOperator) -> ArithmeticType:
     return a.scalar * diagonal(a.operator)
 
 
@@ -439,6 +439,11 @@ class AddLinearOperator(LinearOperator):
         return cls(*children)
 
 
+@diagonal.dispatch
+def _(a: AddLinearOperator) -> ArithmeticType:
+    return reduce(operator.add, (diagonal(op) for op in a.operator_list))
+
+
 class ProductLinearOperator(LinearOperator):
     r"""Product of linear operators.
 
@@ -462,11 +467,13 @@ class ProductLinearOperator(LinearOperator):
         ]
         batch_shape = _broadcast_shapes([op.shape[:-2] for op in self.operator_list])
         self.__check_init__()
-        shape = utils.as_shape((
-            *batch_shape,
-            self.operator_list[0].shape[-2],
-            self.operator_list[-1].shape[-1],
-        ))
+        shape = utils.as_shape(
+            (
+                *batch_shape,
+                self.operator_list[0].shape[-2],
+                self.operator_list[-1].shape[-1],
+            )
+        )
         super().__init__(shape=shape, dtype=self.operator_list[0].dtype)
 
     def __check_init__(self) -> None:  # noqa: PLW3201
@@ -514,6 +521,11 @@ class ProductLinearOperator(LinearOperator):
     ) -> "ProductLinearOperator":
         del aux_data
         return cls(*children)
+
+
+@diagonal.dispatch
+def _(a: ProductLinearOperator) -> ArithmeticType:
+    return reduce(operator.mul, (diagonal(op) for op in a.operator_list))
 
 
 # not properly tested

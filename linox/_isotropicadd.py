@@ -7,6 +7,7 @@ from linox import utils
 from linox._arithmetic import (
     AddLinearOperator,
     ScaledLinearOperator,
+    diagonal,
     lcholesky,
     leigh,
     linverse,
@@ -141,3 +142,8 @@ def _(a: IsotropicAdditiveLinearOperator) -> tuple[LinearOperator, LinearOperato
     s = a.s.scalar
     new_lam = utils.as_linop(S + s)
     return new_lam, Q
+
+
+@diagonal.dispatch
+def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
+    return diagonal(a.s) + diagonal(a.operator)
