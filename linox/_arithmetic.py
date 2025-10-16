@@ -1,3 +1,5 @@
+# _arithmetic.py
+
 r"""Arithmetic operations for linear operators.
 
 This module implements various arithmetic operations for linear operators, including:
@@ -27,7 +29,7 @@ import plum  # type: ignore  # noqa: PGH003
 
 from linox import utils
 from linox._linear_operator import LinearOperator
-from linox.types import ScalarLike, ShapeLike
+from linox.typing import ArrayLike, ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
 
@@ -38,14 +40,32 @@ def ladd(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     return AddLinearOperator(a, b)
 
 
+@ladd.dispatch
+def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
+    return AddLinearOperator(a, utils.as_linop(b))
+
+
 @plum.dispatch
 def lsub(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     return AddLinearOperator(a, -b)
 
 
+@lsub.dispatch
+def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
+    return AddLinearOperator(a, -utils.as_linop(b))
+
+
 @plum.dispatch
 def lmul(a: ScalarLike | jax.Array, b: LinearOperator) -> LinearOperator:
     return ScaledLinearOperator(scalar=a, operator=b)
+
+
+@plum.dispatch
+def ldiv(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    if len(a.shape) < 2 and len(b.shape) < 2:
+        return a.todense() / b.todense()
+    msg = f"Division only supported for Diagonal operators, got {type(a)} and {type(b)}"
+    raise TypeError(msg)
 
 
 @plum.dispatch
@@ -74,10 +94,10 @@ def diagonal(a: LinearOperator) -> ArithmeticType:
     print(f"Warning: Linear operator {a} is densed for diagonal computation.")  # noqa: T201
     dense_matrix = a.todense()
     if len(a.shape) <= 2:
-        return jnp.diag(dense_matrix)
+        return utils.as_linop(jnp.diag(dense_matrix))
     n = dense_matrix.shape[-1]
     diag_indices = jnp.arange(n)
-    return dense_matrix[..., diag_indices, diag_indices]
+    return utils.as_linop(dense_matrix[..., diag_indices, diag_indices])
 
 
 def transpose(a: LinearOperator) -> ArithmeticType:
@@ -95,9 +115,9 @@ def lpinverse(a: LinearOperator) -> ArithmeticType:
 
 
 @plum.dispatch
-def leigh(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
-    eigvals, eigvecs = jnp.linalg.eigh(a.todense())
-    return eigvals, eigvecs
+def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
+    ev, evec = jnp.linalg.eigh(a.todense())
+    return ev, utils.as_linop(evec)
 
 
 @plum.dispatch
@@ -206,6 +226,13 @@ def slogdet(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
     return jnp.linalg.slogdet(a.todense())
 
 
+@plum.dispatch
+def kron(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    from linox._kronecker import Kronecker  # noqa: PLC0415
+
+    return Kronecker(a, b)
+
+
 # --------------------------------------------------------------------------- #
 # Linear Operator checks
 # --------------------------------------------------------------------------- #
@@ -298,8 +325,8 @@ def _(a: ScaledLinearOperator) -> LinearOperator:
     return ScaledLinearOperator(lsqrt(a.operator), jnp.sqrt(a.scalar))
 
 
-@diagonal.dispatch
-def _(a: ScaledLinearOperator) -> jax.Array:
+@diagonal.dispatch(precedence=1)
+def _(a: ScaledLinearOperator) -> ArithmeticType:
     return a.scalar * diagonal(a.operator)
 
 
@@ -412,6 +439,16 @@ class AddLinearOperator(LinearOperator):
         return cls(*children)
 
 
+@diagonal.dispatch
+def _(a: AddLinearOperator) -> ArithmeticType:
+    return reduce(
+        operator.add, (utils.as_linop(diagonal(op)) for op in (a.operator_list))
+    )
+
+
+# The problem is in Kronecker
+
+
 class ProductLinearOperator(LinearOperator):
     r"""Product of linear operators.
 
@@ -487,6 +524,11 @@ class ProductLinearOperator(LinearOperator):
     ) -> "ProductLinearOperator":
         del aux_data
         return cls(*children)
+
+
+@diagonal.dispatch
+def _(a: ProductLinearOperator) -> ArithmeticType:
+    return reduce(operator.mul, (diagonal(op) for op in a.operator_list))
 
 
 # not properly tested

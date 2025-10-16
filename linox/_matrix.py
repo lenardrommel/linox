@@ -1,3 +1,5 @@
+# _matrix.py
+
 r"""Classic matrix operators as linear operator classes.
 
 This module implements various classic matrix operators as linear operators, including:
@@ -19,7 +21,9 @@ from linox._arithmetic import (
     PseudoInverseLinearOperator,
     ScaledLinearOperator,
     congruence_transform,
+    diagonal,
     ladd,
+    ldiv,
     linverse,
     lmatmul,
     lmul,
@@ -105,7 +109,17 @@ def _(a: jax.Array, b: Matrix) -> jax.Array:
 
 @lsqrt.dispatch
 def _(a: Matrix) -> Matrix:
-    return Matrix(jnp.sqrt(a.A))
+    if a.shape[-1] != a.shape[-2]:
+        msg = f"Square root only defined for square matrices, got shape {a.shape}"
+        raise ValueError(msg)
+    jitter = 1e-10 if a.dtype == jnp.float64 else 1e-6
+    identity = jnp.eye(a.shape[-1], dtype=a.dtype)
+    try:
+        chol = jnp.linalg.cholesky(a.A + jitter * identity)
+    except Exception as err:  # noqa: BLE001
+        msg = "Matrix square root requires a symmetric positive-definite matrix."
+        raise ValueError(msg) from err
+    return Matrix(chol)
 
 
 @linverse.dispatch
@@ -252,7 +266,9 @@ class Diagonal(LinearOperator):
         diag: The diagonal elements of the matrix
     """
 
-    def __init__(self, diag: ArrayLike) -> None:  # type: ignore  # noqa: PGH003
+    def __init__(self, diag: ArrayLike) -> None:
+        if isinstance(diag, Diagonal):
+            diag = diag.diag
         self.diag = jnp.asarray(diag)
         super().__init__(
             shape=(*diag.shape[:-1], diag.shape[-1], diag.shape[-1]),
@@ -267,6 +283,9 @@ class Diagonal(LinearOperator):
 
     def transpose(self) -> "Diagonal":
         return self
+
+    def diagonal(self) -> jax.Array:
+        return self.diag
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self.diag,)
@@ -289,6 +308,15 @@ def _(a: Diagonal, b: Diagonal) -> Diagonal:
     return Diagonal(a.diag + b.diag)
 
 
+@ladd.dispatch
+def _(a: Diagonal, b: jax.Array) -> Diagonal:
+    if b.shape == () or a.shape[-1] == b.shape[-1]:
+        return Diagonal(a.diag + b)
+
+    msg = f"Shapes not aligned for addition: {a.shape} and {b.shape}"
+    raise ValueError(msg)
+
+
 @lsub.dispatch
 def _(a: Diagonal, b: Diagonal) -> Diagonal:
     return Diagonal(a.diag - b.diag)
@@ -297,6 +325,11 @@ def _(a: Diagonal, b: Diagonal) -> Diagonal:
 @lmul.dispatch
 def _(a: ScalarType, b: Diagonal) -> Diagonal:
     return Diagonal(a * b.diag)
+
+
+@ldiv.dispatch
+def _(a: Diagonal, b: Diagonal) -> Diagonal:
+    return Diagonal(a.diag / b.diag)
 
 
 @lmatmul.dispatch

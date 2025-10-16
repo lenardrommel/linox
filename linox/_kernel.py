@@ -1,43 +1,46 @@
+# _kernel.py
+
+from collections.abc import Callable
+
 import jax
 import jax.numpy as jnp
-import numpy as np
 
+from linox._arithmetic import lsqrt
 from linox._linear_operator import LinearOperator
-from linox._matrix import Matrix, Toeplitz
-from linox.kernels.kernel import Kernel as BaseKernel
 
 
-class Kernel(LinearOperator):
+class KernelOperator(LinearOperator):
     def __init__(
-        self, kernel: BaseKernel, x0: jax.Array, x1: jax.Array | None = None
+        self,
+        kernel: Callable[[jax.Array], jax.Array],
+        x0: jax.Array,
+        x1: jax.Array | None = None,
     ) -> None:
-        self._kernel = kernel
-        self.toeplitz = False
-        if x1 is None:
-            self.toeplitz = False
-            self.x1 = x0
+        self.kernel = kernel
         self.x0 = x0
+        if x1 is None:
+            self.x1 = x0
+        else:
+            self.x1 = x1
+
         super().__init__(shape=(self.x0.shape[0], self.x1.shape[0]), dtype=x0.dtype)
 
+    # @property
+    # def kernel(self) -> Callable[[jax.Array], jax.Array]:
+    #     return self.kernel
 
-class ArrayKernel(Kernel):
-    def __init__(self, kernel: Kernel, x0: jax.Array, x1: jax.Array | None = None):
+
+class ArrayKernel(KernelOperator):
+    def __init__(
+        self,
+        kernel,
+        x0: jax.Array,
+        x1: jax.Array | None = None,
+    ) -> None:
         super().__init__(kernel, x0, x1)
-        if self.toeplitz:
-            self._kernel_matrix = Toeplitz(v=jnp.array(kernel(x0[0:1], x0).reshape(-1)))
-        else:
-            self._kernel_matrix = self._compute_kernel_matrix()
-        self._dtype = self.x0.dtype
+        self._kernel_matrix = self._compute_kernel_matrix()
 
-    @property
-    def kernel(self) -> BaseKernel:
-        return self._kernel
-
-    @property
-    def shape(self):
-        return (self.x0.shape[0], self.x1.shape[0])
-
-    def _compute_kernel_matrix(self) -> Matrix:
+    def _compute_kernel_matrix(self) -> LinearOperator:
         """Compute kernel matrix appropriately based on kernel type.
 
         Args:
@@ -58,7 +61,7 @@ class ArrayKernel(Kernel):
             out_axes=0,
         )(self.x0, self.x1)
 
-    def __matmul__(self, v):  # noqa: ANN204
+    def _matmul(self, vec: jax.Array) -> jax.Array:
         """Compute matrix-vector product: K @ v.
 
         Args:
@@ -72,12 +75,14 @@ class ArrayKernel(Kernel):
         if self._kernel_matrix is None:
             self._kernel_matrix = self._compute_kernel_matrix()
 
-        return self._kernel_matrix @ v
+        return self._kernel_matrix @ vec
 
     def transpose(self):
-        return ArrayKernel(self.kernel, self.x1, self.x0)
+        return ArrayKernel(
+            kernel=lambda x, y: self.kernel(y, x), x0=self.x1, x1=self.x0
+        )
 
-    def todense(self):  # noqa: ANN202
+    def todense(self):
         """Convert the kernel matrix to a dense format.
 
         Returns:
@@ -85,19 +90,8 @@ class ArrayKernel(Kernel):
         """
         return jnp.asarray(self._kernel_matrix)
 
-    def _matmul(self, other):  # noqa: ANN202
-        return super()._matmul(other)
 
-    def diagonal(self):  # noqa: ANN202
-        D = np.min(self.shape)
-        diag = jnp.zeros(D, dtype=self.dtype)
-
-        def body_function(i, diag):  # noqa: ANN202
-            vec = jnp.zeros(self.shape[1], dtype=self.dtype)
-            vec = vec.at[i].set(1.0)
-            diag_val = (self._kernel_matrix @ vec)[i]
-            return diag.at[i].set(diag_val)
-
-        diagonal = jax.lax.fori_loop(0, D, body_function, diag)
-
-        return diagonal
+@lsqrt.dispatch
+def _(a: ArrayKernel) -> jax.Array:
+    _jitter = 1e-6 if a.dtype == jnp.float32 else 1e-10
+    return jnp.linalg.cholesky(a.todense() + _jitter * jnp.eye(a.shape[0]))

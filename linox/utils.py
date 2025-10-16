@@ -1,3 +1,5 @@
+# utils.py
+
 """Utility functions for argument types."""
 
 import numbers
@@ -7,9 +9,7 @@ import jax
 import jax.numpy as jnp
 
 from linox._linear_operator import LinearOperator
-
-# from linox._matrix import Matrix, Scalar
-from linox.types import ArrayLike, DTypeLike, ScalarLike, ShapeLike, ShapeType
+from linox.typing import ArrayLike, DTypeLike, ScalarLike, ShapeLike, ShapeType
 
 __all__ = ["_broadcast_shapes", "as_linop", "as_scalar", "as_shape"]
 
@@ -177,3 +177,17 @@ def allclose(
     a_dense = todense(a)
     b_dense = todense(b)
     return jnp.allclose(a_dense, b_dense, rtol=rtol, atol=atol)
+
+
+def as_dense(a: LinearOperatorLike) -> jnp.ndarray:
+    """Convert a linear operator to a dense matrix.
+
+    Args:
+        a: Linear operator to convert.
+
+    Returns:
+        Dense matrix.
+    """
+    if isinstance(a, LinearOperator):
+        return a.todense()
+    return a

@@ -1,3 +1,4 @@
+
 # Dev environment
 local_*
 .vscode/
@@ -9,8 +10,23 @@ __pycache__/
 *$py.class
 .venv/
 
+# IDEs and editors
+.vscode/
+.DS_Store
+
+# Local files
+examples/
+benchmarks/
+helper/
+TODO.md
+
+
 # C extensions
 *.so
+
+# Images
+
+*.png
 
 # Distribution / packaging
 .Python

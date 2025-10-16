@@ -1,3 +1,5 @@
+# __init__.py
+
 r"""`linox`: Linear operators in JAX.
 
 This package provides a collection of linear operators for JAX, including:
@@ -33,6 +35,7 @@ from ._arithmetic import (
     diagonal,
     is_square,
     is_symmetric,
+    kron,
     lcholesky,
     ldet,
     leigh,
@@ -51,6 +54,8 @@ from ._arithmetic import (
 # Import classes from other modules
 from ._block import BlockDiagonal, BlockMatrix, BlockMatrix2x2
 from ._eigen import EigenD
+from ._isotropicadd import IsotropicAdditiveLinearOperator
+from ._kernel import ArrayKernel
 from ._kronecker import Kronecker
 from ._linear_operator import LinearOperator
 from ._low_rank import (
@@ -61,11 +66,13 @@ from ._low_rank import (
 )
 from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
+from ._toeplitz import Toeplitz
 from .utils import allclose, todense
 
 # Explicitly declare public API
 __all__ = [
     "AddLinearOperator",
+    "ArrayKernel",
     "BlockDiagonal",
     "BlockMatrix",
     "BlockMatrix2x2",
@@ -73,6 +80,7 @@ __all__ = [
     "EigenD",
     "Identity",
     "InverseLinearOperator",
+    "IsotropicAdditiveLinearOperator",
     "IsotropicScalingPlusSymmetricLowRank",
     "Kronecker",
     "LinearOperator",
@@ -86,6 +94,7 @@ __all__ = [
     "Scalar",
     "ScaledLinearOperator",
     "SymmetricLowRank",
+    "Toeplitz",
     "TransposedLinearOperator",
     "Zero",
     "allclose",
@@ -93,6 +102,7 @@ __all__ = [
     "diagonal",
     "is_square",
     "is_symmetric",
+    "kron",
     "lcholesky",
     "ldet",
     "leigh",

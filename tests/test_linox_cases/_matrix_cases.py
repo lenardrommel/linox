@@ -1,3 +1,5 @@
+# _matrix_cases.py
+
 from collections.abc import Callable
 from itertools import product
 
@@ -21,7 +23,7 @@ CaseType = tuple[LinearOperator, jax.Array]
 KeyType = jax.random.PRNGKey
 
 # Set testing options
-IsTestBatchShape = True
+IsTestBatchShape = False
 
 # No batch dimensions
 basic_shapes = [

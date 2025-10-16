@@ -1,32 +1,31 @@
+# test_isotropicadd.py
+
 import jax
 import jax.numpy as jnp
 import pytest
 import pytest_cases
+from linox.typing import ShapeLike, ShapeType
 
 import linox
-from linox._isotropicadd import IsotropicAdditiveLinearOperator
-
-CaseType = tuple[linox.Kronecker, jax.Array]
-jax.config.update("jax_enable_x64", True)
-from collections.abc import Callable
-from itertools import product
-
-import jax
-import jax.numpy as jnp
-import pytest
-
-from linox.types import ShapeType
+from linox._isotropicadd import IsotropicAdditiveLinearOperator, linverse, lpinverse
+from linox.utils import as_dense
 
 DType = jnp.float32
 CaseType = tuple[linox.LinearOperator, jax.Array]
 KeyType = jax.random.PRNGKey
 
 
+jax.config.update("jax_enable_x64", True)
+
 basic_shapes = [
     (2, 2),
     (3, 3),
     (4, 4),
 ]
+
+# ============================================================================
+# Helper functions
+# ============================================================================
 
 
 def sample_isotropic_additive(shape: ShapeType) -> CaseType:
@@ -36,6 +35,37 @@ def sample_isotropic_additive(shape: ShapeType) -> CaseType:
     scalar = jax.random.normal(jax.random.PRNGKey(2), ())
     isotropicadd = IsotropicAdditiveLinearOperator(scalar, M)
     return isotropicadd, scalar * jnp.eye(shape[-1]) + arr
+
+
+def sample_spd(shape: ShapeLike) -> CaseType:
+    key = jax.random.PRNGKey(42)
+    A = jax.random.normal(key, shape)
+    matrix = A @ A.T + jnp.eye(shape[0]) * 1e-3
+    op = linox.utils.as_linop(matrix)
+    assert op.shape == matrix.shape, "Shape mismatch"
+    return op, matrix
+
+
+def sample_spd_isotropic_additive(shape: ShapeType) -> CaseType:
+    linop, matrix = sample_spd(shape)
+    scalar = jax.random.normal(jax.random.PRNGKey(3), ())
+    isotropicadd = IsotropicAdditiveLinearOperator(scalar, linop)
+    return isotropicadd, scalar * jnp.eye(shape[-1]) + matrix
+
+
+def sample_spd_isotropic_additive_kron(shape: ShapeType) -> CaseType:
+    linop1, matrix1 = sample_spd(shape)
+    linop2, matrix2 = sample_spd(shape)
+    linop = linox.kron(linop1, linop2)
+    matrix = jnp.kron(matrix1, matrix2)
+    scalar = jax.random.normal(jax.random.PRNGKey(4), ())
+    isotropicadd = IsotropicAdditiveLinearOperator(scalar, linop)
+    return isotropicadd, scalar * jnp.eye(matrix.shape[-1]) + matrix
+
+
+# ============================================================================
+# Cases
+# ============================================================================
 
 
 @pytest.mark.parametrize("shape", basic_shapes)
@@ -62,6 +92,22 @@ def case_matmul(
     linop1 = sample_isotropic_additive(shape)
     linop2 = sample_isotropic_additive(shape)
     return linop1, linop2
+
+
+@pytest.mark.parametrize("shape", basic_shapes)
+def case_spd_isotropic_additive(
+    shape: ShapeType,
+) -> CaseType:
+    linop, matrix = sample_spd_isotropic_additive(shape)
+    return linop, matrix
+
+
+@pytest.mark.parametrize("shape", basic_shapes)
+def case_spd_isotropic_additive_kron(
+    shape: ShapeType,
+) -> CaseType:
+    linop, matrix = sample_spd_isotropic_additive_kron(shape)
+    return linop, matrix
 
 
 @pytest.fixture(
@@ -155,3 +201,57 @@ def test_lmatmul(
 # ============================================================================
 # Function Tests
 # ============================================================================
+@pytest_cases.parametrize_with_cases(
+    "linop,matrix",
+    cases=[case_spd_isotropic_additive, case_spd_isotropic_additive_kron],
+)
+def test_inverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
+    inv_matrix = jnp.linalg.inv(matrix)
+    lin_inv = linverse(linop)
+    assert jnp.allclose(as_dense(lin_inv), inv_matrix, atol=1e-5), (
+        f"Linop Inv:\n{lin_inv.todense()}\nMatrix Inv:\n{inv_matrix}"
+    )
+    if not isinstance(lin_inv, linox.AddLinearOperator):
+        msg = f"Expected AddLinearOperator, got {type(lin_inv)}"
+        raise ValueError(msg)  # noqa: TRY004
+    vec = jax.random.normal(jax.random.PRNGKey(0), (matrix.shape[-1],))
+    linop_inv_vec = lin_inv @ vec
+    matrix_inv_vec = inv_matrix @ vec
+    assert jnp.allclose(linop_inv_vec, matrix_inv_vec, atol=1e-5), (
+        f"Linop Inv Vec:\n{linop_inv_vec}\nMatrix Inv Vec:\n{matrix_inv_vec}"
+    )
+    Q = jax.random.normal(jax.random.PRNGKey(1), (matrix.shape[-1], 2))
+    Q_op = linox.utils.as_linop(Q)
+    transformed_linop = Q_op.T @ linop @ Q_op
+    transformed_matrix = Q.T @ matrix @ Q
+    assert jnp.allclose(transformed_linop.todense(), transformed_matrix, atol=1e-5), (
+        f"Transformed Linop:\n{transformed_linop.todense()}\nTransformed Matrix:\n{transformed_matrix}"
+    )
+
+
+@pytest_cases.parametrize_with_cases(
+    "linop,matrix",
+    cases=[case_spd_isotropic_additive, case_spd_isotropic_additive_kron],
+)
+def test_pinverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
+    inv_matrix = jnp.linalg.pinv(matrix)
+    lin_inv = lpinverse(linop)
+    assert jnp.allclose(as_dense(lin_inv), inv_matrix, atol=1e-5), (
+        f"Linop Inv:\n{lin_inv.todense()}\nMatrix Inv:\n{inv_matrix}"
+    )
+    if not isinstance(lin_inv, linox.AddLinearOperator):
+        msg = f"Expected AddLinearOperator, got {type(lin_inv)}"
+        raise ValueError(msg)  # noqa: TRY004
+    vec = jax.random.normal(jax.random.PRNGKey(0), (matrix.shape[-1],))
+    linop_inv_vec = lin_inv @ vec
+    matrix_inv_vec = inv_matrix @ vec
+    assert jnp.allclose(linop_inv_vec, matrix_inv_vec, atol=1e-5), (
+        f"Linop Inv Vec:\n{linop_inv_vec}\nMatrix Inv Vec:\n{matrix_inv_vec}"
+    )
+    Q = jax.random.normal(jax.random.PRNGKey(1), (matrix.shape[-1], 2))
+    Q_op = linox.utils.as_linop(Q)
+    transformed_linop = Q_op.T @ linop @ Q_op
+    transformed_matrix = Q.T @ matrix @ Q
+    assert jnp.allclose(transformed_linop.todense(), transformed_matrix, atol=1e-5), (
+        f"Transformed Linop:\n{transformed_linop.todense()}\nTransformed Matrix:\n{transformed_matrix}"
+    )
