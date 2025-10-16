@@ -13,7 +13,7 @@ from linox import (
     linverse,
     lsqrt,
 )
-from linox.types import ShapeLike
+from linox.typing import ShapeLike
 
 CaseType = tuple[LinearOperator, jnp.ndarray]
 

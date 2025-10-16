@@ -6,9 +6,10 @@ from typing import Union
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 from linox import utils
-from linox.types import DTypeLike, ScalarLike, ShapeLike
+from linox.typing import DTypeLike, ScalarLike, ShapeLike
 
 BinaryOperandType = Union["LinearOperator", ScalarLike, jnp.ndarray]
 
@@ -183,30 +184,22 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
     def __matmul__(self, other: BinaryOperandType) -> "LinearOperator":
         from ._arithmetic import lmatmul  # noqa: PLC0415
 
-        # Shape checks
-        if len(other.shape) == 1 and isinstance(other, jnp.ndarray):
-            other = other[:, None]
-            flatten = True
-        else:
-            flatten = False
+        flatten = False
+        operand = other
+        if isinstance(other, (jax.Array, np.ndarray)):
+            operand = jnp.asarray(other)
+            if operand.ndim == 1:
+                operand = operand[:, None]
+                flatten = True
 
-        # Check multiplication shape
-        if other.shape[-2] != self.shape[-1]:
-            msg = f"expected other.shape[-2] to be {self.shape[-1]}, got {other.shape[-2]} instead."  # noqa: E501
-            raise ValueError(msg)
-
-        # Check dtype
-        if other.dtype != self.dtype:
-            msg = f"expected other.dtype to be {self.dtype}, got {other.dtype} instead."
-            raise ValueError(msg)
-
-        res = lmatmul(self, other)
+        res = lmatmul(self, operand)
         if (
             not flatten
             and isinstance(res, jax.Array)
             and res.ndim >= 2
             and res.shape[-2] != self.shape[-2]
-            and res.shape[-2] == other.shape[-1]
+            and hasattr(operand, "shape")
+            and res.shape[-2] == operand.shape[-1]
             and res.shape[-1] == self.shape[-2]
         ):
             res = jnp.swapaxes(res, -1, -2)

@@ -32,7 +32,7 @@ from linox._arithmetic import (
     lsub,
 )
 from linox._linear_operator import LinearOperator
-from linox.types import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
+from linox.typing import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
 from linox.utils import as_shape
 
 # --------------------------------------------------------------------------- #
@@ -637,82 +637,3 @@ jax.tree_util.register_pytree_node_class(Diagonal)
 jax.tree_util.register_pytree_node_class(Scalar)
 jax.tree_util.register_pytree_node_class(Zero)
 jax.tree_util.register_pytree_node_class(Ones)
-
-# from linox import Matrix
-import linox
-
-# from linox._arithmetic import is_symmetric
-
-key = jax.random.PRNGKey(0)
-
-A = jax.random.normal(key, (4, 4))
-symmetric_matrix = A + A.T
-symmetric_op = Matrix(symmetric_matrix)
-
-# Create non-symmetric matrix
-nonsymmetric_op = Matrix(jax.random.normal(key, (4, 4)))
-
-assert linox.is_symmetric(symmetric_op), "linop not symmetric"
-assert not linox.is_symmetric(nonsymmetric_op), "linop should be non-symmetric"
-size = 4
-key = jax.random.PRNGKey(257)
-seeds = [0, 22, 296]
-for seed in seeds:
-    key = jax.random.PRNGKey(seed)
-    A = jax.random.normal(key, (size, size))
-
-    square_spd_matrix = A @ A.T + jnp.eye(size) * 1e-6
-    op = Matrix(square_spd_matrix)
-    b = jax.random.normal(key, (square_spd_matrix.shape[0],))
-
-    x = linox.lsolve(op, b)
-    expected = jax.scipy.linalg.solve(square_spd_matrix, b, assume_a="sym")
-
-    assert jnp.allclose(x, expected, atol=1e-6)
-    assert jnp.allclose(op @ x, b, atol=1e-4)
-
-    op = Matrix(square_spd_matrix)
-    eigenvals, eigenvecs = linox.leigh(op)
-    expected_eigenvals, expected_eigenvecs = jnp.linalg.eigh(square_spd_matrix)
-    assert jnp.allclose(eigenvals, expected_eigenvals, atol=1e-6)
-    assert jnp.allclose(jnp.abs(eigenvecs), jnp.abs(expected_eigenvecs), atol=1e-6)
-
-
-base_matrix = jax.random.normal(key, (3, 3))
-scalar = 2.5
-
-base_op = Matrix(base_matrix)
-scaled_op = linox.ScaledLinearOperator(base_op, scalar)
-
-# Test basic operations
-expected = scalar * base_matrix
-assert jnp.allclose(scaled_op.todense(), expected)
-
-# Test transpose
-scaled_transpose = scaled_op.transpose()
-expected_transpose = scalar * base_matrix.T
-assert jnp.allclose(scaled_transpose.todense(), expected_transpose)
-
-# Test matrix-vector multiplication
-vector = jax.random.normal(key, (3,))
-result = scaled_op @ vector
-expected_result = scalar * (base_matrix @ vector)
-assert jnp.allclose(result, expected_result)
-
-base_op = Identity(3)
-operators = [
-    # linox.InverseLinearOperator(base_op),
-    linox.PseudoInverseLinearOperator(operator=base_op),
-]
-
-for op in operators:
-    # Test that JAX can handle these as PyTrees
-    flat, tree_def = jax.tree_util.tree_flatten(op)
-    reconstructed = jax.tree_util.tree_unflatten(tree_def, flat)
-
-    # Verify the reconstructed operator works the same
-    test_vector = jnp.ones(3)
-    original_result = op @ test_vector
-    reconstructed_result = reconstructed @ test_vector
-
-    assert jnp.allclose(original_result, reconstructed_result)

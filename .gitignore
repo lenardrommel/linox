@@ -15,9 +15,7 @@ __pycache__/
 .DS_Store
 
 # Local files
-examples/
 benchmarks/
-helper/
 TODO.md
 
 
