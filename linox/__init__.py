@@ -21,7 +21,7 @@ All operators support lazy evaluation and can be combined to form complex linear
 transformations.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 # Import functions from _arithmetic module
 from ._arithmetic import (
