@@ -231,3 +231,4 @@ def test_eigh_isotropicadd(linop: linox.LinearOperator, matrix: jax.Array) -> No
         if not jnp.allclose(vec1, vec2, atol=1e-5):
             vec2 = -vec2
         assert jnp.allclose(vec1, vec2, atol=1e-5), "Eigenvectors do not match"
+

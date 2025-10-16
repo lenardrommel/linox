@@ -5,6 +5,7 @@ from collections.abc import Callable
 import jax
 import jax.numpy as jnp
 
+from linox._arithmetic import lsqrt
 from linox._linear_operator import LinearOperator
 
 
@@ -88,3 +89,9 @@ class ArrayKernel(KernelOperator):
             Dense kernel matrix.
         """
         return jnp.asarray(self._kernel_matrix)
+
+
+@lsqrt.dispatch
+def _(a: ArrayKernel) -> jax.Array:
+    _jitter = 1e-6 if a.dtype == jnp.float32 else 1e-10
+    return jnp.linalg.cholesky(a.todense() + _jitter * jnp.eye(a.shape[0]))

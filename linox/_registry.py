@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Optional, Protocol, Set, Tuple
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
+
+    import jax
+    from jax import numpy as jnp
 
     from linox import LinearOperator
 
@@ -22,6 +25,17 @@ Tag = Literal[
     "normal",
     "banded",
 ]
+
+
+class Maker(Protocol):
+    def __call__(
+        self,
+        key: jax.random.PRNGKey,
+        shape: tuple[int, int],  # desired (m, n)
+        dtype: jnp.dtype,
+        require: set[Tag] | None = None,
+        **kwargs,
+    ) -> LinearOperator: ...
 
 
 @dataclass(frozen=True)

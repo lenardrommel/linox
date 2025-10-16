@@ -4,6 +4,7 @@ import operator
 from functools import reduce
 from typing import Union
 
+import jax
 import jax.numpy as jnp
 
 from linox import utils
@@ -200,6 +201,15 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
             raise ValueError(msg)
 
         res = lmatmul(self, other)
+        if (
+            not flatten
+            and isinstance(res, jax.Array)
+            and res.ndim >= 2
+            and res.shape[-2] != self.shape[-2]
+            and res.shape[-2] == other.shape[-1]
+            and res.shape[-1] == self.shape[-2]
+        ):
+            res = jnp.swapaxes(res, -1, -2)
         return res if not flatten else res[..., 0]
 
     def __rmatmul__(self, other: BinaryOperandType) -> "LinearOperator":

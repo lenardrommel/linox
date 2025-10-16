@@ -201,6 +201,31 @@ def test_pinverse(
     )
 
 
+def test_kronecker_lsqrt_preserves_matmul(
+    square_spd_kronecker: tuple[Kronecker, jax.Array],
+    key: jax.random.PRNGKey,
+    ncols: int,
+) -> None:
+    linop, matrix = square_spd_kronecker
+    scale = 1.7
+    scaled = linox.ScaledLinearOperator(linop, scale)
+    sqrt_op = linox.lsqrt(scaled)
+    rhs = jax.random.normal(key, (matrix.shape[-1], ncols))
+    jitter_A = 1e-10 if linop.A.dtype == jnp.float64 else 1e-6  # type: ignore[attr-defined]
+    jitter_B = 1e-10 if linop.B.dtype == jnp.float64 else 1e-6  # type: ignore[attr-defined]
+    chol_A = jnp.linalg.cholesky(
+        linop.A.todense() + jitter_A * jnp.eye(linop.A.shape[0], dtype=linop.A.dtype)
+    )
+    chol_B = jnp.linalg.cholesky(
+        linop.B.todense() + jitter_B * jnp.eye(linop.B.shape[0], dtype=linop.B.dtype)
+    )
+    dense_sqrt = jnp.sqrt(scale) * jnp.kron(chol_A, chol_B)
+    assert sqrt_op.shape == (matrix.shape[0], matrix.shape[0])
+    matmul_result = sqrt_op @ rhs
+    assert matmul_result.shape == (matrix.shape[0], ncols)
+    assert jnp.allclose(matmul_result, dense_sqrt @ rhs, atol=1e-5)
+
+
 def test_qr(square_spd_kronecker: tuple[Kronecker, jax.Array]) -> None:
     linop, matrix = square_spd_kronecker
     linop_q, linop_r = linox.lqr(linop)

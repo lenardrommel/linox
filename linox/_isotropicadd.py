@@ -12,6 +12,7 @@ from linox._arithmetic import (
     leigh,
     linverse,
     lpinverse,
+    lsqrt,
 )
 from linox._linear_operator import LinearOperator
 from linox._matrix import Diagonal, Identity
@@ -31,8 +32,8 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
     """
 
     def __init__(self, s: jax.Array, A: LinearOperator) -> None:
-        self._A = A
-        if A.shape[-1] != A.shape[-2]:
+        self._A = utils.as_linop(A)
+        if self._A.shape[-1] != self._A.shape[-2]:
             msg = "A must be a square matrix."
             raise ValueError(msg)
         self._s = ScaledLinearOperator(
@@ -104,6 +105,15 @@ def _(a: IsotropicAdditiveLinearOperator, jitter: float = 1e-10) -> jax.Array:
     return jnp.linalg.cholesky(a.todense() + jitter * jnp.eye(a.shape[0]))
 
 
+@lsqrt.dispatch(precedence=1)
+def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
+    a._ensure_eigh()  # noqa: SLF001
+    Q, S = a.Q, a.S  # cached
+    s = a.s.scalar
+    new_lam = utils.as_linop(jnp.diag(jnp.sqrt(S + s)))
+    return Q @ new_lam @ Q.T
+
+
 # we need a log-determinant function here
 # TODO: Implement lsolve for IsotropicAdditiveLinearOperator via eigendecomposition
 # A \kron B + s I = (Q_A \kron Q_B) (Lambda_A \kron Lambda_B + s I) (Q_A \kron Q_B)^T
@@ -146,4 +156,4 @@ def _(a: IsotropicAdditiveLinearOperator) -> tuple[LinearOperator, LinearOperato
 
 @diagonal.dispatch
 def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
-    return diagonal(a.s) + diagonal(a.operator)
+    return diagonal(a.operator) + diagonal(a.s)

@@ -19,6 +19,7 @@ from linox import utils
 from linox._arithmetic import (
     ScaledLinearOperator,
     congruence_transform,
+    diagonal,
     ladd,
     ldiv,
     linverse,
@@ -106,7 +107,17 @@ def _(a: jax.Array, b: Matrix) -> jax.Array:
 
 @lsqrt.dispatch
 def _(a: Matrix) -> Matrix:
-    return Matrix(jnp.sqrt(a.A))
+    if a.shape[-1] != a.shape[-2]:
+        msg = f"Square root only defined for square matrices, got shape {a.shape}"
+        raise ValueError(msg)
+    jitter = 1e-10 if a.dtype == jnp.float64 else 1e-6
+    identity = jnp.eye(a.shape[-1], dtype=a.dtype)
+    try:
+        chol = jnp.linalg.cholesky(a.A + jitter * identity)
+    except Exception as err:  # noqa: BLE001
+        msg = "Matrix square root requires a symmetric positive-definite matrix."
+        raise ValueError(msg) from err
+    return Matrix(chol)
 
 
 @linverse.dispatch

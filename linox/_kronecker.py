@@ -15,6 +15,7 @@ import jax.numpy as jnp
 from linox import utils
 from linox._arithmetic import (
     ProductLinearOperator,
+    diagonal,
     ladd,
     lcholesky,
     ldet,
@@ -29,6 +30,7 @@ from linox._arithmetic import (
     svd,
 )
 from linox._linear_operator import LinearOperator
+from linox._registry import get, register
 from linox.typing import DTypeLike, ScalarLike, ShapeLike
 
 
@@ -51,10 +53,14 @@ class Kronecker(LinearOperator):
     ) -> None:
         self._A = utils.as_linop(A)
         self._B = utils.as_linop(B)
+        A_shape = self._A.shape if len(self._A.shape) == 2 else (self._A.shape[0], 1)
+        B_shape = self._B.shape if len(self._B.shape) == 2 else (self._B.shape[0], 1)
+
         self._shape = (
-            self._A.shape[0] * self._B.shape[0],
-            self._A.shape[1] * self._B.shape[1],
+            A_shape[0] * B_shape[0],
+            A_shape[1] * B_shape[1],
         )
+
         dtype = jnp.result_type(self._A.dtype, self._B.dtype)
         super().__init__(self._shape, dtype)
 
@@ -68,10 +74,7 @@ class Kronecker(LinearOperator):
 
     @property
     def shape(self) -> tuple[int, int]:
-        return (
-            self._A.shape[0] * self._B.shape[0],
-            self._A.shape[1] * self._B.shape[1],
-        )
+        return self._shape
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self.A, self.B)
@@ -114,9 +117,6 @@ class Kronecker(LinearOperator):
 
     def transpose(self) -> "Kronecker":
         return Kronecker(self.A.transpose(), self.B.transpose())
-
-    def diag(self) -> "Kronecker":
-        return Kronecker(self.A.diagonal(), self.B.diagonal())
 
     def trace(self) -> jax.Array:
         return jnp.trace(self.A) * jnp.trace(self.B)
@@ -204,10 +204,12 @@ def _(op: Kronecker) -> Kronecker:
 # Not properly tested yet.
 @ldet.dispatch
 def _(op: Kronecker) -> ProductLinearOperator:
-    return ProductLinearOperator([
-        ldet(op.A) ** op.B.shape[0],
-        ldet(op.B) ** op.A.shape[0],
-    ])
+    return ProductLinearOperator(
+        [
+            ldet(op.A) ** op.B.shape[0],
+            ldet(op.B) ** op.A.shape[0],
+        ]
+    )
 
 
 @slogdet.dispatch
@@ -224,5 +226,40 @@ def _(op: Kronecker) -> tuple[jax.Array, jax.Array]:
     return final_sign, final_logdet
 
 
+@diagonal.dispatch
+def _(op: Kronecker) -> Kronecker:
+    return Kronecker(diagonal(op.A), diagonal(op.B))
+
+
 # Register Kronecker as a PyTree
 jax.tree_util.register_pytree_node_class(Kronecker)
+
+
+# Experimental registry integration
+def _factor_pair(total: int) -> tuple[int, int]:
+    for k in range(2, int(total**0.5) + 1):
+        if total % k == 0:
+            return k, total // k
+    return total, 1
+
+
+@register("kronecker", tags=("rectangular",))
+def make_kronecker(
+    key: jax.random.PRNGKey,
+    shape: tuple[int, int],
+    dtype=jnp.float32,
+    require=None,
+    *,
+    maker_A: str = "matrix",
+    maker_B: str = "matrix",
+    **kwargs,
+) -> Kronecker:
+    m, n = shape
+    mA, mB = _factor_pair(m)
+    nA, nB = _factor_pair(n)
+
+    keyA, keyB = jax.random.split(key)
+    A = get(maker_A).maker(keyA, (mA, nA), dtype, require=require)
+    B = get(maker_B).maker(keyB, (mB, nB), dtype, require=require)
+
+    return Kronecker(A, B)

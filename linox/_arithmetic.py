@@ -94,10 +94,10 @@ def diagonal(a: LinearOperator) -> ArithmeticType:
     print(f"Warning: Linear operator {a} is densed for diagonal computation.")  # noqa: T201
     dense_matrix = a.todense()
     if len(a.shape) <= 2:
-        return jnp.diag(dense_matrix)
+        return utils.as_linop(jnp.diag(dense_matrix))
     n = dense_matrix.shape[-1]
     diag_indices = jnp.arange(n)
-    return dense_matrix[..., diag_indices, diag_indices]
+    return utils.as_linop(dense_matrix[..., diag_indices, diag_indices])
 
 
 def transpose(a: LinearOperator) -> ArithmeticType:
@@ -441,7 +441,12 @@ class AddLinearOperator(LinearOperator):
 
 @diagonal.dispatch
 def _(a: AddLinearOperator) -> ArithmeticType:
-    return reduce(operator.add, (diagonal(op) for op in a.operator_list))
+    return reduce(
+        operator.add, (utils.as_linop(diagonal(op)) for op in (a.operator_list))
+    )
+
+
+# The problem is in Kronecker
 
 
 class ProductLinearOperator(LinearOperator):
@@ -467,13 +472,11 @@ class ProductLinearOperator(LinearOperator):
         ]
         batch_shape = _broadcast_shapes([op.shape[:-2] for op in self.operator_list])
         self.__check_init__()
-        shape = utils.as_shape(
-            (
-                *batch_shape,
-                self.operator_list[0].shape[-2],
-                self.operator_list[-1].shape[-1],
-            )
-        )
+        shape = utils.as_shape((
+            *batch_shape,
+            self.operator_list[0].shape[-2],
+            self.operator_list[-1].shape[-1],
+        ))
         super().__init__(shape=shape, dtype=self.operator_list[0].dtype)
 
     def __check_init__(self) -> None:  # noqa: PLW3201

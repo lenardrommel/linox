@@ -220,6 +220,13 @@ def test_inverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     assert jnp.allclose(linop_inv_vec, matrix_inv_vec, atol=1e-5), (
         f"Linop Inv Vec:\n{linop_inv_vec}\nMatrix Inv Vec:\n{matrix_inv_vec}"
     )
+    Q = jax.random.normal(jax.random.PRNGKey(1), (matrix.shape[-1], 2))
+    Q_op = linox.utils.as_linop(Q)
+    transformed_linop = Q_op.T @ linop @ Q_op
+    transformed_matrix = Q.T @ matrix @ Q
+    assert jnp.allclose(transformed_linop.todense(), transformed_matrix, atol=1e-5), (
+        f"Transformed Linop:\n{transformed_linop.todense()}\nTransformed Matrix:\n{transformed_matrix}"
+    )
 
 
 @pytest_cases.parametrize_with_cases(
@@ -240,4 +247,11 @@ def test_pinverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     matrix_inv_vec = inv_matrix @ vec
     assert jnp.allclose(linop_inv_vec, matrix_inv_vec, atol=1e-5), (
         f"Linop Inv Vec:\n{linop_inv_vec}\nMatrix Inv Vec:\n{matrix_inv_vec}"
+    )
+    Q = jax.random.normal(jax.random.PRNGKey(1), (matrix.shape[-1], 2))
+    Q_op = linox.utils.as_linop(Q)
+    transformed_linop = Q_op.T @ linop @ Q_op
+    transformed_matrix = Q.T @ matrix @ Q
+    assert jnp.allclose(transformed_linop.todense(), transformed_matrix, atol=1e-5), (
+        f"Transformed Linop:\n{transformed_linop.todense()}\nTransformed Matrix:\n{transformed_matrix}"
     )
