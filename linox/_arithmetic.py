@@ -116,6 +116,7 @@ def lpinverse(a: LinearOperator) -> ArithmeticType:
 
 @plum.dispatch
 def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
+    print(f"Warning: Linear operator {a} is densed for leigh computation.")  # noqa: T201
     ev, evec = jnp.linalg.eigh(a.todense())
     return ev, utils.as_linop(evec)
 
@@ -137,6 +138,7 @@ def svd(
         S: Singular values
         Vh: Right singular vectors (Hermitian)
     """  # noqa: D205
+    print(f"Warning: Linear operator {a} is densed for svd computation.")  # noqa: T201
     return jax.scipy.linalg.svd(
         a.todense(),
         full_matrices=full_matrices,
@@ -152,6 +154,7 @@ def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
         Q: Orthogonal matrix
         R: Upper triangular matrix.
     """
+    print(f"Warning: Linear operator {a} is densed for lqr computation.")  # noqa: T201
     return jnp.linalg.qr(a.todense())
 
 
@@ -484,13 +487,11 @@ class ProductLinearOperator(LinearOperator):
         batch_shape = _broadcast_shapes([op.shape[:-2] for op in self.operator_list])
         self.__check_init__()
         result_dtype = jnp.result_type(*[op.dtype for op in self.operator_list])
-        shape = utils.as_shape(
-            (
-                *batch_shape,
-                self.operator_list[0].shape[-2],
-                self.operator_list[-1].shape[-1],
-            )
-        )
+        shape = utils.as_shape((
+            *batch_shape,
+            self.operator_list[0].shape[-2],
+            self.operator_list[-1].shape[-1],
+        ))
         super().__init__(shape=shape, dtype=result_dtype)
 
     def __check_init__(self) -> None:  # noqa: PLW3201
@@ -555,13 +556,6 @@ class CongruenceTransform(ProductLinearOperator):
     def transpose(self) -> LinearOperator:
         return CongruenceTransform(self._A, self._B.T)
 
-
-@diagonal.dispatch(precedence=5)
-def _(a: CongruenceTransform) -> jax.Array:
-    A = a._A.todense()
-    B = a._B.todense()
-    return jnp.einsum("...ij,...jk,...ik->...i", A, B, A)
-
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self._A, self._B)
         aux_data = {}
@@ -581,6 +575,13 @@ def _(a: CongruenceTransform) -> jax.Array:
 @plum.dispatch
 def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:
     return CongruenceTransform(A, B)
+
+
+@diagonal.dispatch(precedence=5)
+def _(a: CongruenceTransform) -> jax.Array:
+    A = a._A.todense()
+    B = a._B.todense()
+    return jnp.einsum("...ij,...jk,...ik->...i", A, B, A)
 
 
 class TransposedLinearOperator(LinearOperator):
@@ -670,6 +671,9 @@ class InverseLinearOperator(LinearOperator):
         ).T
 
     def todense(self) -> jax.Array:
+        print(
+            f"Warning: Linear operator {self.operator} is densed for inverse computation."
+        )  # noqa
         return jnp.linalg.inv(self.operator.todense())
 
     def transpose(self) -> LinearOperator:
@@ -729,6 +733,9 @@ class PseudoInverseLinearOperator(LinearOperator):
         self.tol = tol
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
+        print(
+            f"Warning: Linear operator {self.operator} is densed for pseudo-inverse matmul computation."
+        )  # noqa: T201
         return jnp.linalg.pinv(self.operator.todense(), rtol=self.tol) @ arr
 
     def transpose(self) -> LinearOperator:
