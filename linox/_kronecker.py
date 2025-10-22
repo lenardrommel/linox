@@ -225,8 +225,14 @@ def _(op: Kronecker) -> tuple[jax.Array, jax.Array]:
 
 
 @diagonal.dispatch
-def _(op: Kronecker) -> Kronecker:
-    return Kronecker(diagonal(op.A), diagonal(op.B))
+def _(op: Kronecker) -> jax.Array:
+    diag_A = jnp.asarray(diagonal(op.A))
+    diag_B = jnp.asarray(diagonal(op.B))
+    batch_shape = jnp.broadcast_shapes(diag_A.shape[:-1], diag_B.shape[:-1])
+    diag_A = jnp.broadcast_to(diag_A, batch_shape + (diag_A.shape[-1],))
+    diag_B = jnp.broadcast_to(diag_B, batch_shape + (diag_B.shape[-1],))
+    diag = jnp.einsum("...i,...j->...ij", diag_A, diag_B)
+    return diag.reshape(batch_shape + (diag_A.shape[-1] * diag_B.shape[-1],))
 
 
 # Register Kronecker as a PyTree

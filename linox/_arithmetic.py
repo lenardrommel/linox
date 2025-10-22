@@ -90,14 +90,14 @@ def lsqrt(a: LinearOperator) -> LinearOperator:
 
 
 @plum.dispatch
-def diagonal(a: LinearOperator) -> ArithmeticType:
+def diagonal(a: LinearOperator) -> jax.Array:
     print(f"Warning: Linear operator {a} is densed for diagonal computation.")  # noqa: T201
     dense_matrix = a.todense()
     if len(a.shape) <= 2:
-        return utils.as_linop(jnp.diag(dense_matrix))
+        return jnp.diag(dense_matrix)
     n = dense_matrix.shape[-1]
     diag_indices = jnp.arange(n)
-    return utils.as_linop(dense_matrix[..., diag_indices, diag_indices])
+    return dense_matrix[..., diag_indices, diag_indices]
 
 
 def transpose(a: LinearOperator) -> ArithmeticType:
@@ -161,7 +161,9 @@ def lsolve(a: LinearOperator, b: jax.Array) -> jax.Array:
     if a.shape[-1] != b.shape[0]:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
-    return jax.scipy.linalg.solve(a.todense(), b, assume_a="sym")
+    # print(f"Warning: Linear operator {a} is densed for lsolve computation.")  # noqa: T201
+    # return jax.scipy.linalg.solve(a.todense(), b, assume_a="sym")
+    return linverse(a) @ b
 
 
 @plum.dispatch
@@ -170,6 +172,7 @@ def lu_factor(
     overwrite_a: bool = False,  # noqa: FBT001
 ) -> tuple[jax.Array, jax.Array]:
     """LU factorization of a linear operator."""
+    print(f"Warning: Linear operator {a} is densed for lu_factor computation.")  # noqa: T201
     return jax.scipy.linalg.lu_factor(a.todense(), overwrite_a=overwrite_a)
 
 
@@ -180,6 +183,7 @@ def lu_solve(a: LinearOperator, b: jax.Array) -> jax.Array:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
     lu, piv = lu_factor(a)
+    print(f"Warning: Linear operator {a} is densed for lu_solve computation.")  # noqa: T201
     return jax.scipy.linalg.lu_solve((lu, piv), b, overwrite_b=False)
 
 
@@ -190,11 +194,14 @@ def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: A
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
 
-    return jnp.linalg.pinv(a.todense(), rtol) @ b
+    # return jnp.linalg.pinv(a.todense(), rtol) @ b
+    return lpinverse(a) @ b
 
 
 @plum.dispatch
 def lcholesky(a: LinearOperator) -> jax.Array:
+    """Cholesky decomposition of a linear operator."""
+    print(f"Warning: Linear operator {a} is densed for lcholesky computation.")  # noqa: T201
     return jnp.linalg.cholesky(a.todense())
 
 
@@ -326,8 +333,8 @@ def _(a: ScaledLinearOperator) -> LinearOperator:
 
 
 @diagonal.dispatch(precedence=1)
-def _(a: ScaledLinearOperator) -> ArithmeticType:
-    return a.scalar * diagonal(a.operator)
+def _(a: ScaledLinearOperator) -> jax.Array:
+    return jnp.asarray(a.scalar) * diagonal(a.operator)
 
 
 @linverse.dispatch
@@ -440,10 +447,14 @@ class AddLinearOperator(LinearOperator):
 
 
 @diagonal.dispatch
-def _(a: AddLinearOperator) -> ArithmeticType:
-    return reduce(
-        operator.add, (utils.as_linop(diagonal(op)) for op in (a.operator_list))
-    )
+def _(a: AddLinearOperator) -> jax.Array:
+    return reduce(operator.add, (diagonal(op) for op in a.operator_list))
+
+
+@diagonal.dispatch(precedence=1)
+def _(a: "ProductLinearOperator") -> jax.Array:
+    diag_entries = [diagonal(op) for op in a.operator_list]
+    return reduce(operator.mul, diag_entries)
 
 
 # The problem is in Kronecker
@@ -472,12 +483,15 @@ class ProductLinearOperator(LinearOperator):
         ]
         batch_shape = _broadcast_shapes([op.shape[:-2] for op in self.operator_list])
         self.__check_init__()
-        shape = utils.as_shape((
-            *batch_shape,
-            self.operator_list[0].shape[-2],
-            self.operator_list[-1].shape[-1],
-        ))
-        super().__init__(shape=shape, dtype=self.operator_list[0].dtype)
+        result_dtype = jnp.result_type(*[op.dtype for op in self.operator_list])
+        shape = utils.as_shape(
+            (
+                *batch_shape,
+                self.operator_list[0].shape[-2],
+                self.operator_list[-1].shape[-1],
+            )
+        )
+        super().__init__(shape=shape, dtype=result_dtype)
 
     def __check_init__(self) -> None:  # noqa: PLW3201
         for i, op1 in enumerate(self.operator_list[:-1]):
@@ -489,12 +503,6 @@ class ProductLinearOperator(LinearOperator):
                     f"operator 2: ({op2.shape})"
                 )
                 raise ValueError(msg)
-            if op1.dtype != op2.dtype:
-                msg = (
-                    f"Type of operator 1: {op1.dtype} and operator 2: {op2.dtype} "
-                    f"mismatch."
-                )
-                raise TypeError(msg)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return reduce(lambda x, y: y @ x, [arr, *reversed(self.operator_list)])
@@ -526,11 +534,6 @@ class ProductLinearOperator(LinearOperator):
         return cls(*children)
 
 
-@diagonal.dispatch
-def _(a: ProductLinearOperator) -> ArithmeticType:
-    return reduce(operator.mul, (diagonal(op) for op in a.operator_list))
-
-
 # not properly tested
 class CongruenceTransform(ProductLinearOperator):
     r"""Congruence transformation of linear operators.
@@ -551,6 +554,13 @@ class CongruenceTransform(ProductLinearOperator):
 
     def transpose(self) -> LinearOperator:
         return CongruenceTransform(self._A, self._B.T)
+
+
+@diagonal.dispatch(precedence=5)
+def _(a: CongruenceTransform) -> jax.Array:
+    A = a._A.todense()
+    B = a._B.todense()
+    return jnp.einsum("...ij,...jk,...ik->...i", A, B, A)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self._A, self._B)
