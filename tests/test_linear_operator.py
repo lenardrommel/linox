@@ -1,3 +1,5 @@
+# test_linear_operator.py
+
 """General tests for the linear operator base class."""
 
 import jax
@@ -26,15 +28,16 @@ case_modules = [
     case_identity,
 ]
 
-inverse_cases = [
-    case_identity,
-    case_ones,
-    case_matrix
-]
+inverse_cases = [case_identity, case_ones, case_matrix]
 
 
 @pytest.fixture(
-    params=[pytest.param(seed, id=f"seed{seed}") for seed in [42,]],
+    params=[
+        pytest.param(seed, id=f"seed{seed}")
+        for seed in [
+            42,
+        ]
+    ],
 )
 def key(request) -> np.random.Generator:
     return jax.random.PRNGKey(request.param)
@@ -78,16 +81,20 @@ def test_matmat(
     order: str,
 ) -> None:
     val = jax.random.normal(key, shape=(linop.shape[1], ncols))
-    mat = jnp.asarray(val, order=order)
+    mat = jnp.asarray(val, order=order, dtype=linop.dtype)
 
     linop_matmat = linop @ mat
     matrix_matmat = matrix @ mat
 
     assert linop_matmat.ndim == 2
-    assert linop_matmat.shape == matrix_matmat.shape
-    assert linop_matmat.dtype == matrix_matmat.dtype
+    assert linop_matmat.shape == matrix_matmat.shape, "Shape does not match"
+    assert linop_matmat.dtype == matrix_matmat.dtype, (
+        f"Expected {linop_matmat.dtype}, got {matrix_matmat.dtype}"
+    )
 
-    jnp.allclose(linop_matmat, matrix_matmat)
+    assert jnp.allclose(linop_matmat, matrix_matmat), (
+        "Matrix-matrix product does not match"
+    )
 
 
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=case_modules)
