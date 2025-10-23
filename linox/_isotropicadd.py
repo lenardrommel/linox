@@ -155,5 +155,6 @@ def _(a: IsotropicAdditiveLinearOperator) -> tuple[LinearOperator, LinearOperato
 
 
 @diagonal.dispatch
-def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
-    return diagonal(a.operator) + diagonal(a.s)
+def _(a: IsotropicAdditiveLinearOperator) -> jax.Array:
+    # Sum of diagonals: diag(A) + s * 1
+    return jnp.asarray(diagonal(a.operator)) + jnp.asarray(diagonal(a.s))

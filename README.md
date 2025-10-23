@@ -64,3 +64,40 @@ y = B @ x  # Lazy evaluation
 x_batched = jnp.ones((10, 4), dtype=jnp.float32)
 y_batched = jax.vmap(B)(x_batched)
 ```
+
+## Densification Warnings and Debug Mode
+
+Some operations fall back to dense computations when a lazy, structure‑preserving
+path is not available (e.g., diagonal of a general product of non‑diagonal factors,
+explicit inverse materialization). To help diagnose performance, `linox` can emit
+warnings whenever an operation densifies.
+
+By default, these warnings are suppressed. Enable them via the API or an
+environment variable:
+
+```python
+from linox import set_debug
+
+# Turn on debug warnings
+set_debug(True)
+
+# Turn them off again
+set_debug(False)
+```
+
+Or set an environment variable before running Python:
+
+```bash
+export LINOX_DEBUG=1   # enables densification warnings
+python your_script.py
+```
+
+Examples of operations that may warn when debug is enabled:
+- `diagonal(op)` when it must convert an operator to dense to compute the diagonal.
+- Decompositions like `leigh`, `svd`, `lqr` falling back to dense.
+- `InverseLinearOperator.todense()` and pseudo‑inverse matmul paths that need dense.
+- `Matrix.todense()` when explicitly materializing the dense array.
+
+Note: Many structure‑aware paths remain lazy (e.g., diagonals of Kronecker
+products and of diagonal‑like products). The warnings help ensure large operators
+aren’t accidentally densified.

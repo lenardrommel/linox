@@ -150,25 +150,27 @@ def test_diagonal_product_matches_dense(
 def test_diagonal_isotropic_add_scaled_product_in_kronecker() -> None:
     mat_a = jnp.arange(4.0, dtype=jnp.float64).reshape(2, 2)
     mat_b = jnp.linspace(1.0, 4.0, num=4).reshape(2, 2)
+    mat_c = jnp.ones((2, 2))
 
     factor_left = linox.Matrix(mat_a)
     factor_right = linox.Matrix(mat_b)
     product = factor_left @ factor_right
     scaled_product = linox.ScaledLinearOperator(product, jnp.array(1.3))
     kron_wrapper = linox.Kronecker(scaled_product, linox.Matrix(jnp.ones((1, 1))))
-
-    additive = linox.AddLinearOperator(kron_wrapper, linox.Matrix(jnp.eye(2)))
+    kron_wrapper = linox.kron(
+        kron_wrapper, linox.kron(linox.Matrix(mat_c), linox.Matrix(mat_c))
+    )
+    additive = linox.AddLinearOperator(
+        kron_wrapper, linox.Matrix(jnp.eye(kron_wrapper.shape[0]))
+    )
     iso = linox.IsotropicAdditiveLinearOperator(jnp.array(0.5), additive)
 
     result = linox.diagonal(iso)
-    expected = jnp.diag(
-        jnp.kron(1.3 * (mat_a @ mat_b), jnp.ones((1, 1)))
-        + jnp.eye(2)
-        + jnp.eye(2) * 0.5
-    )
-    assert jnp.allclose(result.todense(), expected, atol=1e-6), (
-        "Diagonal does not match"
-    )
+    mat_prod = 1.3 * (mat_a @ mat_b)
+    kron1 = jnp.kron(mat_prod, jnp.ones((1, 1)))
+    kron2 = jnp.kron(kron1, jnp.kron(mat_c, mat_c))
+    expected = jnp.diag(kron2 + (1.5) * jnp.eye(kron2.shape[0]))
+    assert jnp.allclose(result, expected, atol=1e-6), "Diagonal does not match"
 
 
 # TODO(2bys): Add test for transpose.

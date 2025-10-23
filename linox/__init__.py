@@ -68,6 +68,7 @@ from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
 from ._toeplitz import Toeplitz
 from .utils import allclose, todense
+from .config import is_debug, set_debug
 
 # Explicitly declare public API
 __all__ = [
@@ -117,4 +118,6 @@ __all__ = [
     "symmetrize",
     "todense",
     "transpose",
+    "is_debug",
+    "set_debug",
 ]

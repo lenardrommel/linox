@@ -27,7 +27,9 @@ import jax
 import jax.numpy as jnp
 import plum  # type: ignore  # noqa: PGH003
 
+import linox
 from linox import utils
+from linox.config import warn as _warn
 from linox._linear_operator import LinearOperator
 from linox.typing import ArrayLike, ScalarLike, ShapeLike
 
@@ -91,7 +93,7 @@ def lsqrt(a: LinearOperator) -> LinearOperator:
 
 @plum.dispatch
 def diagonal(a: LinearOperator) -> jax.Array:
-    print(f"Warning: Linear operator {a} is densed for diagonal computation.")  # noqa: T201
+    _warn(f"Linear operator {a} is densed for diagonal computation.")
     dense_matrix = a.todense()
     if len(a.shape) <= 2:
         return jnp.diag(dense_matrix)
@@ -116,7 +118,7 @@ def lpinverse(a: LinearOperator) -> ArithmeticType:
 
 @plum.dispatch
 def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
-    print(f"Warning: Linear operator {a} is densed for leigh computation.")  # noqa: T201
+    _warn(f"Linear operator {a} is densed for leigh computation.")
     ev, evec = jnp.linalg.eigh(a.todense())
     return ev, utils.as_linop(evec)
 
@@ -138,7 +140,7 @@ def svd(
         S: Singular values
         Vh: Right singular vectors (Hermitian)
     """  # noqa: D205
-    print(f"Warning: Linear operator {a} is densed for svd computation.")  # noqa: T201
+    _warn(f"Linear operator {a} is densed for svd computation.")
     return jax.scipy.linalg.svd(
         a.todense(),
         full_matrices=full_matrices,
@@ -154,7 +156,7 @@ def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
         Q: Orthogonal matrix
         R: Upper triangular matrix.
     """
-    print(f"Warning: Linear operator {a} is densed for lqr computation.")  # noqa: T201
+    _warn(f"Linear operator {a} is densed for lqr computation.")
     return jnp.linalg.qr(a.todense())
 
 
@@ -175,7 +177,7 @@ def lu_factor(
     overwrite_a: bool = False,  # noqa: FBT001
 ) -> tuple[jax.Array, jax.Array]:
     """LU factorization of a linear operator."""
-    print(f"Warning: Linear operator {a} is densed for lu_factor computation.")  # noqa: T201
+    _warn(f"Linear operator {a} is densed for lu_factor computation.")
     return jax.scipy.linalg.lu_factor(a.todense(), overwrite_a=overwrite_a)
 
 
@@ -186,7 +188,7 @@ def lu_solve(a: LinearOperator, b: jax.Array) -> jax.Array:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
     lu, piv = lu_factor(a)
-    print(f"Warning: Linear operator {a} is densed for lu_solve computation.")  # noqa: T201
+    _warn(f"Linear operator {a} is densed for lu_solve computation.")
     return jax.scipy.linalg.lu_solve((lu, piv), b, overwrite_b=False)
 
 
@@ -204,7 +206,7 @@ def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: A
 @plum.dispatch
 def lcholesky(a: LinearOperator) -> jax.Array:
     """Cholesky decomposition of a linear operator."""
-    print(f"Warning: Linear operator {a} is densed for lcholesky computation.")  # noqa: T201
+    _warn(f"Linear operator {a} is densed for lcholesky computation.")
     return jnp.linalg.cholesky(a.todense())
 
 
@@ -456,8 +458,43 @@ def _(a: AddLinearOperator) -> jax.Array:
 
 @diagonal.dispatch(precedence=1)
 def _(a: "ProductLinearOperator") -> jax.Array:
-    diag_entries = [diagonal(op) for op in a.operator_list]
-    return reduce(operator.mul, diag_entries)
+    """Diagonal of a product.
+
+    If all factors are diagonal-like (Diagonal, Identity, Scalar, and their
+    scaled variants), the product remains diagonal and the diagonal equals the
+    element-wise product of the factor diagonals. Otherwise, fall back to a
+    dense computation for correctness.
+    """
+    from linox._matrix import Diagonal as _Diag
+    from linox._matrix import Identity as _Id
+    from linox._matrix import Scalar as _Scal
+
+    def _is_diag_like(op: LinearOperator) -> bool:
+        if isinstance(op, (_Diag, _Id, _Scal)):
+            return True
+        if isinstance(op, ScaledLinearOperator):
+            return isinstance(op.operator, (_Diag, _Id, _Scal))
+        return False
+
+    if all(_is_diag_like(op) for op in a.operator_list):
+        diags = []
+        for op in a.operator_list:
+            if isinstance(op, ScaledLinearOperator):
+                diags.append(
+                    jnp.asarray(op.scalar) * jnp.asarray(diagonal(op.operator))
+                )
+            else:
+                diags.append(jnp.asarray(diagonal(op)))
+        return reduce(operator.mul, diags)
+
+    # Fallback: compute dense diagonal for correctness
+    _warn(f"Converting product of shape {a.shape} to dense array for diagonal.")
+    dense = a.todense()
+    if dense.ndim <= 2:
+        return jnp.diag(dense)
+    n = dense.shape[-1]
+    idx = jnp.arange(n)
+    return dense[..., idx, idx]
 
 
 # The problem is in Kronecker
@@ -644,36 +681,49 @@ class InverseLinearOperator(LinearOperator):
         super().__init__(shape=operator.shape, dtype=operator.dtype)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
-        """Matrix multiplication via solving the linear system Ax = b.
-        This method implements matrix multiplication by solving the linear system
-        where the operator acts as matrix A and the input array as vector b.
-        For symmetric operators, it uses Cholesky decomposition for efficiency.
-        For general operators, it uses LU decomposition.
-            jax.Array: Solution array with shape (..., m) where m is the number of
-                       rows of the operator.
-        Note:
-            - Uses Cholesky decomposition for symmetric operators
-            - Uses LU decomposition for general operators
-            - Results are transposed to match expected output dimensions.
-        """  # noqa: D205
-        if is_symmetric(self.operator):
-            return jax.scipy.linalg.cho_solve(
-                (lcholesky(self.operator), False),
-                arr,
-                overwrite_b=False,
-            ).T
+        """Multiply by the inverse via solving A x = b with batched RHS.
 
-        return jax.scipy.linalg.lu_solve(
-            lu_factor(self.operator),
-            arr,
-            trans=1,
-            overwrite_b=False,
-        ).T
+        Accepts right-hand sides with arbitrary leading batch dimensions. Collapses
+        them into a 2D array (n, K), solves, and restores the original shape.
+        """
+        b = jnp.asarray(arr)
+        n = self.operator.shape[-1]
+
+        if b.shape[-2] != n:
+            msg = (
+                f"Right-hand side has invalid shape {b.shape}; "
+                f"expected last-2 dimension to equal operator size {n}."
+            )
+            raise ValueError(msg)
+
+        leading_shape = b.shape[:-2]
+        k = b.shape[-1]
+        # Move solve dimension to axis 0 and collapse remaining dims
+        b_2d = jnp.moveaxis(b, -2, 0).reshape(n, -1)
+
+        if is_symmetric(self.operator):
+            x_2d = jax.scipy.linalg.cho_solve(
+                (lcholesky(self.operator), False),
+                b_2d,
+                overwrite_b=False,
+            )
+        else:
+            x_2d = jax.scipy.linalg.lu_solve(
+                lu_factor(self.operator),
+                b_2d,
+                trans=0,
+                overwrite_b=False,
+            )
+
+        # Restore original batching and orientation to (..., n, k)
+        x = x_2d.reshape((n, *leading_shape, k))
+        x = jnp.moveaxis(x, 0, -2)
+        return x
 
     def todense(self) -> jax.Array:
-        print(
-            f"Warning: Linear operator {self.operator} is densed for inverse computation."
-        )  # noqa
+        _warn(
+            f"Linear operator {self.operator} is densed for inverse computation."
+        )
         return jnp.linalg.inv(self.operator.todense())
 
     def transpose(self) -> LinearOperator:
@@ -733,9 +783,9 @@ class PseudoInverseLinearOperator(LinearOperator):
         self.tol = tol
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
-        print(
-            f"Warning: Linear operator {self.operator} is densed for pseudo-inverse matmul computation."
-        )  # noqa: T201
+        _warn(
+            f"Linear operator {self.operator} is densed for pseudo-inverse matmul computation."
+        )
         return jnp.linalg.pinv(self.operator.todense(), rtol=self.tol) @ arr
 
     def transpose(self) -> LinearOperator:

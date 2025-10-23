@@ -16,6 +16,7 @@ import jax
 import jax.numpy as jnp
 
 from linox import utils
+from linox.config import warn as _warn
 from linox._arithmetic import (
     InverseLinearOperator,
     PseudoInverseLinearOperator,
@@ -58,6 +59,7 @@ class Matrix(LinearOperator):
         return self.A @ vector
 
     def todense(self) -> jax.Array:
+        _warn(f"Converting Matrix of shape {self.shape} to dense array.")
         return self.A
 
     def transpose(self) -> "Matrix":
@@ -79,6 +81,16 @@ class Matrix(LinearOperator):
         del aux_data
         (A,) = children
         return cls(A=A)
+
+
+# Provide a specialized, no-warning diagonal for Matrix.
+@diagonal.dispatch
+def _(a: Matrix) -> jax.Array:
+    if a.A.ndim <= 2:
+        return jnp.diag(a.A)
+    n = a.A.shape[-1]
+    idx = jnp.arange(n)
+    return a.A[..., idx, idx]
 
 
 # register matrix special behavior
@@ -193,6 +205,12 @@ class Identity(LinearOperator):
     ) -> "Identity":
         del children
         return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
+
+
+@diagonal.dispatch
+def _(a: Identity) -> jax.Array:
+    # Diagonal of identity is ones with appropriate batch shape.
+    return jnp.ones((*a.shape[:-2], a.shape[-1]), dtype=a.dtype)
 
 
 @ladd.dispatch
