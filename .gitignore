@@ -23,8 +23,10 @@ TODO.md
 *.so
 
 # Images
-
+# Ignore PNGs by default but keep repo assets
 *.png
+!linox_logo.png
+!examples/*.png
 
 # Distribution / packaging
 .Python
