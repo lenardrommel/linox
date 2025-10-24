@@ -1,10 +1,5 @@
 # test_arithmetics.py
 
-# test_arithmetics.py
-
-# test_arithmetics.py
-
-# test_arithmetics.py
 
 """Test for linear operator arithmetics."""
 

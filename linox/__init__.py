@@ -34,7 +34,6 @@ from ._arithmetic import (
     congruence_transform,
     diagonal,
     is_square,
-    is_symmetric,
     kron,
     lcholesky,
     ldet,
@@ -67,8 +66,8 @@ from ._low_rank import (
 from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
 from ._toeplitz import Toeplitz
-from .utils import allclose, todense
 from .config import is_debug, set_debug
+from .utils import allclose, todense
 
 # Explicitly declare public API
 __all__ = [
