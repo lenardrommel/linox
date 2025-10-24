@@ -29,8 +29,8 @@ import plum  # type: ignore  # noqa: PGH003
 
 import linox
 from linox import utils
-from linox.config import warn as _warn
 from linox._linear_operator import LinearOperator
+from linox.config import warn as _warn
 from linox.typing import ArrayLike, ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
@@ -216,9 +216,6 @@ def ldet(a: LinearOperator) -> jax.Array:
     if not is_square(a):
         msg = f"Operator {a} is not square."
         raise ValueError(msg)
-    if not is_symmetric(a):
-        msg = f"Operator {a} is not symmetric."
-        raise ValueError(msg)
 
     return jnp.linalg.det(a.todense())
 
@@ -252,10 +249,6 @@ def kron(a: LinearOperator, b: LinearOperator) -> LinearOperator:
 
 def is_square(a: LinearOperator) -> bool:
     return a.shape[-1] == a.shape[-2]
-
-
-def is_symmetric(a: LinearOperator) -> bool:
-    return jnp.allclose(a.todense(), a.todense().T)
 
 
 # --------------------------------------------------------------------------- #
@@ -372,9 +365,6 @@ def _(a: ScaledLinearOperator) -> jax.Array:
     """Compute the determinant of a scaled linear operator."""
     if not is_square(a):
         msg = f"Operator {a} is not square."
-        raise ValueError(msg)
-    if not is_symmetric(a):
-        msg = f"Operator {a} is not symmetric."
         raise ValueError(msg)
 
     return a.scalar ** a.shape[-1] * ldet(a.operator)
@@ -681,49 +671,10 @@ class InverseLinearOperator(LinearOperator):
         super().__init__(shape=operator.shape, dtype=operator.dtype)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
-        """Multiply by the inverse via solving A x = b with batched RHS.
-
-        Accepts right-hand sides with arbitrary leading batch dimensions. Collapses
-        them into a 2D array (n, K), solves, and restores the original shape.
-        """
-        b = jnp.asarray(arr)
-        n = self.operator.shape[-1]
-
-        if b.shape[-2] != n:
-            msg = (
-                f"Right-hand side has invalid shape {b.shape}; "
-                f"expected last-2 dimension to equal operator size {n}."
-            )
-            raise ValueError(msg)
-
-        leading_shape = b.shape[:-2]
-        k = b.shape[-1]
-        # Move solve dimension to axis 0 and collapse remaining dims
-        b_2d = jnp.moveaxis(b, -2, 0).reshape(n, -1)
-
-        if is_symmetric(self.operator):
-            x_2d = jax.scipy.linalg.cho_solve(
-                (lcholesky(self.operator), False),
-                b_2d,
-                overwrite_b=False,
-            )
-        else:
-            x_2d = jax.scipy.linalg.lu_solve(
-                lu_factor(self.operator),
-                b_2d,
-                trans=0,
-                overwrite_b=False,
-            )
-
-        # Restore original batching and orientation to (..., n, k)
-        x = x_2d.reshape((n, *leading_shape, k))
-        x = jnp.moveaxis(x, 0, -2)
-        return x
+        return linverse(self.operator) @ arr
 
     def todense(self) -> jax.Array:
-        _warn(
-            f"Linear operator {self.operator} is densed for inverse computation."
-        )
+        _warn(f"Linear operator {self.operator} is densed for inverse computation.")
         return jnp.linalg.inv(self.operator.todense())
 
     def transpose(self) -> LinearOperator:
@@ -750,9 +701,6 @@ def ldet(a: InverseLinearOperator) -> jax.Array:
     """Compute the determinant of a linear operator."""
     if not is_square(a):
         msg = f"Operator {a} is not square."
-        raise ValueError(msg)
-    if not is_symmetric(a):
-        msg = f"Operator {a} is not symmetric."
         raise ValueError(msg)
 
     return 1 / ldet(a.operator)
@@ -781,12 +729,6 @@ class PseudoInverseLinearOperator(LinearOperator):
         self.operator = operator
         super().__init__(shape=operator.T.shape, dtype=operator.dtype)
         self.tol = tol
-
-    def _matmul(self, arr: jax.Array) -> jax.Array:
-        _warn(
-            f"Linear operator {self.operator} is densed for pseudo-inverse matmul computation."
-        )
-        return jnp.linalg.pinv(self.operator.todense(), rtol=self.tol) @ arr
 
     def transpose(self) -> LinearOperator:
         return PseudoInverseLinearOperator(self.operator).transpose()
