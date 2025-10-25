@@ -4,10 +4,10 @@ import jax
 import jax.numpy as jnp
 import pytest
 import pytest_cases
-from linox.typing import ShapeLike, ShapeType
 
 import linox
 from linox._isotropicadd import IsotropicAdditiveLinearOperator, linverse, lpinverse
+from linox.typing import ShapeLike, ShapeType
 from linox.utils import as_dense
 
 DType = jnp.float32
@@ -254,4 +254,17 @@ def test_pinverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     transformed_matrix = Q.T @ matrix @ Q
     assert jnp.allclose(transformed_linop.todense(), transformed_matrix, atol=1e-5), (
         f"Transformed Linop:\n{transformed_linop.todense()}\nTransformed Matrix:\n{transformed_matrix}"
+    )
+
+
+def test_cholesky():
+    shape = (4, 4)
+    linop, matrix = sample_spd_isotropic_additive(shape)
+    lin_chol = linox.lcholesky(linop)
+    # Test the mathematical property: L @ L.T = A
+    # Note: lin_chol may not be lower triangular (to avoid densification),
+    # but it should satisfy the Cholesky property
+    reconstructed = (lin_chol @ lin_chol.T).todense()
+    assert jnp.allclose(reconstructed, matrix, atol=1e-5), (
+        f"L @ L.T:\n{reconstructed}\nOriginal matrix:\n{matrix}"
     )

@@ -60,6 +60,10 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
         return self._s
 
     @property
+    def scalar(self) -> jax.Array:
+        return self._s.scalar
+
+    @property
     def shape(self) -> tuple[int, int]:
         return self._A.shape
 
@@ -101,8 +105,13 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
 
 
 @lcholesky.dispatch
-def _(a: IsotropicAdditiveLinearOperator, jitter: float = 1e-10) -> jax.Array:
-    return jnp.linalg.cholesky(a.todense() + jitter * jnp.eye(a.shape[0]))
+def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
+    a._ensure_eigh()  # noqa: SLF001
+    Q, S = a.Q, a.S  # cached
+    s = a.s.scalar
+    # Cholesky of A + sI = Q * sqrt(Λ + sI) where A = Q Λ Q^T
+    new_lam = utils.as_linop(jnp.diag(jnp.sqrt(S + s)))
+    return Q @ new_lam
 
 
 @lsqrt.dispatch(precedence=1)
