@@ -117,6 +117,13 @@ def lpinverse(a: LinearOperator) -> ArithmeticType:
 
 
 @plum.dispatch
+def iso(scalar: ScalarLike, a: LinearOperator) -> LinearOperator:
+    from linox._isotropicadd import IsotropicAdditiveLinearOperator  # noqa: PLC0415
+
+    return IsotropicAdditiveLinearOperator(scalar, a)
+
+
+@plum.dispatch
 def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
     _warn(f"Linear operator {a} is densed for leigh computation.")
     ev, evec = jnp.linalg.eigh(a.todense())
@@ -216,7 +223,7 @@ def ldet(a: LinearOperator) -> jax.Array:
     if not is_square(a):
         msg = f"Operator {a} is not square."
         raise ValueError(msg)
-
+    _warn(f"Linear operator {a} is densed for ldet computation.")
     return jnp.linalg.det(a.todense())
 
 
@@ -231,7 +238,7 @@ def slogdet(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
     if not is_square(a):
         msg = f"Operator {a} is not square."
         raise ValueError(msg)
-
+    _warn(f"Linear operator {a} is densed for slogdet computation.")
     return jnp.linalg.slogdet(a.todense())
 
 
@@ -381,6 +388,12 @@ def _(a: ScaledLinearOperator) -> tuple[jax.Array, jax.Array]:
     return sign, logdet + (jnp.log(a.scalar) * a.shape[-1])
 
 
+@leigh.dispatch
+def _(a: ScaledLinearOperator) -> tuple[LinearOperator, LinearOperator]:
+    lams, Q = leigh(a.operator)
+    return a.scalar * lams, Q
+
+
 # inverse special behavior:
 # ScaledLinearOperator(inverse(operator), inverse(Scalar))
 def _broadcast_shapes(shapes: Iterable[ShapeLike]) -> ShapeLike:
@@ -485,9 +498,6 @@ def _(a: "ProductLinearOperator") -> jax.Array:
     n = dense.shape[-1]
     idx = jnp.arange(n)
     return dense[..., idx, idx]
-
-
-# The problem is in Kronecker
 
 
 class ProductLinearOperator(LinearOperator):
@@ -654,6 +664,12 @@ class TransposedLinearOperator(LinearOperator):
         return cls(operator=operator)
 
 
+@leigh.dispatch
+def _(a: TransposedLinearOperator) -> tuple[LinearOperator, LinearOperator]:
+    lams, Q = leigh(a.operator)
+    return lams, Q.transpose()
+
+
 # NOT TESTED
 class InverseLinearOperator(LinearOperator):
     """Inverse of a linear operator.
@@ -696,6 +712,11 @@ class InverseLinearOperator(LinearOperator):
         return cls(operator=operator)
 
 
+@linverse.dispatch
+def _(a: InverseLinearOperator) -> LinearOperator:
+    return a.operator
+
+
 @ldet.dispatch
 def ldet(a: InverseLinearOperator) -> jax.Array:
     """Compute the determinant of a linear operator."""
@@ -725,7 +746,7 @@ def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator
 
 
 class PseudoInverseLinearOperator(LinearOperator):
-    def __init__(self, operator: LinearOperator, tol: float = 1e-6) -> None:
+    def __init__(self, operator: LinearOperator, tol: float = 1e-12) -> None:
         self.operator = operator
         super().__init__(shape=operator.T.shape, dtype=operator.dtype)
         self.tol = tol
