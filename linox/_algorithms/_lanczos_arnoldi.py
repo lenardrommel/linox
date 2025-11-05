@@ -109,8 +109,8 @@ def lanczos_tridiag(
     # Initialize first vector
     Q = Q.at[:, 0].set(v0)
 
-    def lanczos_step(carry, _):
-        Q_curr, alpha_curr, beta_curr, k = carry
+    def lanczos_step(k, carry):
+        Q_curr, alpha_curr, beta_curr = carry
 
         # Matrix-vector product
         v = Q_curr[:, k]
@@ -120,15 +120,31 @@ def lanczos_tridiag(
         alpha_k = jnp.dot(w, v)
         alpha_curr = alpha_curr.at[k].set(alpha_k)
 
-        # Update w
+        # Update w (three-term recurrence)
         w = w - alpha_k * v
-        if k > 0:
-            w = w - beta_curr[k - 1] * Q_curr[:, k - 1]
+        # Subtract previous vector (if k > 0)
+        prev_contrib = lax.cond(
+            k > 0,
+            lambda: beta_curr[k - 1] * Q_curr[:, k - 1],
+            lambda: jnp.zeros_like(w),
+        )
+        w = w - prev_contrib
 
-        # Reorthogonalization (full Gram-Schmidt)
-        if reortho and k > 0:
-            for j in range(k + 1):
-                w = w - jnp.dot(w, Q_curr[:, j]) * Q_curr[:, j]
+        # Reorthogonalization (full Gram-Schmidt) against all previous vectors
+        # Only reorthogonalize if k > 0 (we have previous vectors) and reortho is enabled
+        if reortho:
+            # Reorthogonalize against q_0, ..., q_{k-1} (not q_k, already subtracted)
+            def reorth_body(j, w_state):
+                proj = jnp.dot(w_state, Q_curr[:, j])
+                return w_state - proj * Q_curr[:, j]
+
+            # Only reorthogonalize if we have previous vectors (k > 0)
+            w = lax.cond(
+                k > 0,
+                lambda w_val: lax.fori_loop(0, k, reorth_body, w_val),
+                lambda w_val: w_val,
+                w,
+            )
 
         # Compute off-diagonal element
         beta_k = jnp.linalg.norm(w)
@@ -147,12 +163,10 @@ def lanczos_tridiag(
             lambda: beta_curr,
         )
 
-        return (Q_next, alpha_curr, beta_next, k + 1), None
+        return (Q_next, alpha_curr, beta_next)
 
-    # Run Lanczos iterations
-    (Q, alpha, beta, _), _ = lax.scan(
-        lanczos_step, (Q, alpha, beta, 0), None, length=num_iters
-    )
+    # Run Lanczos iterations using fori_loop
+    Q, alpha, beta = lax.fori_loop(0, num_iters, lanczos_step, (Q, alpha, beta))
 
     return Q, alpha, beta
 
@@ -224,18 +238,22 @@ def arnoldi_iteration(
     # Initialize first vector
     Q = Q.at[:, 0].set(v0)
 
-    def arnoldi_step(carry, _):
-        Q_curr, H_curr, k = carry
+    def arnoldi_step(k, carry):
+        Q_curr, H_curr = carry
 
         # Matrix-vector product
         v = Q_curr[:, k]
         w = A @ v
 
-        # Full Gram-Schmidt orthogonalization
-        for j in range(k + 1):
-            h_jk = jnp.dot(w, Q_curr[:, j])
-            H_curr = H_curr.at[j, k].set(h_jk)
-            w = w - h_jk * Q_curr[:, j]
+        # Full Gram-Schmidt orthogonalization using fori_loop
+        def gs_body(j, state):
+            w_state, H_state = state
+            h_jk = jnp.dot(w_state, Q_curr[:, j])
+            H_state = H_state.at[j, k].set(h_jk)
+            w_state = w_state - h_jk * Q_curr[:, j]
+            return (w_state, H_state)
+
+        w, H_curr = lax.fori_loop(0, k + 1, gs_body, (w, H_curr))
 
         # Compute residual norm
         h_next = jnp.linalg.norm(w)
@@ -248,10 +266,10 @@ def arnoldi_iteration(
             lambda: Q_curr,
         )
 
-        return (Q_next, H_curr, k + 1), None
+        return (Q_next, H_curr)
 
-    # Run Arnoldi iterations
-    (Q, H, _), _ = lax.scan(arnoldi_step, (Q, H, 0), None, length=num_iters)
+    # Run Arnoldi iterations using fori_loop
+    Q, H = lax.fori_loop(0, num_iters, arnoldi_step, (Q, H))
 
     return Q, H
 

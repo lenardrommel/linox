@@ -111,8 +111,10 @@ def lanczos_matrix_function(
     if beta.size > 0:
         T = T + jnp.diag(beta, k=1) + jnp.diag(beta, k=-1)
 
-    # Apply function to tridiagonal matrix
-    fT = func(T)
+    # Apply function to tridiagonal matrix using eigendecomposition
+    # (converts element-wise function to matrix function)
+    eigvals, eigvecs = jnp.linalg.eigh(T)
+    fT = eigvecs @ jnp.diag(func(eigvals)) @ eigvecs.T
 
     # Extract first row (corresponds to initial vector contribution)
     e1 = jnp.zeros(num_iters)
@@ -179,7 +181,9 @@ def arnoldi_matrix_function(
 
     # Apply function to Hessenberg matrix (use only upper part)
     H_upper = H[:num_iters, :]
-    fH = func(H_upper)
+    # Use Schur decomposition for general matrices
+    eigvals, eigvecs = jnp.linalg.eig(H_upper)
+    fH = eigvecs @ jnp.diag(func(eigvals)) @ jnp.linalg.inv(eigvecs)
 
     # Extract first row
     e1 = jnp.zeros(num_iters)

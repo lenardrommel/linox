@@ -4,7 +4,7 @@ This module provides a collection of iterative and stochastic algorithms for
 working with large linear operators without explicit matrix construction.
 
 The implementations are inspired by the matfree library
-(https://github.com/pnkraemer/matfree) by Nicholas Krämer et al., with
+(https://github.com/pnkraemer/matfree) by Nicholas Kraemer et al., with
 adaptations for linox's LinearOperator abstraction.
 
 Submodules
@@ -56,10 +56,10 @@ levinson : Levinson recursion for Toeplitz systems (existing)
 
 References
 ----------
-.. [1] N. Krämer, M. Schober, and P. Hennig, "Gradients of functions of large matrices,"
+.. [1] N. Kraemer, M. Schober, and P. Hennig, "Gradients of functions of large matrices,"
        arXiv preprint arXiv:2405.17277, 2024.
 
-.. [2] A. Roy, N. Krämer, V. De Bortoli, and A. Doucet, "Gradients of Stochastic
+.. [2] A. Roy, N. Kraemer, V. De Bortoli, and A. Doucet, "Gradients of Stochastic
        Trace Estimators via Differentiable Matrix-Free Linear Solvers," arXiv, 2025.
 
 .. [3] matfree: Matrix-free linear algebra in JAX.

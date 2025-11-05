@@ -404,15 +404,15 @@ def lpow(
         lanczos_matrix_function,
     )
 
-    # Define power function
-    def power_func(M):
-        eigvals, eigvecs = jnp.linalg.eigh(M)
-        return eigvecs @ jnp.diag(eigvals**power) @ eigvecs.T
+    # Define power function (element-wise on eigenvalues)
+    def power_func(eigvals):
+        return eigvals**power
 
     if v is None:
         _warn("lpow without vector returns lazy operator - evaluation may be expensive")
         # For now, densify
-        return power_func(a.todense())
+        eigvals, eigvecs = jnp.linalg.eigh(a.todense())
+        return eigvecs @ jnp.diag(power_func(eigvals)) @ eigvecs.T
 
     # Compute A^p @ v using Krylov methods
     if method == "lanczos":
