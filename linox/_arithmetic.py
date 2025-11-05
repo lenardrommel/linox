@@ -249,6 +249,181 @@ def kron(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     return Kronecker(a, b)
 
 
+@plum.dispatch
+def ltrace(
+    a: LinearOperator,
+    key: jax.Array | None = None,
+    num_samples: int = 100,
+    distribution: str = "rademacher",
+) -> tuple[jax.Array, jax.Array]:
+    """Estimate the trace of a linear operator using Hutchinson's method.
+
+    For large operators, this provides a stochastic estimate without densification.
+
+    Args:
+        a: Linear operator to compute trace of
+        key: JAX random key. If None, uses a default key
+        num_samples: Number of random samples for estimation
+        distribution: Either 'rademacher' or 'normal'
+
+    Returns:
+        trace_estimate: Monte Carlo estimate of trace(a)
+        trace_std: Standard error of the estimate
+
+    Notes:
+        For exact trace computation on small/dense operators, use jnp.trace(a.todense()).
+        This method is inspired by matfree library (https://github.com/pnkraemer/matfree).
+    """
+    from linox._algorithms._trace import hutchinson_trace  # noqa: PLC0415
+
+    if key is None:
+        key = jax.random.PRNGKey(0)
+
+    return hutchinson_trace(a, key, num_samples, distribution)
+
+
+@plum.dispatch
+def lexp(
+    a: LinearOperator,
+    v: jax.Array | None = None,
+    num_iters: int = 20,
+    method: str = "lanczos",
+) -> jax.Array | LinearOperator:
+    """Compute matrix exponential exp(A) or exp(A)v.
+
+    For large operators, computes exp(A)v using Krylov subspace methods
+    without forming exp(A) explicitly.
+
+    Args:
+        a: Linear operator (should be symmetric for Lanczos)
+        v: Vector to multiply by exp(A). If None, returns lazy operator
+        num_iters: Number of Krylov iterations
+        method: 'lanczos' for symmetric or 'arnoldi' for general
+
+    Returns:
+        If v is provided: exp(A) @ v
+        If v is None: Lazy linear operator representing exp(A)
+
+    Notes:
+        Inspired by matfree library (https://github.com/pnkraemer/matfree).
+    """
+    from linox._algorithms._matrix_functions import (  # noqa: PLC0415
+        arnoldi_matrix_function,
+        lanczos_matrix_function,
+    )
+
+    if v is None:
+        # Return lazy operator
+        _warn("lexp without vector returns lazy operator - evaluation may be expensive")
+        # For now, densify (future: could implement lazy MatrixFunctionOperator)
+        return jnp.linalg.matrix_exp(a.todense())
+
+    # Compute exp(A)v using Krylov methods
+    if method == "lanczos":
+        return lanczos_matrix_function(a, v, jnp.exp, num_iters, reortho=True)
+    elif method == "arnoldi":
+        return arnoldi_matrix_function(a, v, jnp.exp, num_iters)
+    else:
+        msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
+        raise ValueError(msg)
+
+
+@plum.dispatch
+def llog(
+    a: LinearOperator,
+    v: jax.Array | None = None,
+    num_iters: int = 20,
+    method: str = "lanczos",
+) -> jax.Array | LinearOperator:
+    """Compute matrix logarithm log(A) or log(A)v.
+
+    For large operators, computes log(A)v using Krylov subspace methods.
+
+    Args:
+        a: Linear operator (should be positive definite and symmetric for Lanczos)
+        v: Vector to multiply by log(A). If None, returns lazy operator
+        num_iters: Number of Krylov iterations
+        method: 'lanczos' for symmetric or 'arnoldi' for general
+
+    Returns:
+        If v is provided: log(A) @ v
+        If v is None: Lazy linear operator representing log(A)
+
+    Notes:
+        Inspired by matfree library (https://github.com/pnkraemer/matfree).
+    """
+    from linox._algorithms._matrix_functions import (  # noqa: PLC0415
+        arnoldi_matrix_function,
+        lanczos_matrix_function,
+    )
+
+    if v is None:
+        _warn("llog without vector returns lazy operator - evaluation may be expensive")
+        # For now, densify
+        eigvals, eigvecs = jnp.linalg.eigh(a.todense())
+        return eigvecs @ jnp.diag(jnp.log(eigvals)) @ eigvecs.T
+
+    # Compute log(A)v using Krylov methods
+    if method == "lanczos":
+        return lanczos_matrix_function(a, v, jnp.log, num_iters, reortho=True)
+    elif method == "arnoldi":
+        return arnoldi_matrix_function(a, v, jnp.log, num_iters)
+    else:
+        msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
+        raise ValueError(msg)
+
+
+@plum.dispatch
+def lpow(
+    a: LinearOperator,
+    power: float,
+    v: jax.Array | None = None,
+    num_iters: int = 20,
+    method: str = "lanczos",
+) -> jax.Array | LinearOperator:
+    """Compute matrix power A^p or (A^p)v.
+
+    For large operators, computes A^p @ v using Krylov subspace methods.
+
+    Args:
+        a: Linear operator (should be symmetric for Lanczos)
+        power: Exponent p
+        v: Vector to multiply by A^p. If None, returns lazy operator
+        num_iters: Number of Krylov iterations
+        method: 'lanczos' for symmetric or 'arnoldi' for general
+
+    Returns:
+        If v is provided: A^p @ v
+        If v is None: Lazy linear operator representing A^p
+
+    Notes:
+        Inspired by matfree library (https://github.com/pnkraemer/matfree).
+    """
+    from linox._algorithms._matrix_functions import (  # noqa: PLC0415
+        arnoldi_matrix_function,
+        lanczos_matrix_function,
+    )
+
+    # Define power function
+    def power_func(M):
+        eigvals, eigvecs = jnp.linalg.eigh(M)
+        return eigvecs @ jnp.diag(eigvals**power) @ eigvecs.T
+
+    if v is None:
+        _warn("lpow without vector returns lazy operator - evaluation may be expensive")
+        # For now, densify
+        return power_func(a.todense())
+
+    # Compute A^p @ v using Krylov methods
+    if method == "lanczos":
+        return lanczos_matrix_function(a, v, power_func, num_iters, reortho=True)
+    elif method == "arnoldi":
+        return arnoldi_matrix_function(a, v, power_func, num_iters)
+    else:
+        msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
+        raise ValueError(msg)
+
+
 # --------------------------------------------------------------------------- #
 # Linear Operator checks
 # --------------------------------------------------------------------------- #
