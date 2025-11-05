@@ -1,9 +1,69 @@
 # plotting.py
 
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
-import jax.numpy as jnp
+import tueplots
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from tueplots import bundles
+from tueplots.constants.color import rgb
+
+
+# Helpers to apply tueplots styles cleanly
+def make_tueplots_rc(
+    *,
+    base="icml2022",
+    family="sans-serif",
+    usetex=False,
+    column="full",
+    nrows=None,
+    ncols=None,
+    font_size=24,
+    axes_labelsize=22,
+    legend_fontsize=22,
+    tick_labelsize=22,
+    title_size=22,
+):
+    """Build an rcParams dict from tueplots and optional font overrides.
+
+    Example:
+        rc = make_tueplots_rc(column="full", font_size=12, legend_fontsize=10)
+        plt.rcParams.update(rc)
+        # or
+        with plt.rc_context(rc):
+            ...
+    """
+    # Get base bundle
+    if not hasattr(bundles, base):
+        raise ValueError(f"Unknown tueplots bundle: {base}")
+    bundle_fn = getattr(bundles, base)
+    kwargs = dict(family=family, usetex=usetex, column=column)
+    if nrows is not None:
+        kwargs["nrows"] = nrows
+    if ncols is not None:
+        kwargs["ncols"] = ncols
+    rc = dict(bundle_fn(**kwargs))
+
+    # Apply optional overrides
+    if font_size is not None:
+        rc["font.size"] = font_size
+    if axes_labelsize is not None:
+        rc["axes.labelsize"] = axes_labelsize
+    if legend_fontsize is not None:
+        rc["legend.fontsize"] = legend_fontsize
+    if tick_labelsize is not None:
+        rc["xtick.labelsize"] = tick_labelsize
+        rc["ytick.labelsize"] = tick_labelsize
+    if title_size is not None:
+        rc["axes.titlesize"] = title_size
+
+    return rc
+
+
+def apply_tueplots_rc(**kwargs):
+    """Apply tueplots rcParams globally via plt.rcParams.update(...)."""
+    plt.rcParams.update(make_tueplots_rc(**kwargs))
+
 
 from .data import Heat1dDataGenerator, Heat2dDataGenerator
 
@@ -243,6 +303,97 @@ def plot_kernel_predictions_2d(
     return fig, axes
 
 
+def plot_kernel_predictions_1d_thesis(
+    pred_mean_flat,
+    pred_cov,
+    outputs_test,
+    operator_inputs_test,
+    spatial_inputs_plot,
+    spatial_inputs_test,
+    nx,
+    nx_plot,
+    N_test,
+    figsize=(15, 10),
+    plot_true_output: bool = True,
+    title: str = None,
+):
+    # Reshape
+    pred_mean_flat = pred_mean_flat.reshape(N_test, nx_plot)
+    outputs_test = outputs_test.reshape(N_test, nx)
+    inputs_test = operator_inputs_test.reshape(N_test, nx)
+
+    # Grids
+    grid_plot = spatial_inputs_plot.reshape(nx_plot)
+    grid_test = spatial_inputs_test.reshape(nx)
+
+    # Ensure ascending for interp (harmless if already sorted)
+    sort_test = np.argsort(np.asarray(grid_test))
+    grid_test_sorted = jnp.asarray(np.asarray(grid_test)[sort_test])
+
+    sort_plot = np.argsort(np.asarray(grid_plot))
+    grid_plot_sorted = jnp.asarray(np.asarray(grid_plot)[sort_plot])
+
+    i = 0  # choose which test case to show
+
+    # Interpolate 25-pt signals to 100-pt plot grid
+    ic_interp = jnp.interp(
+        grid_plot_sorted, grid_test_sorted, inputs_test[i][sort_test]
+    )
+    if plot_true_output:
+        ytrue_interp = jnp.interp(
+            grid_plot_sorted, grid_test_sorted, outputs_test[i][sort_test]
+        )
+
+    # GP stats already on plot grid (nx_plot)
+    pred_mean_sorted = pred_mean_flat[i][sort_plot]
+    variance = jnp.diag(pred_cov[i, :, i, :])
+    std_sorted = jnp.sqrt(jnp.maximum(variance, 1e-8))[sort_plot].block_until_ready()
+
+    # ---- Plot only on the 100-pt grid ----
+    fig, ax = plt.subplots(figsize=figsize)
+
+    ax.plot(
+        np.asarray(grid_plot_sorted),
+        np.asarray(ic_interp),
+        color=rgb.tue_blue,
+        label="Initial Condition (t=0)",
+    )
+
+    if plot_true_output:
+        ax.plot(
+            np.asarray(grid_plot_sorted),
+            np.asarray(ytrue_interp),
+            color=rgb.tue_green,
+            linestyle="--",
+            label="True Target",
+        )
+
+    ax.plot(
+        np.asarray(grid_plot_sorted),
+        np.asarray(pred_mean_sorted),
+        color=rgb.pn_red,
+        label="GP Prediction",
+    )
+
+    ax.fill_between(
+        np.asarray(grid_plot_sorted),
+        np.asarray(pred_mean_sorted - 2 * std_sorted),
+        np.asarray(pred_mean_sorted + 2 * std_sorted),
+        color=rgb.tue_lightblue,
+        alpha=0.2,
+        label="95% Confidence",
+    )
+
+    ax.set_xlabel("x")
+    ax.set_ylabel("u(x)")
+    if title:
+        ax.set_title(title)
+    ax.legend()
+
+    plt.tight_layout()
+    return fig, ax
+
+
 def plot_kernel_predictions_1d(
     pred_mean_flat,
     pred_cov,
@@ -254,6 +405,9 @@ def plot_kernel_predictions_1d(
     nx_plot,
     N_test,
     figsize=(15, 10),
+    show_train_grid: bool = True,
+    grid_tick_fraction: float = 0.07,
+    show_axis_grid: bool = False,
 ):
     # Reshape data for plotting
     pred_mean_flat = pred_mean_flat.reshape(N_test, nx_plot)
@@ -272,17 +426,17 @@ def plot_kernel_predictions_1d(
 
         # Plot initial condition
         plt.figure(figsize=(10, 4))
-        plt.subplot(1, 2, 1)
+        ax1 = plt.subplot(1, 2, 1)
         plt.plot(grid_test, inputs_test[i], "r")
         plt.title(f"Initial Condition (t=0)")
         plt.xlabel("x")
         plt.ylabel("u(x, 0)")
-        plt.grid(True)
+        ax1.grid(show_axis_grid)
 
         # Plot prediction at time T
-        plt.subplot(1, 2, 2)
-        plt.plot(grid_test, outputs_test[i], "r", label="True Solution")
-        plt.plot(grid_plot, pred_mean_flat[i], "b--", label="GP Prediction")
+        ax = plt.subplot(1, 2, 2)
+        ax.plot(grid_test, outputs_test[i], "r", label="True Solution")
+        ax.plot(grid_plot, pred_mean_flat[i], "b--", label="GP Prediction")
         plt.fill_between(
             grid_plot,
             pred_mean_flat[i] - 2 * std_dev,
@@ -292,11 +446,27 @@ def plot_kernel_predictions_1d(
             label="95% Confidence",
         )
 
+        plt.show()
+
+        # Visually mark training spatial grid locations to highlight uncertainty dips
+        if show_train_grid:
+            ymin, ymax = ax.get_ylim()
+            dh = grid_tick_fraction * (ymax - ymin)
+            # short ticks at the bottom of the axis for each training x
+            ax.vlines(
+                grid_test,
+                ymin=ymin,
+                ymax=ymin + dh,
+                colors="k",
+                linewidth=0.5,
+                alpha=0.5,
+            )
+
         plt.title(f"Solution at t={1.0}")
         plt.xlabel("x")
         plt.ylabel("u(x, T)")
         plt.legend()
-        plt.grid(True)
+        ax.grid(show_axis_grid)
 
         plt.tight_layout()
         plt.savefig(f"heat_gp_test_{i}.png")
@@ -335,12 +505,8 @@ def plot_samples_2d(
     if num_samples == 1:
         axes = axes.reshape(-1, 1)
 
-    vmin = min(
-        operator_inputs_test_2d.min(), outputs_test_2d.min(), samples.min()
-    )
-    vmax = max(
-        operator_inputs_test_2d.max(), outputs_test_2d.max(), samples.max()
-    )
+    vmin = min(operator_inputs_test_2d.min(), outputs_test_2d.min(), samples.min())
+    vmax = max(operator_inputs_test_2d.max(), outputs_test_2d.max(), samples.max())
 
     for i in range(num_samples):
         im1 = axes[0, i].contourf(
@@ -495,9 +661,7 @@ def plot_uncertainty_2d(
         axes = np.array([axes])
 
     for i in range(N_test):
-        im = axes[i].contourf(
-            X_plot, Y_plot, pred_std[i], levels=20, cmap="Purples"
-        )
+        im = axes[i].contourf(X_plot, Y_plot, pred_std[i], levels=20, cmap="Purples")
         axes[i].set_title(f"Posterior Std\nSample {i}")
         axes[i].set_xlabel("x")
         axes[i].set_ylabel("y")
@@ -550,7 +714,11 @@ def plot_marginal_analysis_2d(
     for i in range(N_test):
         color = colors[i % len(colors)]
         axes[0, 0].plot(
-            x_plot, pred_2d[i, mid_y_idx, :], color=color, linewidth=2, label=f"Pred {i}"
+            x_plot,
+            pred_2d[i, mid_y_idx, :],
+            color=color,
+            linewidth=2,
+            label=f"Pred {i}",
         )
         axes[0, 0].plot(
             x_plot,

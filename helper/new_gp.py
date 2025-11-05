@@ -168,7 +168,7 @@ def params_from_structure(structure: StructureConfig) -> Params:
         key = dim.scope_key or f"spatial_{dim.name}"
         defaults = {k: _to_jax_array(v) for k, v in dim.kernel_params.items()}
         if "lengthscale" not in defaults:
-            init_val = jnp.pi / 20 if dim.kernel_type == KernelType.RBF else -3.0
+            init_val = jnp.pi / 50 if dim.kernel_type == KernelType.RBF else -3.0
             defaults["lengthscale"] = _to_jax_array(init_val)
         params[key] = defaults
 
@@ -583,4 +583,3 @@ class ModularGPPrior:
         pred_cov = K_test - K_cross @ v
 
         return pred_mean.reshape(-1), pred_cov
-

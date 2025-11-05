@@ -7,6 +7,7 @@ import jax.numpy as jnp
 
 from linox._arithmetic import lsqrt
 from linox._linear_operator import LinearOperator
+from linox._toeplitz import Toeplitz
 
 
 class KernelOperator(LinearOperator):
@@ -95,3 +96,37 @@ class ArrayKernel(KernelOperator):
 def _(a: ArrayKernel) -> jax.Array:
     _jitter = 1e-6 if a.dtype == jnp.float32 else 1e-10
     return jnp.linalg.cholesky(a.todense() + _jitter * jnp.eye(a.shape[0]))
+
+
+class ToeplitzKernel(KernelOperator):
+    def __init__(
+        self,
+        kernel,
+        x0: jax.Array,
+        x1: jax.Array | None = None,
+    ) -> None:
+        super().__init__(kernel, x0, x1)
+
+        if x1 is not None and not jnp.allclose(x0, x1):
+            msg = (
+                "ToeplitzKernel requires x0 == x1 (symmetric case). "
+                "For non-symmetric cases, use ArrayKernel instead."
+            )
+            raise ValueError(msg)
+
+        self._toeplitz_vector = self._compute_toeplitz_vector()
+        self._toeplitz_operator = Toeplitz(self._toeplitz_vector)
+
+    def _compute_toeplitz_vector(self) -> jax.Array:
+        return jax.vmap(lambda x: self.kernel(self.x0[0], x))(self.x0)
+
+    def _matmul(self, vec: jax.Array) -> jax.Array:
+        return self._toeplitz_operator @ vec
+
+    def transpose(self) -> "ToeplitzKernel":
+        return ToeplitzKernel(
+            kernel=lambda x, y: self.kernel(y, x), x0=self.x0, x1=None
+        )
+
+    def todense(self) -> jax.Array:
+        return self._toeplitz_operator.todense()

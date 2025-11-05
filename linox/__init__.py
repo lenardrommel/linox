@@ -101,7 +101,6 @@ __all__ = [
     "congruence_transform",
     "diagonal",
     "is_square",
-    "is_symmetric",
     "kron",
     "lcholesky",
     "ldet",
