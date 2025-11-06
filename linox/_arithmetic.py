@@ -258,6 +258,114 @@ def is_square(a: LinearOperator) -> bool:
     return a.shape[-1] == a.shape[-2]
 
 
+def is_symmetric(
+    a: LinearOperator,
+    *,
+    rtol: float = 1e-5,
+    atol: float = 1e-8,
+    key: jax.Array | None = None,
+    num_probes: int = 1,
+) -> bool:
+    """Check if a linear operator is symmetric without densifying.
+
+    Uses randomized probing: generates random vectors x and checks if Ax ≈ A^T x.
+    This avoids densifying the full matrix.
+
+    Args:
+        a: Linear operator to check
+        rtol: Relative tolerance for comparison
+        atol: Absolute tolerance for comparison
+        key: Random key for generating test vectors (default: uses key 0)
+        num_probes: Number of random vectors to test (default: 1)
+
+    Returns:
+        True if the operator appears symmetric within tolerance
+    """
+    if not is_square(a):
+        return False
+
+    if key is None:
+        key = jax.random.PRNGKey(0)
+
+    n = a.shape[-1]
+
+    for i in range(num_probes):
+        # Generate random normalized vector
+        probe_key = jax.random.fold_in(key, i)
+        x = jax.random.normal(probe_key, (n,), dtype=a.dtype)
+        x = x / jnp.linalg.norm(x)
+
+        # Compute Ax and A^T x
+        v1 = a @ x
+        v2 = a.T @ x
+
+        # Check if v1 ≈ v2
+        if not jnp.allclose(v1, v2, rtol=rtol, atol=atol):
+            return False
+
+    return True
+
+
+def is_hermitian(
+    a: LinearOperator,
+    *,
+    rtol: float = 1e-5,
+    atol: float = 1e-8,
+    key: jax.Array | None = None,
+    num_probes: int = 1,
+) -> bool:
+    """Check if a linear operator is Hermitian without densifying.
+
+    Uses randomized probing: generates random vectors x and checks if Ax ≈ (A^H x)
+    where A^H is the conjugate transpose. This avoids densifying the full matrix.
+
+    For real matrices, this is equivalent to checking symmetry.
+
+    Args:
+        a: Linear operator to check
+        rtol: Relative tolerance for comparison
+        atol: Absolute tolerance for comparison
+        key: Random key for generating test vectors (default: uses key 0)
+        num_probes: Number of random vectors to test (default: 1)
+
+    Returns:
+        True if the operator appears Hermitian within tolerance
+    """
+    if not is_square(a):
+        return False
+
+    if key is None:
+        key = jax.random.PRNGKey(0)
+
+    n = a.shape[-1]
+
+    for i in range(num_probes):
+        # Generate random normalized vector
+        probe_key = jax.random.fold_in(key, i)
+        x = jax.random.normal(probe_key, (n,), dtype=a.dtype)
+        if jnp.issubdtype(a.dtype, jnp.complexfloating):
+            # For complex operators, add imaginary part
+            x_imag = jax.random.normal(probe_key, (n,), dtype=a.dtype)
+            x = x + 1j * x_imag
+        x = x / jnp.linalg.norm(x)
+
+        # Compute Ax and A^H x (conjugate transpose)
+        v1 = a @ x
+        v2 = a.T @ jnp.conj(x)
+
+        # For Hermitian: <Ax, x> = <x, Ax> = conj(<Ax, x>)
+        # Equivalently: Ax should equal conj(A^T conj(x))
+        # Or more directly: check if <v1, x> ≈ conj(<v2, x>)
+        # But simpler: check if v1 ≈ conj(v2) when x is real
+        # Actually, let's use the proper test: A x = conj(A^T conj(x))
+        v2_hermitian = jnp.conj(a.T @ jnp.conj(x))
+
+        if not jnp.allclose(v1, v2_hermitian, rtol=rtol, atol=atol):
+            return False
+
+    return True
+
+
 # --------------------------------------------------------------------------- #
 # Linear Operator - Enforce tags
 # --------------------------------------------------------------------------- #
