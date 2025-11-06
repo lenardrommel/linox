@@ -14,7 +14,7 @@ This package provides a collection of linear operators for JAX, including:
 
 Common operations:
 - Arithmetic: :func:`linverse`, :func:`lsqrt`, :func:`transpose`
-- Properties: :func:`is_square`, :func:`is_symmetric`
+- Properties: :func:`is_square`, :func:`is_symmetric`, :func:`is_hermitian`
 - Transformations: :func:`congruence_transform`, :func:`diagonal`, :func:`symmetrize`
 
 All operators support lazy evaluation and can be combined to form complex linear
@@ -33,7 +33,9 @@ from ._arithmetic import (
     TransposedLinearOperator,
     congruence_transform,
     diagonal,
+    is_hermitian,
     is_square,
+    is_symmetric,
     kron,
     lcholesky,
     ldet,
@@ -100,7 +102,9 @@ __all__ = [
     "allclose",
     "congruence_transform",
     "diagonal",
+    "is_hermitian",
     "is_square",
+    "is_symmetric",
     "kron",
     "lcholesky",
     "ldet",
