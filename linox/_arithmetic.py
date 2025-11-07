@@ -156,6 +156,50 @@ def svd(
 
 
 @plum.dispatch
+def lsvd(
+    a: LinearOperator,
+    k: int,
+    num_iters: int | None = None,
+    u0: jax.Array | None = None,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    """Compute partial SVD using matrix-free Lanczos bidiagonalization.
+
+    Computes the k largest singular values and corresponding singular vectors
+    without forming the full matrix explicitly. This is efficient for large
+    sparse or structured matrices where only a few singular values are needed.
+
+    Args:
+        a: Linear operator of shape (m, n)
+        k: Number of singular values/vectors to compute
+        num_iters: Number of Lanczos iterations. Should be larger than k.
+            If None, uses min(2*k, min(m, n)). Default is None.
+        u0: Initial vector of shape (m,) for bidiagonalization.
+            If None, uses vector of ones. Default is None.
+
+    Returns:
+        U: Left singular vectors of shape (m, k)
+        S: Singular values of shape (k,) in descending order
+        Vt: Right singular vectors of shape (k, n)
+
+    Examples:
+        >>> import jax.numpy as jnp
+        >>> from linox import Matrix
+        >>> A = Matrix(jnp.random.randn(1000, 500))
+        >>> U, S, Vt = linox.lsvd(A, k=10)
+        >>> # Verify: A ≈ U @ diag(S) @ Vt
+
+    Notes:
+        This is the matrix-free alternative to jnp.linalg.svd for computing
+        a few singular values. For full SVD, use linox.svd() instead.
+
+        Inspired by matfree library (https://github.com/pnkraemer/matfree).
+    """
+    from linox._algorithms._svd import svd_partial  # noqa: PLC0415
+
+    return svd_partial(a, k, num_iters, u0)
+
+
+@plum.dispatch
 def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
     """QR decomposition of a linear operator.
 
