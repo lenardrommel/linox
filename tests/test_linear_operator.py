@@ -301,9 +301,8 @@ def test_is_hermitian_with_non_hermitian_matrix(key: jax.random.PRNGKey) -> None
     A_real = jax.random.normal(key1, (n, n))
     A_imag = jax.random.normal(key2, (n, n))
     A_dense = A_real + 1j * A_imag
-    A = linox.Matrix(A_dense)
+    A = linox.kron(linox.Matrix(A_dense), linox.Identity(1))
 
-    # For a random complex matrix, it should not be Hermitian
     assert not linox.is_hermitian(A)
 
 
