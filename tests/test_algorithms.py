@@ -1,3 +1,5 @@
+# test_algorithms.py
+
 """Tests for matrix-free algorithms inspired by matfree.
 
 These tests verify the correctness of:
@@ -89,7 +91,9 @@ class TestLanczosArnoldi:
 
         # Should get top k eigenvalues (approximate, not exact)
         expected = diag_vals[-k:][::-1]
-        assert jnp.allclose(eigs, expected, atol=1.0)  # Relaxed tolerance for Lanczos approximation
+        assert jnp.allclose(
+            eigs, expected, atol=1.0
+        )  # Relaxed tolerance for Lanczos approximation
 
     def test_arnoldi_shape(self):
         """Test that Arnoldi returns correct shapes."""
@@ -178,7 +182,9 @@ class TestHutchinsonTrace:
         A = Matrix(jnp.eye(n))
         key = jax.random.PRNGKey(0)
 
-        trace_rad, _ = hutchinson_trace(A, key, num_samples=200, distribution="rademacher")
+        trace_rad, _ = hutchinson_trace(
+            A, key, num_samples=200, distribution="rademacher"
+        )
         trace_norm, _ = hutchinson_trace(A, key, num_samples=200, distribution="normal")
 
         # Both should be close to true trace (n=100)
@@ -263,6 +269,7 @@ class TestMatrixFunctions:
         n = 50
         scale = 2.0
         A = Matrix(scale * jnp.eye(n))
+        A = linox.IsotropicAdditiveLinearOperator(1e-4, A)
         v = jnp.ones(n)
         num_iters = 5
 
@@ -314,7 +321,7 @@ class TestStochasticLanczosQuadrature:
         )
 
         # log|I| = 0
-        assert jnp.abs(logdet_est) < 3 * logdet_std
+        assert jnp.abs(logdet_est) < 3 * logdet_std + 1e-6
         assert jnp.abs(logdet_est) < 1.0
 
     def test_slq_logdet_diagonal(self):

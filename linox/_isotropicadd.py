@@ -25,14 +25,102 @@ jax.config.update("jax_enable_x64", True)
 
 
 class IsotropicAdditiveLinearOperator(AddLinearOperator):
-    """Isotropic additive linear operator.
+    r"""Isotropic additive linear operator for matrices of the form.
 
-    Represents a linear operator of the form A = s * I + A where A is a
-    linear operator and I is the identity matrix.
+        A_iso := s I + A,
 
-    Args:
-        s: Scalar value to be added to the diagonal.
-        A: Linear operator to be added.
+    where ``s`` is a scalar (or a 0-arg scalar LinearOperator) and ``A`` is a
+    symmetric LinearOperator. This class exposes fast, matrix-free implementations
+    of common spectral transforms (inverse, pseudo-inverse, square root, log,
+    powers, exp, Cholesky-like factor) by working in the eigenbasis of ``A``.
+
+    ----------
+    Core idea
+    ----------
+    If ``A = Q Λ Qᵀ`` is an eigendecomposition of ``A`` (with Λ diagonal and
+    ``Qᵀ Q = I``), then
+
+        s I + A = Q (Λ + s I) Qᵀ,
+
+    so any spectral function ``f`` (e.g. inverse, sqrt, log, power, exp) satisfies
+
+        f(s I + A) = Q f(Λ + s I) Qᵀ,
+
+    which reduces the linear-algebra to elementwise operations on the eigenvalues.
+
+    This class computes/caches an (optionally truncated) eigendecomposition via
+    ``leigh(A)`` and then dispatches the following:
+
+    * ``linverse``:       (s I + A)⁻¹ = (1/s) I − Q diag(λ / (s (λ + s))) Qᵀ
+                          (Woodbury / projector–complement split)
+    * ``lpinverse``:      pseudo-inverse using the same spectral formula with
+                          safe handling of zero/near-zero modes.
+    * ``lsqrt``:          (s I + A)^{1/2} = Q diag(√(λ + s)) Qᵀ
+    * ``lcholesky``:      returns a factor L with L Lᵀ = s I + A, namely
+                          L = Q diag(√(λ + s))   (orthonormal “spectral” factor)
+    * ``llog``:           log(s I + A) = Q diag(log(λ + s)) Qᵀ
+    * ``lpow``:           (s I + A)^p = Q diag((λ + s)^p) Qᵀ
+    * ``diagonal``:       diag(s I + A) = s · 1 + diag(A)
+    * ``ltrace``:         tr(s I + A) = s·n + tr(A)  (with Hutchinson if needed)
+    * ``lexp``:           exp(s I + A) = Q diag(exp(λ + s)) Qᵀ
+
+    -------------------------------
+    Projector / anti-projector view
+    -------------------------------
+    When ``leigh`` returns a **truncated** eigenspace ``Q ∈ ℝ^{n×k}`` (k ≤ n),
+    let P := Q Qᵀ be the projector onto the retained subspace and
+    P⊥ := I − P the orthogonal complement. Then
+
+        (s I + A)⁻¹
+        = Q (Λ + s I)⁻¹ Qᵀ  +  (1/s) P⊥,
+
+    i.e. the inverse acts as ``(Λ + s I)⁻¹`` on span(Q) and as ``(1/s) I`` on
+    its orthogonal complement. The implementation of ``linverse`` uses the
+    equivalent Woodbury form
+
+        (s I + A)⁻¹ = (1/s) [ I − Q diag(λ / (λ + s)) Qᵀ ].
+
+    If ``leigh`` is **full-rank**, then P = I and P⊥ = 0, which recovers the
+    usual full spectral formulas.
+
+    -------------
+    Caching notes
+    -------------
+    * ``Q`` and ``S`` (eigenvectors/eigenvalues) are cached lazily by
+      ``_ensure_eigh()``. Any operation that changes the operator should call
+      ``_invalidate_cache()``.
+    * ``projector`` (Q Qᵀ) and ``complement`` (I − Q Qᵀ) are also cached on demand.
+
+    ----------
+
+    Arguments:
+    ----------
+    s : jax.Array
+        Scalar added to the diagonal (isotropic shift). May be wrapped into a
+        scalar ``ScaledLinearOperator(Identity, s)``.
+    A : LinearOperator
+        Symmetric linear operator (square). Non-symmetric inputs raise ``ValueError``.
+
+    -------
+
+    Returns:
+    -------
+    A LinearOperator supporting matrix-free application and spectral transforms
+    of ``s I + A`` via the multipledispatch functions listed above.
+
+    -------
+
+    Example:
+    -------
+    >>> n = 100
+    >>> s = jnp.array(0.1)
+    >>> A = utils.as_linop(jnp.diag(jnp.linspace(0.0, 5.0, n)))  # symmetric
+    >>> L = IsotropicAdditiveLinearOperator(s, A)
+    >>> x = jnp.ones((n,))
+    >>> y = (linverse(L) @ x)          # apply (s I + A)^{-1} to a vector
+    >>> d = diagonal(L)                 # exact diagonal
+    >>> z = (lsqrt(L) @ x)              # apply (s I + A)^{1/2} to a vector
+
     """
 
     def __init__(self, s: jax.Array, A: LinearOperator) -> None:
@@ -175,13 +263,20 @@ def _(a: IsotropicAdditiveLinearOperator) -> jax.Array:
 
 # New matrix-free function dispatches for IsotropicAdditive
 @ltrace.dispatch
-def _(a: IsotropicAdditiveLinearOperator, key: jax.Array | None = None, num_samples: int = 100, distribution: str = "rademacher") -> tuple[jax.Array, jax.Array]:
+def _(
+    a: IsotropicAdditiveLinearOperator,
+    key: jax.Array | None = None,
+    num_samples: int = 100,
+    distribution: str = "rademacher",
+) -> tuple[jax.Array, jax.Array]:
     """Trace of sI + A: trace(sI + A) = s*n + trace(A)."""
     n = a.shape[-1]
     s = a.s.scalar
 
     # Recursively compute trace of A
-    trace_A, std_A = ltrace(a.operator, key=key, num_samples=num_samples, distribution=distribution)
+    trace_A, std_A = ltrace(
+        a.operator, key=key, num_samples=num_samples, distribution=distribution
+    )
 
     trace_value = s * n + trace_A
     trace_std = std_A  # std of constant + random variable = std of random variable
@@ -190,7 +285,12 @@ def _(a: IsotropicAdditiveLinearOperator, key: jax.Array | None = None, num_samp
 
 
 @lexp.dispatch
-def _(a: IsotropicAdditiveLinearOperator, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(
+    a: IsotropicAdditiveLinearOperator,
+    v: jax.Array | None = None,
+    num_iters: int = 20,
+    method: str = "lanczos",
+) -> jax.Array | LinearOperator:
     """Matrix exponential of sI + A using eigendecomposition.
 
     exp(sI + A) = exp(s) * exp(A) since sI and A commute... NO, this is wrong!
@@ -214,7 +314,12 @@ def _(a: IsotropicAdditiveLinearOperator, v: jax.Array | None = None, num_iters:
 
 
 @llog.dispatch
-def _(a: IsotropicAdditiveLinearOperator, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(
+    a: IsotropicAdditiveLinearOperator,
+    v: jax.Array | None = None,
+    num_iters: int = 20,
+    method: str = "lanczos",
+) -> jax.Array | LinearOperator:
     """Matrix logarithm of sI + A using eigendecomposition.
 
     log(sI + A) = U log(s + λ) U^T where A = U λ U^T
@@ -237,7 +342,14 @@ def _(a: IsotropicAdditiveLinearOperator, v: jax.Array | None = None, num_iters:
 
 
 @lpow.dispatch
-def _(a: IsotropicAdditiveLinearOperator, *, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(
+    a: IsotropicAdditiveLinearOperator,
+    *,
+    power: float,
+    v: jax.Array | None = None,
+    num_iters: int = 20,
+    method: str = "lanczos",
+) -> jax.Array | LinearOperator:
     """Matrix power of sI + A using eigendecomposition.
 
     (sI + A)^p = U (s + λ)^p U^T where A = U λ U^T
@@ -250,10 +362,10 @@ def _(a: IsotropicAdditiveLinearOperator, *, power: float, v: jax.Array | None =
 
     if v is None:
         # Return lazy operator: U @ Diagonal((s + λ)^p) @ U^T
-        pow_eigvals = Diagonal(eigvals ** power)
+        pow_eigvals = Diagonal(eigvals**power)
         from linox._arithmetic import congruence_transform  # noqa: PLC0415
 
         return congruence_transform(a.Q, pow_eigvals)
     else:
         # (sI + A)^p @ v = U @ (s + λ)^p @ U^T @ v
-        return a.Q @ ((eigvals ** power) * (a.Q.T @ v))
+        return a.Q @ ((eigvals**power) * (a.Q.T @ v))
