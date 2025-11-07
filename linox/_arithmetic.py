@@ -376,6 +376,7 @@ def llog(
 @plum.dispatch
 def lpow(
     a: LinearOperator,
+    *,
     power: float,
     v: jax.Array | None = None,
     num_iters: int = 20,

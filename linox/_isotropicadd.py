@@ -237,7 +237,7 @@ def _(a: IsotropicAdditiveLinearOperator, v: jax.Array | None = None, num_iters:
 
 
 @lpow.dispatch
-def _(a: IsotropicAdditiveLinearOperator, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(a: IsotropicAdditiveLinearOperator, *, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
     """Matrix power of sI + A using eigendecomposition.
 
     (sI + A)^p = U (s + λ)^p U^T where A = U λ U^T

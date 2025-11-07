@@ -294,12 +294,12 @@ def _(op: Kronecker, v: jax.Array | None = None, num_iters: int = 20, method: st
 
 
 @lpow.dispatch
-def _(op: Kronecker, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(op: Kronecker, *, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
     """Matrix power of Kronecker: (A ⊗ B)^p = A^p ⊗ B^p."""
     if v is None:
         # Return lazy operator: A^p ⊗ B^p
-        pow_A = lpow(op.A, power, v=None, num_iters=num_iters, method=method)
-        pow_B = lpow(op.B, power, v=None, num_iters=num_iters, method=method)
+        pow_A = lpow(op.A, power=power, v=None, num_iters=num_iters, method=method)
+        pow_B = lpow(op.B, power=power, v=None, num_iters=num_iters, method=method)
         return Kronecker(pow_A, pow_B)
     else:
         # Can use structure, but for simplicity use general algorithm

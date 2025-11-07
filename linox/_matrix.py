@@ -306,7 +306,7 @@ def _(a: Identity, v: jax.Array | None = None, num_iters: int = 20, method: str 
 
 
 @lpow.dispatch
-def _(a: Identity, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(a: Identity, *, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
     """Matrix power of identity: I^p = I for any p."""
     if v is None:
         return a  # I^p = I
@@ -453,7 +453,7 @@ def _(a: Diagonal, v: jax.Array | None = None, num_iters: int = 20, method: str 
 
 
 @lpow.dispatch
-def _(a: Diagonal, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(a: Diagonal, *, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
     """Matrix power of diagonal: diag(d)^p = diag(d^p)."""
     if v is None:
         # Return lazy operator: diag(d^p)

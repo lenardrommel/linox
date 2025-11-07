@@ -120,7 +120,7 @@ def _(a: EigenD, v: jax.Array | None = None, num_iters: int = 20, method: str = 
 
 
 @lpow.dispatch
-def _(a: EigenD, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(a: EigenD, *, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
     """Matrix power from eigendecomposition: (UΛU^T)^p = U Λ^p U^T."""
     if v is None:
         # Return lazy operator: U @ Diagonal(λ^p) @ U^T
