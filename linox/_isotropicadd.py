@@ -117,14 +117,6 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
     >>> d = diagonal(L)                 # exact diagonal
     >>> z = (lsqrt(L) @ x)              # apply (s I + A)^{1/2} to a vector
 
-    ------
-
-    Notes:
-    ------
-    * The formulas assume real-symmetric ``A``; for PSD matrices the square root
-      and “Cholesky-like” factor are well-defined.
-    * Numerical stability near λ + s ≈ 0 should be handled by the calling code
-      (e.g., with clipping/tolerances inside the low-level spectral ops).
     """
 
     def __init__(self, s: jax.Array, A: LinearOperator) -> None:
