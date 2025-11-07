@@ -128,10 +128,7 @@ def lsmr_solve(
     m = b.shape[0]
 
     # Get matrix shape
-    if hasattr(A, "shape"):
-        n = A.shape[1]
-    else:
-        n = A.shape[1]
+    n = A.shape[1]
 
     if maxiter is None:
         maxiter = min(m, n)
@@ -161,10 +158,7 @@ def lsmr_solve(
     u = u / beta
 
     # Apply A^T to u
-    if hasattr(A, "T"):
-        v = A.T @ u
-    else:
-        v = A.T @ u
+    v = A.T @ u
 
     alpha = jnp.linalg.norm(v)
 
@@ -229,10 +223,7 @@ def lsmr_solve(
 
         normA2 = normA2 + alpha * alpha + beta * beta + damp * damp
 
-        if hasattr(A, "T"):
-            v = A.T @ u - beta * v
-        else:
-            v = A.T @ u - beta * v
+        v = A.T @ u - beta * v
 
         alpha = jnp.linalg.norm(v)
         v = lax.cond(alpha > 0, lambda: v / alpha, lambda: v)
@@ -291,7 +282,7 @@ def lsmr_solve(
     # Convergence condition
     def converged(carry):
         (
-            _,
+            x_curr,
             _,
             _,
             _,
@@ -312,8 +303,9 @@ def lsmr_solve(
         normA = jnp.sqrt(normA2)
         normr = jnp.abs(zetabar)
         # Test convergence
-        test1 = normr / (normA * jnp.linalg.norm(x) + jnp.linalg.norm(b))
-        test2 = normr / jnp.linalg.norm(b) if jnp.linalg.norm(b) > 0 else normr
+        norm_b = jnp.linalg.norm(b)
+        test1 = normr / (normA * jnp.linalg.norm(x_curr) + norm_b)
+        test2 = jnp.where(norm_b > 0, normr / norm_b, normr)
 
         converged = (test1 <= atol) | (test2 <= btol)
         continue_iter = (~converged) & (k < maxiter)
@@ -341,7 +333,7 @@ def lsmr_solve(
         0,
     )
 
-    final_carry, _ = lax.while_loop(converged, lambda c: lsmr_step(c, None)[0], init_carry)
+    final_carry = lax.while_loop(converged, lambda c: lsmr_step(c, None)[0], init_carry)
 
     (
         x,
@@ -370,21 +362,24 @@ def lsmr_solve(
     normar = jnp.abs(zetabar) * normA
     normx = jnp.linalg.norm(x)
 
-    test1 = normr / (normA * normx + jnp.linalg.norm(b))
-    test2 = normr / jnp.linalg.norm(b) if jnp.linalg.norm(b) > 0 else normr
+    norm_b = jnp.linalg.norm(b)
+    test1 = normr / (normA * normx + norm_b)
+    test2 = jnp.where(norm_b > 0, normr / norm_b, normr)
 
-    if itn >= maxiter:
-        istop = 5
-    elif test1 <= atol and test2 <= btol:
-        istop = 3
-    elif test1 <= atol:
-        istop = 1
-    elif test2 <= btol:
-        istop = 2
-    elif condA >= conlim:
-        istop = 4
-    else:
-        istop = 0
+    # Determine istop using JAX-friendly approach (priority order)
+    istop = jnp.where(
+        itn >= maxiter, 5,
+        jnp.where(
+            (test1 <= atol) & (test2 <= btol), 3,
+            jnp.where(
+                test1 <= atol, 1,
+                jnp.where(
+                    test2 <= btol, 2,
+                    jnp.where(condA >= conlim, 4, 0)
+                )
+            )
+        )
+    )
 
     info = {
         "istop": istop,
