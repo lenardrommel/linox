@@ -21,14 +21,110 @@ jax.config.update("jax_enable_x64", True)
 
 
 class IsotropicAdditiveLinearOperator(AddLinearOperator):
-    """Isotropic additive linear operator.
+    r"""Isotropic additive linear operator for matrices of the form.
 
-    Represents a linear operator of the form A = s * I + A where A is a
-    linear operator and I is the identity matrix.
+        A_iso := s I + A,
 
-    Args:
-        s: Scalar value to be added to the diagonal.
-        A: Linear operator to be added.
+    where ``s`` is a scalar (or a 0-arg scalar LinearOperator) and ``A`` is a
+    symmetric LinearOperator. This class exposes fast, matrix-free implementations
+    of common spectral transforms (inverse, pseudo-inverse, square root, log,
+    powers, exp, Cholesky-like factor) by working in the eigenbasis of ``A``.
+
+    ----------
+    Core idea
+    ----------
+    If ``A = Q Λ Qᵀ`` is an eigendecomposition of ``A`` (with Λ diagonal and
+    ``Qᵀ Q = I``), then
+
+        s I + A = Q (Λ + s I) Qᵀ,
+
+    so any spectral function ``f`` (e.g. inverse, sqrt, log, power, exp) satisfies
+
+        f(s I + A) = Q f(Λ + s I) Qᵀ,
+
+    which reduces the linear-algebra to elementwise operations on the eigenvalues.
+
+    This class computes/caches an (optionally truncated) eigendecomposition via
+    ``leigh(A)`` and then dispatches the following:
+
+    * ``linverse``:       (s I + A)⁻¹ = (1/s) I − Q diag(λ / (s (λ + s))) Qᵀ
+                          (Woodbury / projector–complement split)
+    * ``lpinverse``:      pseudo-inverse using the same spectral formula with
+                          safe handling of zero/near-zero modes.
+    * ``lsqrt``:          (s I + A)^{1/2} = Q diag(√(λ + s)) Qᵀ
+    * ``lcholesky``:      returns a factor L with L Lᵀ = s I + A, namely
+                          L = Q diag(√(λ + s))   (orthonormal “spectral” factor)
+    * ``llog``:           log(s I + A) = Q diag(log(λ + s)) Qᵀ
+    * ``lpow``:           (s I + A)^p = Q diag((λ + s)^p) Qᵀ
+    * ``diagonal``:       diag(s I + A) = s · 1 + diag(A)
+    * ``ltrace``:         tr(s I + A) = s·n + tr(A)  (with Hutchinson if needed)
+    * ``lexp``:           exp(s I + A) = Q diag(exp(λ + s)) Qᵀ
+
+    -------------------------------
+    Projector / anti-projector view
+    -------------------------------
+    When ``leigh`` returns a **truncated** eigenspace ``Q ∈ ℝ^{n×k}`` (k ≤ n),
+    let P := Q Qᵀ be the projector onto the retained subspace and
+    P⊥ := I − P the orthogonal complement. Then
+
+        (s I + A)⁻¹
+        = Q (Λ + s I)⁻¹ Qᵀ  +  (1/s) P⊥,
+
+    i.e. the inverse acts as ``(Λ + s I)⁻¹`` on span(Q) and as ``(1/s) I`` on
+    its orthogonal complement. The implementation of ``linverse`` uses the
+    equivalent Woodbury form
+
+        (s I + A)⁻¹ = (1/s) [ I − Q diag(λ / (λ + s)) Qᵀ ].
+
+    If ``leigh`` is **full-rank**, then P = I and P⊥ = 0, which recovers the
+    usual full spectral formulas.
+
+    -------------
+    Caching notes
+    -------------
+    * ``Q`` and ``S`` (eigenvectors/eigenvalues) are cached lazily by
+      ``_ensure_eigh()``. Any operation that changes the operator should call
+      ``_invalidate_cache()``.
+    * ``projector`` (Q Qᵀ) and ``complement`` (I − Q Qᵀ) are also cached on demand.
+
+    ----------
+
+    Arguments:
+    ----------
+    s : jax.Array
+        Scalar added to the diagonal (isotropic shift). May be wrapped into a
+        scalar ``ScaledLinearOperator(Identity, s)``.
+    A : LinearOperator
+        Symmetric linear operator (square). Non-symmetric inputs raise ``ValueError``.
+
+    -------
+
+    Returns:
+    -------
+    A LinearOperator supporting matrix-free application and spectral transforms
+    of ``s I + A`` via the multipledispatch functions listed above.
+
+    -------
+
+    Example:
+    -------
+    >>> n = 100
+    >>> s = jnp.array(0.1)
+    >>> A = utils.as_linop(jnp.diag(jnp.linspace(0.0, 5.0, n)))  # symmetric
+    >>> L = IsotropicAdditiveLinearOperator(s, A)
+    >>> x = jnp.ones((n,))
+    >>> y = (linverse(L) @ x)          # apply (s I + A)^{-1} to a vector
+    >>> d = diagonal(L)                 # exact diagonal
+    >>> z = (lsqrt(L) @ x)              # apply (s I + A)^{1/2} to a vector
+
+    ------
+
+    Notes:
+    ------
+    * The formulas assume real-symmetric ``A``; for PSD matrices the square root
+      and “Cholesky-like” factor are well-defined.
+    * Numerical stability near λ + s ≈ 0 should be handled by the calling code
+      (e.g., with clipping/tolerances inside the low-level spectral ops).
     """
 
     def __init__(self, s: jax.Array, A: LinearOperator) -> None:
