@@ -10,9 +10,13 @@ from linox._arithmetic import (
     diagonal,
     lcholesky,
     leigh,
+    lexp,
     linverse,
+    llog,
     lpinverse,
+    lpow,
     lsqrt,
+    ltrace,
 )
 from linox._linear_operator import LinearOperator
 from linox._matrix import Diagonal, Identity
@@ -167,3 +171,89 @@ def _(a: IsotropicAdditiveLinearOperator) -> tuple[LinearOperator, LinearOperato
 def _(a: IsotropicAdditiveLinearOperator) -> jax.Array:
     # Sum of diagonals: diag(A) + s * 1
     return jnp.asarray(diagonal(a.operator)) + jnp.asarray(diagonal(a.s))
+
+
+# New matrix-free function dispatches for IsotropicAdditive
+@ltrace.dispatch
+def _(a: IsotropicAdditiveLinearOperator, key: jax.Array | None = None, num_samples: int = 100, distribution: str = "rademacher") -> tuple[jax.Array, jax.Array]:
+    """Trace of sI + A: trace(sI + A) = s*n + trace(A)."""
+    n = a.shape[-1]
+    s = a.s.scalar
+
+    # Recursively compute trace of A
+    trace_A, std_A = ltrace(a.operator, key=key, num_samples=num_samples, distribution=distribution)
+
+    trace_value = s * n + trace_A
+    trace_std = std_A  # std of constant + random variable = std of random variable
+
+    return trace_value, trace_std
+
+
+@lexp.dispatch
+def _(a: IsotropicAdditiveLinearOperator, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix exponential of sI + A using eigendecomposition.
+
+    exp(sI + A) = exp(s) * exp(A) since sI and A commute... NO, this is wrong!
+    Actually: exp(sI + A) = U exp(s + λ) U^T where A = U λ U^T
+    """
+    a._ensure_eigh()  # noqa: SLF001
+    s = a.s.scalar
+
+    # Eigenvalues of sI + A are s + λ(A)
+    eigvals = a.S + s
+
+    if v is None:
+        # Return lazy operator: U @ Diagonal(exp(s + λ)) @ U^T
+        exp_eigvals = Diagonal(jnp.exp(eigvals))
+        from linox._arithmetic import congruence_transform  # noqa: PLC0415
+
+        return congruence_transform(a.Q, exp_eigvals)
+    else:
+        # exp(sI + A) @ v = U @ exp(s + λ) @ U^T @ v
+        return a.Q @ (jnp.exp(eigvals) * (a.Q.T @ v))
+
+
+@llog.dispatch
+def _(a: IsotropicAdditiveLinearOperator, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix logarithm of sI + A using eigendecomposition.
+
+    log(sI + A) = U log(s + λ) U^T where A = U λ U^T
+    """
+    a._ensure_eigh()  # noqa: SLF001
+    s = a.s.scalar
+
+    # Eigenvalues of sI + A are s + λ(A)
+    eigvals = a.S + s
+
+    if v is None:
+        # Return lazy operator: U @ Diagonal(log(s + λ)) @ U^T
+        log_eigvals = Diagonal(jnp.log(eigvals))
+        from linox._arithmetic import congruence_transform  # noqa: PLC0415
+
+        return congruence_transform(a.Q, log_eigvals)
+    else:
+        # log(sI + A) @ v = U @ log(s + λ) @ U^T @ v
+        return a.Q @ (jnp.log(eigvals) * (a.Q.T @ v))
+
+
+@lpow.dispatch
+def _(a: IsotropicAdditiveLinearOperator, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix power of sI + A using eigendecomposition.
+
+    (sI + A)^p = U (s + λ)^p U^T where A = U λ U^T
+    """
+    a._ensure_eigh()  # noqa: SLF001
+    s = a.s.scalar
+
+    # Eigenvalues of sI + A are s + λ(A)
+    eigvals = a.S + s
+
+    if v is None:
+        # Return lazy operator: U @ Diagonal((s + λ)^p) @ U^T
+        pow_eigvals = Diagonal(eigvals ** power)
+        from linox._arithmetic import congruence_transform  # noqa: PLC0415
+
+        return congruence_transform(a.Q, pow_eigvals)
+    else:
+        # (sI + A)^p @ v = U @ (s + λ)^p @ U^T @ v
+        return a.Q @ ((eigvals ** power) * (a.Q.T @ v))

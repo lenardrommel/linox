@@ -21,11 +21,15 @@ from linox._arithmetic import (
     ldet,
     ldiv,
     leigh,
+    lexp,
     linverse,
+    llog,
     lmul,
     lpinverse,
+    lpow,
     lqr,
     lsqrt,
+    ltrace,
     slogdet,
     svd,
 )
@@ -233,6 +237,78 @@ def _(op: Kronecker) -> jax.Array:
     diag_B = jnp.broadcast_to(diag_B, batch_shape + (diag_B.shape[-1],))
     diag = jnp.einsum("...i,...j->...ij", diag_A, diag_B)
     return diag.reshape(batch_shape + (diag_A.shape[-1] * diag_B.shape[-1],))
+
+
+# New matrix-free function dispatches for Kronecker
+@ltrace.dispatch
+def _(op: Kronecker, key: jax.Array | None = None, num_samples: int = 100, distribution: str = "rademacher") -> tuple[jax.Array, jax.Array]:
+    """Trace of Kronecker product: trace(A ⊗ B) = trace(A) * trace(B)."""
+    from linox._arithmetic import ltrace  # noqa: PLC0415
+
+    trace_A, std_A = ltrace(op.A, key=key, num_samples=num_samples, distribution=distribution)
+    trace_B, std_B = ltrace(op.B, key=key, num_samples=num_samples, distribution=distribution)
+
+    # trace(A ⊗ B) = trace(A) * trace(B)
+    trace_value = trace_A * trace_B
+
+    # Error propagation for product: σ(xy) ≈ |y|σ(x) + |x|σ(y)
+    trace_std = jnp.abs(trace_B) * std_A + jnp.abs(trace_A) * std_B
+
+    return trace_value, trace_std
+
+
+@lexp.dispatch
+def _(op: Kronecker, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix exponential of Kronecker: exp(A ⊗ B) = exp(A) ⊗ exp(B)."""
+    if v is None:
+        # Return lazy operator: exp(A) ⊗ exp(B)
+        exp_A = lexp(op.A, v=None, num_iters=num_iters, method=method)
+        exp_B = lexp(op.B, v=None, num_iters=num_iters, method=method)
+        return Kronecker(exp_A, exp_B)
+    else:
+        # For Kronecker product, we can use the vec-trick
+        # But for simplicity, fall back to general algorithm
+        from linox._algorithms._matrix_functions import lanczos_matrix_function  # noqa: PLC0415
+
+        return lanczos_matrix_function(op, v, jnp.exp, num_iters, reortho=True)
+
+
+@llog.dispatch
+def _(op: Kronecker, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix logarithm of Kronecker product.
+
+    Note: log(A ⊗ B) ≠ log(A) ⊗ log(B) in general.
+    Falls back to general Lanczos method.
+    """
+    if v is None:
+        # Fall back to general algorithm
+        from linox._algorithms._matrix_functions import lanczos_matrix_function  # noqa: PLC0415
+        from linox.config import warn as _warn  # noqa: PLC0415
+
+        _warn("Computing log(A ⊗ B) using dense method - no efficient structured formula available")
+        return utils.as_linop(jnp.linalg.matrix_exp(op.todense()))
+    else:
+        from linox._algorithms._matrix_functions import lanczos_matrix_function  # noqa: PLC0415
+
+        return lanczos_matrix_function(op, v, jnp.log, num_iters, reortho=True)
+
+
+@lpow.dispatch
+def _(op: Kronecker, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix power of Kronecker: (A ⊗ B)^p = A^p ⊗ B^p."""
+    if v is None:
+        # Return lazy operator: A^p ⊗ B^p
+        pow_A = lpow(op.A, power, v=None, num_iters=num_iters, method=method)
+        pow_B = lpow(op.B, power, v=None, num_iters=num_iters, method=method)
+        return Kronecker(pow_A, pow_B)
+    else:
+        # Can use structure, but for simplicity use general algorithm
+        from linox._algorithms._matrix_functions import lanczos_matrix_function  # noqa: PLC0415
+
+        def power_func(eigvals):
+            return eigvals ** power
+
+        return lanczos_matrix_function(op, v, power_func, num_iters, reortho=True)
 
 
 # Register Kronecker as a PyTree

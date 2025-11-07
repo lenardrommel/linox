@@ -24,12 +24,16 @@ from linox._arithmetic import (
     diagonal,
     ladd,
     ldiv,
+    lexp,
     linverse,
+    llog,
     lmatmul,
     lmul,
     lpinverse,
+    lpow,
     lsqrt,
     lsub,
+    ltrace,
 )
 from linox._linear_operator import LinearOperator
 from linox.config import warn as _warn
@@ -264,6 +268,52 @@ def _(a: Identity, b: LinearOperator) -> LinearOperator:
     return b
 
 
+# New matrix-free function dispatches for Identity
+@ltrace.dispatch
+def _(a: Identity, key: jax.Array | None = None, num_samples: int = 100, distribution: str = "rademacher") -> tuple[jax.Array, jax.Array]:
+    """Exact trace of identity matrix: trace(I) = n."""
+    n = a.shape[-1]
+    trace_value = jnp.array(n, dtype=a.dtype)
+    # For exact computation, std = 0
+    trace_std = jnp.array(0.0, dtype=a.dtype)
+    return trace_value, trace_std
+
+
+@lexp.dispatch
+def _(a: Identity, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix exponential of identity: exp(I) = e * I."""
+    from linox._matrix import Scalar  # noqa: PLC0415
+
+    if v is None:
+        # Return lazy operator: e * I
+        return Scalar(jnp.exp(1.0), a.shape[-1], dtype=a.dtype)
+    else:
+        # exp(I) @ v = e * v
+        return jnp.exp(1.0) * v
+
+
+@llog.dispatch
+def _(a: Identity, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix logarithm of identity: log(I) = 0."""
+    from linox._matrix import Zero  # noqa: PLC0415
+
+    if v is None:
+        # Return zero operator
+        return Zero(a.shape, dtype=a.dtype)
+    else:
+        # log(I) @ v = 0
+        return jnp.zeros_like(v)
+
+
+@lpow.dispatch
+def _(a: Identity, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix power of identity: I^p = I for any p."""
+    if v is None:
+        return a  # I^p = I
+    else:
+        return v  # I^p @ v = v
+
+
 # --------------------------------------------------------------------------- #
 # Diagonal
 # --------------------------------------------------------------------------- #
@@ -368,6 +418,49 @@ def _(a: Diagonal) -> Diagonal:
 @congruence_transform.dispatch
 def _(a: Diagonal, b: Diagonal) -> Diagonal:
     return Diagonal(a.diag * b.diag * a.diag)
+
+
+# New matrix-free function dispatches for Diagonal
+@ltrace.dispatch
+def _(a: Diagonal, key: jax.Array | None = None, num_samples: int = 100, distribution: str = "rademacher") -> tuple[jax.Array, jax.Array]:
+    """Exact trace of diagonal matrix: trace(diag(d)) = sum(d)."""
+    trace_value = jnp.sum(a.diag)
+    # For exact computation, std = 0
+    trace_std = jnp.array(0.0, dtype=a.dtype)
+    return trace_value, trace_std
+
+
+@lexp.dispatch
+def _(a: Diagonal, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix exponential of diagonal: exp(diag(d)) = diag(exp(d))."""
+    if v is None:
+        # Return lazy operator: diag(exp(d))
+        return Diagonal(jnp.exp(a.diag))
+    else:
+        # exp(diag(d)) @ v = exp(d) * v (element-wise)
+        return jnp.exp(a.diag) * v
+
+
+@llog.dispatch
+def _(a: Diagonal, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix logarithm of diagonal: log(diag(d)) = diag(log(d))."""
+    if v is None:
+        # Return lazy operator: diag(log(d))
+        return Diagonal(jnp.log(a.diag))
+    else:
+        # log(diag(d)) @ v = log(d) * v (element-wise)
+        return jnp.log(a.diag) * v
+
+
+@lpow.dispatch
+def _(a: Diagonal, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+    """Matrix power of diagonal: diag(d)^p = diag(d^p)."""
+    if v is None:
+        # Return lazy operator: diag(d^p)
+        return Diagonal(a.diag ** power)
+    else:
+        # diag(d)^p @ v = d^p * v (element-wise)
+        return (a.diag ** power) * v
 
 
 class CircularlySymmetricDiagonal(Diagonal):
