@@ -1,5 +1,19 @@
 # __init__.py
 
+import warnings
+
+# Suppress Pydantic field attribute warnings from dependencies
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=".*'repr' attribute.*Field.*has no effect.*",
+)
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=".*'frozen' attribute.*Field.*has no effect.*",
+)
+
 r"""`linox`: Linear operators in JAX.
 
 This package provides a collection of linear operators for JAX, including:
