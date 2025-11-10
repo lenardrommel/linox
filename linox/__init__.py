@@ -35,7 +35,7 @@ All operators support lazy evaluation and can be combined to form complex linear
 transformations.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 # Import functions from _arithmetic module
 from ._arithmetic import (
@@ -45,12 +45,22 @@ from ._arithmetic import (
     PseudoInverseLinearOperator,
     ScaledLinearOperator,
     TransposedLinearOperator,
-    congruence_transform,
-    diagonal,
-    is_hermitian,
-    is_square,
-    is_symmetric,
-    kron,
+    # New API (0.0.2+) - functions without "l" prefix
+    add,
+    cholesky,
+    det,
+    eigh,
+    inverse,
+    matmul,
+    mul,
+    neg,
+    pinverse,
+    psolve,
+    qr,
+    solve,
+    sqrt,
+    sub,
+    # Deprecated API (will be removed in 0.0.3) - functions with "l" prefix
     lcholesky,
     ldet,
     leigh,
@@ -60,6 +70,13 @@ from ._arithmetic import (
     lqr,
     lsolve,
     lsqrt,
+    # Common operations and utilities
+    congruence_transform,
+    diagonal,
+    is_hermitian,
+    is_square,
+    is_symmetric,
+    kron,
     slogdet,
     svd,
     symmetrize,
@@ -87,6 +104,7 @@ from .utils import allclose, todense
 
 # Explicitly declare public API
 __all__ = [
+    # Linear Operator Classes
     "AddLinearOperator",
     "ArrayKernel",
     "BlockDiagonal",
@@ -113,13 +131,22 @@ __all__ = [
     "Toeplitz",
     "TransposedLinearOperator",
     "Zero",
-    "allclose",
-    "congruence_transform",
-    "diagonal",
-    "is_hermitian",
-    "is_square",
-    "is_symmetric",
-    "kron",
+    # New API (0.0.2+) - Arithmetic Operations
+    "add",
+    "cholesky",
+    "det",
+    "eigh",
+    "inverse",
+    "matmul",
+    "mul",
+    "neg",
+    "pinverse",
+    "psolve",
+    "qr",
+    "solve",
+    "sqrt",
+    "sub",
+    # Deprecated (will be removed in 0.0.3)
     "lcholesky",
     "ldet",
     "leigh",
@@ -129,11 +156,20 @@ __all__ = [
     "lqr",
     "lsolve",
     "lsqrt",
+    # Common Operations & Utilities
+    "allclose",
+    "congruence_transform",
+    "diagonal",
+    "is_hermitian",
+    "is_square",
+    "is_symmetric",
+    "kron",
     "slogdet",
     "svd",
     "symmetrize",
     "todense",
     "transpose",
+    # Configuration
     "is_debug",
     "set_debug",
 ]

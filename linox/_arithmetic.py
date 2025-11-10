@@ -20,8 +20,9 @@ efficient computation through lazy evaluation.
 """
 
 import operator
+import warnings
 from collections.abc import Iterable
-from functools import reduce
+from functools import reduce, wraps
 
 import jax
 import jax.numpy as jnp
@@ -34,6 +35,22 @@ from linox.config import warn as _warn
 from linox.typing import ArrayLike, ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
+
+
+def _deprecated_l_prefix(func_name: str):
+    """Create deprecation warning for functions with 'l' prefix."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            warnings.warn(
+                f"'{func_name}' is deprecated and will be removed in linox 0.0.3. "
+                f"Use '{func_name[1:]}' instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 # all arithmetic functions
@@ -906,6 +923,121 @@ def _(
     U = jnp.where(S > a.tol, U, 0)
     Vh = jnp.where(S > a.tol, Vh, 0)
     return U, S_inv, Vh
+
+
+# --------------------------------------------------------------------------- #
+# Non-"l" prefixed functions (New API for linox 0.0.2+)
+# Functions with "l" prefix are deprecated and will be removed in 0.0.3
+# --------------------------------------------------------------------------- #
+
+
+@plum.dispatch
+def add(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Add two linear operators. See ladd for implementation details."""
+    return ladd(a, b)
+
+
+@add.dispatch
+def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
+    return ladd(a, b)
+
+
+@plum.dispatch
+def sub(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Subtract two linear operators. See lsub for implementation details."""
+    return lsub(a, b)
+
+
+@sub.dispatch
+def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
+    return lsub(a, b)
+
+
+@plum.dispatch
+def mul(a: ScalarLike | jax.Array, b: LinearOperator) -> LinearOperator:
+    """Multiply a linear operator by a scalar. See lmul for implementation details."""
+    return lmul(a, b)
+
+
+@plum.dispatch
+def div(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Divide linear operators. See ldiv for implementation details."""
+    return ldiv(a, b)
+
+
+@plum.dispatch
+def matmul(a: LinearOperator, b: LinearOperator) -> ArithmeticType:
+    """Matrix multiply linear operators. See lmatmul for implementation details."""
+    return lmatmul(a, b)
+
+
+@matmul.dispatch
+def _(a: LinearOperator, b: jax.Array) -> jax.Array:
+    return lmatmul(a, b)
+
+
+@matmul.dispatch
+def _(a: jax.Array, b: LinearOperator) -> LinearOperator:
+    return lmatmul(a, b)
+
+
+def neg(a: LinearOperator) -> LinearOperator:
+    """Negate a linear operator. See lneg for implementation details."""
+    return lneg(a)
+
+
+@plum.dispatch
+def sqrt(a: LinearOperator) -> LinearOperator:
+    """Compute square root of a linear operator. See lsqrt for implementation details."""
+    return lsqrt(a)
+
+
+@plum.dispatch
+def inverse(a: LinearOperator) -> ArithmeticType:
+    """Compute inverse of a linear operator. See linverse for implementation details."""
+    return linverse(a)
+
+
+@plum.dispatch
+def pinverse(a: LinearOperator) -> ArithmeticType:
+    """Compute pseudo-inverse of a linear operator. See lpinverse for implementation details."""
+    return lpinverse(a)
+
+
+@plum.dispatch
+def eigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
+    """Compute eigendecomposition of a Hermitian operator. See leigh for implementation details."""
+    return leigh(a)
+
+
+@plum.dispatch
+def qr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
+    """QR decomposition of a linear operator. See lqr for implementation details."""
+    return lqr(a)
+
+
+@plum.dispatch
+def solve(a: LinearOperator, b: jax.Array) -> jax.Array:
+    """Solve the linear system Ax = b. See lsolve for implementation details."""
+    return lsolve(a, b)
+
+
+@plum.dispatch
+def psolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001
+    """Solve Ax = b using pseudo-inverse. See lpsolve for implementation details."""
+    return lpsolve(a, b, rtol)
+
+
+@plum.dispatch
+def cholesky(a: LinearOperator) -> jax.Array:
+    """Cholesky decomposition of a linear operator. See lcholesky for implementation details."""
+    return lcholesky(a)
+
+
+@plum.dispatch
+def det(a: LinearOperator) -> jax.Array:
+    """Compute determinant of a linear operator. See ldet for implementation details."""
+    return ldet(a)
 
 
 # Register all linear operators as PyTrees
