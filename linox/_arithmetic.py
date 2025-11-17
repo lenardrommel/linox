@@ -1008,6 +1008,21 @@ class CongruenceTransform(ProductLinearOperator):  # noqa: F811
     def transpose(self) -> LinearOperator:
         return CongruenceTransform(self._A, self._B.T)
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self._A, self._B)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "CongruenceTransform":
+        del aux_data
+        A, B = children
+        return cls(A=A, B=B)
+
 
 @plum.dispatch
 def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:  # noqa: F811

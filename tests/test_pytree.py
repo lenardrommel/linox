@@ -627,14 +627,16 @@ def test_eigend_pytree() -> None:
     # Test flattening
     children, aux_data = linop.tree_flatten()
     assert len(children) == 2
-    assert jnp.allclose(children[0], Q)
+    # U is a Matrix LinearOperator, S is an array
+    assert isinstance(children[0], linox.Matrix)
+    assert jnp.allclose(children[0].todense(), Q)
     assert jnp.allclose(children[1], S)
     assert aux_data == {}
 
     # Test unflattening
     unflattened = linox.EigenD.tree_unflatten(aux_data, children)
     assert isinstance(unflattened, linox.EigenD)
-    assert jnp.allclose(unflattened.U, Q)
+    assert jnp.allclose(unflattened.U.todense(), Q)
     assert jnp.allclose(unflattened.S, S)
 
     # Check that the operator behaves the same

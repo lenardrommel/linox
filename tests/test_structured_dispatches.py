@@ -72,7 +72,7 @@ class TestDiagonalDispatches:
         A = Diagonal(diag_vals)
         v = jnp.ones(3)
 
-        result = linox.lpow(A, 0.5, v)
+        result = linox.lpow(A, power=0.5, v=v)
 
         expected = jnp.sqrt(diag_vals) * v
         assert jnp.allclose(result, expected)
@@ -120,7 +120,7 @@ class TestIdentityDispatches:
         A = Identity((n,))
         v = jnp.ones(n)
 
-        result = linox.lpow(A, 2.5, v)
+        result = linox.lpow(A, power=2.5, v=v)
 
         expected = v  # I^p = I, so I^p @ v = v
         assert jnp.allclose(result, expected)
@@ -161,7 +161,7 @@ class TestKroneckerDispatches:
         B = Diagonal(jnp.array([9.0, 16.0]))
         K = Kronecker(A, B)
 
-        pow_K = linox.lpow(K, 0.5, v=None)
+        pow_K = linox.lpow(K, power=0.5, v=None)
 
         assert isinstance(pow_K, Kronecker)
         # Check that it's sqrt(A) ⊗ sqrt(B)
@@ -217,7 +217,7 @@ class TestEigenDDispatches:
         A = EigenD(A_dense)
         v = jnp.ones(3)
 
-        result = linox.lpow(A, 0.5, v)
+        result = linox.lpow(A, power=0.5, v=v)
 
         expected = jnp.array([1.0, 2.0, 3.0])
         assert jnp.allclose(result, expected)
@@ -279,7 +279,7 @@ class TestIsotropicAdditiveDispatches:
         iso_A = IsotropicAdditiveLinearOperator(s, A)
         v = jnp.ones(n)
 
-        result = linox.lpow(iso_A, 0.5, v)
+        result = linox.lpow(iso_A, power=0.5, v=v)
 
         # (I + diag(0,3,8))^0.5 = diag(1,4,9)^0.5 = diag(1,2,3)
         expected = jnp.array([1.0, 2.0, 3.0])
@@ -354,7 +354,7 @@ class TestEdgeCases:
         A = Diagonal(jnp.array([1.0, 2.0, 4.0]))
         v = jnp.ones(3)
 
-        result = linox.lpow(A, -1.0, v)
+        result = linox.lpow(A, power=-1.0, v=v)
 
         expected = jnp.array([1.0, 0.5, 0.25])
         assert jnp.allclose(result, expected)

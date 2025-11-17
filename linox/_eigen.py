@@ -30,11 +30,21 @@ class EigenD(LinearOperator):
         A: The square matrix to decompose.
     """  # noqa: D205
 
-    def __init__(self, A: ArrayLike) -> None:
-        self.A = as_linop(A)
-        self._S = None
-        self._Q = None
-        super().__init__(shape=(A.shape[0], A.shape[0]), dtype=A.dtype)
+    def __init__(self, A: ArrayLike = None, U: ArrayLike = None, S: ArrayLike = None) -> None:
+        if A is not None:
+            # Standard construction from matrix
+            self.A = as_linop(A)
+            self._S = None
+            self._Q = None
+            super().__init__(shape=(A.shape[0], A.shape[0]), dtype=A.dtype)
+        elif U is not None and S is not None:
+            # Reconstruction from pytree (U and S already computed)
+            self.A = None
+            self._Q = U if isinstance(U, LinearOperator) else Matrix(U)
+            self._S = S if isinstance(S, jax.Array) else jnp.array(S)
+            super().__init__(shape=(self._Q.shape[0], self._Q.shape[1]), dtype=self._Q.dtype)
+        else:
+            raise ValueError("Either A or both U and S must be provided")
 
     def _ensure_eigh(self) -> None:
         if (self._S is None) or (self._Q is None):
@@ -61,9 +71,9 @@ class EigenD(LinearOperator):
     def todense(self) -> jax.Array:
         """Convert the linear operator to a dense matrix."""
         U = self.U.todense()
-        S = self.S.todense()
-        eigvals, eigvecs = jnp.linalg.eigh(U @ jnp.diag(S) @ U.T)
-        return eigvals, eigvecs
+        S = self.S  # S is already a jax array of eigenvalues
+        # Reconstruct the matrix: A = U @ diag(S) @ U^T
+        return U @ jnp.diag(S) @ U.T
 
     @classmethod
     def tree_unflatten(
