@@ -76,7 +76,7 @@
 - **`lexp(A, v)`**: Matrix exponential-vector product
 - **`llog(A, v)`**: Matrix logarithm-vector product
 - **`lpow(A, power, v)`**: Matrix power-vector product
-- **`lsvd(A, k)`**: Compute k largest singular values/vectors
+- **`svd(A, k=k)`**: Compute k largest singular values/vectors (matrix-free when k is provided)
 
 ### Example: Matrix-Free SVD
 
@@ -92,7 +92,7 @@ A_dense = jax.random.normal(key, (1000, 500))
 A = Matrix(A_dense)
 
 # Compute top 10 singular values/vectors without forming full SVD
-U, S, Vt = linox.lsvd(A, k=10, num_iters=30)
+U, S, Vt = linox.svd(A, k=10, num_iters=30)
 
 print(f"Top 10 singular values: {S}")
 # U has shape (1000, 10)
@@ -101,6 +101,9 @@ print(f"Top 10 singular values: {S}")
 
 # Low-rank approximation
 A_approx = U @ jnp.diag(S) @ Vt
+
+# For full SVD (may densify the operator):
+# U_full, S_full, Vt_full = linox.svd(A)
 ```
 
 ### Example: Trace Estimation

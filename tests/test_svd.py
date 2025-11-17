@@ -170,24 +170,24 @@ class TestPartialSVD:
         assert jnp.allclose(VVt, jnp.eye(k), atol=1e-8)
 
 
-class TestLSVDIntegration:
-    """Tests for lsvd function in arithmetic module."""
+class TestSVDIntegration:
+    """Tests for svd function with k parameter in arithmetic module."""
 
-    def test_lsvd_basic(self):
-        """Test basic lsvd usage."""
+    def test_svd_partial_basic(self):
+        """Test basic partial SVD usage."""
         m, n = 100, 50
         key = jax.random.PRNGKey(5)
         A = Matrix(jax.random.normal(key, (m, n)))
         k = 5
 
-        U, S, Vt = linox.lsvd(A, k)
+        U, S, Vt = linox.svd(A, k=k)
 
         assert U.shape == (m, k)
         assert S.shape == (k,)
         assert Vt.shape == (k, n)
 
-    def test_lsvd_vs_full_svd(self):
-        """Compare lsvd with full SVD."""
+    def test_svd_partial_vs_full_svd(self):
+        """Compare partial SVD with full SVD."""
         m, n = 80, 60
         key = jax.random.PRNGKey(123)
         A_dense = jax.random.normal(key, (m, n))
@@ -195,7 +195,7 @@ class TestLSVDIntegration:
         k = 10
 
         # Partial SVD
-        U_partial, S_partial, Vt_partial = linox.lsvd(A, k, num_iters=25)
+        U_partial, S_partial, Vt_partial = linox.svd(A, k=k, num_iters=25)
 
         # Full SVD (for comparison)
         U_full, S_full, Vt_full = jnp.linalg.svd(A_dense, full_matrices=False)
@@ -207,22 +207,22 @@ class TestLSVDIntegration:
         assert jnp.all(relative_errors[:k//2] < 0.05)  # Top half: 5% relative error
         assert jnp.all(relative_errors < 0.15)  # All: 15% relative error
 
-    def test_lsvd_with_initial_vector(self):
-        """Test lsvd with custom initial vector."""
+    def test_svd_partial_with_initial_vector(self):
+        """Test partial SVD with custom initial vector."""
         m, n = 50, 40
         key = jax.random.PRNGKey(6)
         A = Matrix(jax.random.normal(key, (m, n)))
         k = 5
         u0 = jax.random.normal(jax.random.PRNGKey(7), (m,))
 
-        U, S, Vt = linox.lsvd(A, k, u0=u0)
+        U, S, Vt = linox.svd(A, k=k, u0=u0)
 
         assert U.shape == (m, k)
         assert S.shape == (k,)
         assert Vt.shape == (k, n)
 
-    def test_lsvd_large_matrix(self):
-        """Test lsvd on larger matrix."""
+    def test_svd_partial_large_matrix(self):
+        """Test partial SVD on larger matrix."""
         m, n = 1000, 500
         # Create low-rank matrix for faster test
         key = jax.random.PRNGKey(99)
@@ -233,7 +233,7 @@ class TestLSVDIntegration:
         A = Matrix(A_dense)
         k = 10
 
-        U, S, Vt = linox.lsvd(A, k, num_iters=30)
+        U, S, Vt = linox.svd(A, k=k, num_iters=30)
 
         # Should successfully compute
         assert U.shape == (m, k)
@@ -247,12 +247,12 @@ class TestLSVDIntegration:
 class TestJAXCompatibility:
     """Test JAX transformations."""
 
-    def test_lsvd_jit(self):
-        """Test that lsvd can be JIT compiled."""
+    def test_svd_partial_jit(self):
+        """Test that partial SVD can be JIT compiled."""
 
         def compute_svd(A_dense, k):
             A = Matrix(A_dense)
-            U, S, Vt = linox.lsvd(A, k, num_iters=15)
+            U, S, Vt = linox.svd(A, k=k, num_iters=15)
             return U, S, Vt
 
         m, n = 50, 40
@@ -268,12 +268,12 @@ class TestJAXCompatibility:
         assert S.shape == (k,)
         assert Vt.shape == (k, n)
 
-    def test_lsvd_grad(self):
-        """Test that lsvd is differentiable."""
+    def test_svd_partial_grad(self):
+        """Test that partial SVD is differentiable."""
 
         def loss(A_dense, k):
             A = Matrix(A_dense)
-            U, S, Vt = linox.lsvd(A, k, num_iters=10)
+            U, S, Vt = linox.svd(A, k=k, num_iters=10)
             return jnp.sum(S)
 
         m, n = 30, 20

@@ -133,20 +133,55 @@ def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
 @plum.dispatch
 def svd(
     a: LinearOperator,
+    *,
     full_matrices: bool = True,
     compute_uv: bool = True,
+    k: int | None = None,
+    num_iters: int | None = None,
+    u0: jax.Array | None = None,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Singular Value Decomposition of a linear operator.
+
+    When k is None, computes full SVD (may densify the operator).
+    When k is provided, uses matrix-free Lanczos bidiagonalization to compute
+    the k largest singular values/vectors efficiently.
+
     Args:
-        a: Linear operator
-        full_matrices: If True, return full-sized U and Vh matrices
-        compute_uv: If True, compute U and Vh in addition to S.
+        a: Linear operator of shape (m, n)
+        full_matrices: If True, return full-sized U and Vh matrices (only for full SVD)
+        compute_uv: If True, compute U and Vh in addition to S (only for full SVD)
+        k: If provided, compute only the k largest singular values/vectors using
+            matrix-free methods. This is efficient for large matrices. If None,
+            compute full SVD (default: None)
+        num_iters: Number of Lanczos iterations for partial SVD. Should be larger
+            than k. If None, uses min(2*k, min(m, n)). Only used when k is provided.
+        u0: Initial vector for Lanczos bidiagonalization. Only used when k is provided.
 
     Returns:
-        U: Left singular vectors
-        S: Singular values
-        Vh: Right singular vectors (Hermitian)
+        U: Left singular vectors - shape (m, m) for full SVD or (m, k) for partial
+        S: Singular values in descending order - shape (min(m,n),) or (k,)
+        Vt: Right singular vectors (transposed) - shape (n, n) for full or (k, n)
+
+    Examples:
+        Full SVD (may densify):
+        >>> U, S, Vt = svd(operator)
+
+        Partial SVD (matrix-free, recommended for large matrices):
+        >>> U, S, Vt = svd(operator, k=10)
+        >>> # Only top 10 singular values/vectors computed efficiently
+
+    Notes:
+        - For large matrices, use k parameter to avoid densification
+        - Structure-exploiting dispatches exist for Kronecker and other special operators
+        - Partial SVD uses Lanczos bidiagonalization (Golub-Kahan process)
     """  # noqa: D205
+    if k is not None:
+        # Use matrix-free partial SVD
+        from linox._algorithms._svd import svd_partial  # noqa: PLC0415
+
+        return svd_partial(a, k, num_iters, u0)
+
+    # Full SVD - may densify
     _warn(f"Linear operator {a} is densed for svd computation.")
     return jax.scipy.linalg.svd(
         a.todense(),
@@ -163,6 +198,10 @@ def lsvd(
     u0: jax.Array | None = None,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Compute partial SVD using matrix-free Lanczos bidiagonalization.
+
+    .. deprecated::
+        Use :func:`svd` with ``k`` parameter instead: ``svd(a, k=k)``.
+        This function will be removed in a future version.
 
     Computes the k largest singular values and corresponding singular vectors
     without forming the full matrix explicitly. This is efficient for large
@@ -185,18 +224,28 @@ def lsvd(
         >>> import jax.numpy as jnp
         >>> from linox import Matrix
         >>> A = Matrix(jnp.random.randn(1000, 500))
+        >>> # Deprecated:
         >>> U, S, Vt = linox.lsvd(A, k=10)
-        >>> # Verify: A ≈ U @ diag(S) @ Vt
+        >>> # Use instead:
+        >>> U, S, Vt = linox.svd(A, k=10)
 
     Notes:
+        **Deprecated:** Use ``svd(a, k=k)`` instead.
+
         This is the matrix-free alternative to jnp.linalg.svd for computing
-        a few singular values. For full SVD, use linox.svd() instead.
+        a few singular values.
 
         Inspired by matfree library (https://github.com/pnkraemer/matfree).
     """
-    from linox._algorithms._svd import svd_partial  # noqa: PLC0415
+    import warnings  # noqa: PLC0415
 
-    return svd_partial(a, k, num_iters, u0)
+    warnings.warn(
+        "lsvd is deprecated and will be removed in a future version. "
+        "Use svd(a, k=k) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return svd(a, k=k, num_iters=num_iters, u0=u0)
 
 
 @plum.dispatch
