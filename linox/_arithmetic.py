@@ -1058,15 +1058,41 @@ def _(a: PseudoInverseLinearOperator) -> LinearOperator:
 @svd.dispatch
 def _(
     a: PseudoInverseLinearOperator,
-    full_matrices: bool = True,
-    compute_uv: bool = True,
-    hermitian: bool = False,
+    **kwargs,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
-    U, S, Vh = svd(a.operator, full_matrices, compute_uv, hermitian)
+    """SVD of pseudo-inverse operator: inverts singular values above tolerance.
+
+    Notes:
+        Passes through all kwargs (k, full_matrices, compute_uv, etc.) to the
+        underlying operator's SVD, then inverts singular values.
+    """
+    U, S, Vh = svd(a.operator, **kwargs)
+
+    # Invert singular values (zero out those below tolerance)
     S_inv = jnp.where(S > a.tol, 1 / S, 0)
-    U = jnp.where(S > a.tol, U, 0)
-    Vh = jnp.where(S > a.tol, Vh, 0)
-    return U, S_inv, Vh
+
+    # Create a mask for each singular value
+    mask = (S > a.tol).astype(U.dtype)
+
+    # Apply mask to relevant columns/rows
+    # Note: With full_matrices=True, U can be (m, m) but S is (min(m,n),)
+    # We only mask the first S.shape[0] columns of U and rows of Vh
+    k = S.shape[0]
+    if U.shape[1] == k:
+        # Partial SVD or full_matrices=False: all columns correspond to singular values
+        U_masked = U * mask[None, :]
+    else:
+        # full_matrices=True: only first k columns correspond to singular values
+        U_masked = U.at[:, :k].multiply(mask[None, :])
+
+    if Vh.shape[0] == k:
+        # All rows correspond to singular values
+        Vh_masked = Vh * mask[:, None]
+    else:
+        # Only first k rows correspond to singular values
+        Vh_masked = Vh.at[:k, :].multiply(mask[:, None])
+
+    return U_masked, S_inv, Vh_masked
 
 
 # Register all linear operators as PyTrees

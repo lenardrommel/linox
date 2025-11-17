@@ -168,16 +168,21 @@ def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
 
 
 @svd.dispatch
-def _(op: Kronecker) -> tuple[Kronecker, jax.Array, Kronecker]:
+def _(op: Kronecker, **kwargs) -> tuple[Kronecker, jax.Array, Kronecker]:
     """SVD decomposition of a kronecker product.
 
+    Exploits the structure: SVD(A ⊗ B) = (U_A ⊗ U_B) (S_A ⊗ S_B) (V_A^H ⊗ V_B^H)
+
     Returns:
-        U(U_A, U_B): Left singular vectors
-        S: Singular values
-        Vh(Vh_A, Vh_B): Right singular vectors (Hermitian transposed).
+        U(U_A, U_B): Left singular vectors as Kronecker product
+        S: Singular values (outer product of S_A and S_B, flattened)
+        Vh(Vh_A, Vh_B): Right singular vectors (Hermitian) as Kronecker product
+
+    Notes:
+        Passes through all kwargs (k, num_iters, u0, etc.) to constituent SVDs.
     """
-    U_A, S_A, Vh_A = svd(op.A)
-    U_B, S_B, Vh_B = svd(op.B)
+    U_A, S_A, Vh_A = svd(op.A, **kwargs)
+    U_B, S_B, Vh_B = svd(op.B, **kwargs)
 
     return (
         Kronecker(U_A, U_B),
