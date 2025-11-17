@@ -3,9 +3,9 @@
 This module implements the LSMR (Least Squares Minimal Residual) algorithm for
 solving large-scale least-squares and linear systems in a matrix-free manner.
 
-The implementation is inspired by the matfree library
-(https://github.com/pnkraemer/matfree) by Nicholas Krämer et al., and follows
-the original LSMR algorithm by Fong and Saunders.
+The implementation closely follows the matfree library
+(https://github.com/pnkraemer/matfree) by Nicholas Krämer et al., which
+itself follows the original LSMR algorithm by Fong and Saunders.
 
 Key features:
 - Matrix-free: Only requires matrix-vector products
@@ -34,12 +34,58 @@ from jax import lax
 from linox.typing import ArrayLike, LinearOperatorLike
 
 
+_LARGE_VALUE = 1e10
+"""A placeholder for np.inf for stopping criteria."""
+
+
+def _sym_ortho(a, b):
+    """Stable implementation of Givens rotation (like scipy/matfree)."""
+    # Determine which branch to take
+    idx = 3  # The "else" branch
+    idx = jnp.where(jnp.abs(b) > jnp.abs(a), 2, idx)
+    idx = jnp.where(a == 0, 1, idx)
+    idx = jnp.where(b == 0, 0, idx)
+
+    branches = [_sym_ortho_0, _sym_ortho_1, _sym_ortho_2, _sym_ortho_3]
+    return lax.switch(idx, branches, a, b)
+
+
+def _sym_ortho_0(a, _b):
+    """Branch: b == 0."""
+    zero = jnp.zeros((), dtype=a.dtype)
+    return jnp.sign(a), zero, jnp.abs(a)
+
+
+def _sym_ortho_1(_a, b):
+    """Branch: a == 0."""
+    zero = jnp.zeros((), dtype=b.dtype)
+    return zero, jnp.sign(b), jnp.abs(b)
+
+
+def _sym_ortho_2(a, b):
+    """Branch: |b| > |a|."""
+    tau = a / b
+    s = jnp.sign(b) / jnp.sqrt(1 + tau * tau)
+    c = s * tau
+    r = b / s
+    return c, s, r
+
+
+def _sym_ortho_3(a, b):
+    """Branch: else (|a| >= |b| and neither is zero)."""
+    tau = b / a
+    c = jnp.sign(a) / jnp.sqrt(1 + tau * tau)
+    s = c * tau
+    r = a / c
+    return c, s, r
+
+
 def lsmr_solve(
     A: LinearOperatorLike,
     b: ArrayLike,
     atol: float = 1e-6,
     btol: float = 1e-6,
-    conlim: float = 1e8,
+    ctol: float = 1e-8,
     maxiter: int | None = None,
     damp: float = 0.0,
     x0: ArrayLike | None = None,
@@ -54,6 +100,8 @@ def lsmr_solve(
     The algorithm only requires matrix-vector products with A and A^T, making
     it suitable for large sparse or structured matrices.
 
+    This implementation follows matfree's approach, which matches SciPy's LSMR.
+
     Parameters
     ----------
     A : LinearOperatorLike
@@ -62,16 +110,11 @@ def lsmr_solve(
     b : ArrayLike
         Right-hand side vector of shape (m,).
     atol : float, optional
-        Absolute tolerance for convergence:
-        ||A^T r|| / ||A|| ||r|| ≤ atol, where r = b - Ax.
-        Default is 1e-6.
+        Absolute tolerance for convergence. Default is 1e-6.
     btol : float, optional
-        Relative tolerance for convergence:
-        ||r|| / ||b|| ≤ btol.
-        Default is 1e-6.
-    conlim : float, optional
-        Condition number limit. If cond(A) exceeds this, the algorithm
-        may terminate. Default is 1e8.
+        Relative tolerance for convergence. Default is 1e-6.
+    ctol : float, optional
+        Condition number tolerance. Default is 1e-8.
     maxiter : int, optional
         Maximum number of iterations. If None, uses min(m, n).
         Default is None.
@@ -88,8 +131,7 @@ def lsmr_solve(
         Solution vector.
     info : dict
         Dictionary containing:
-        - 'istop': Stopping condition (0=not converged, 1=atol, 2=btol,
-          3=both, 4=ill-conditioned, 5=maxiter)
+        - 'istop': Stopping condition (0-9)
         - 'itn': Number of iterations performed
         - 'normr': Final residual norm ||r||
         - 'normar': Final ||A^T r||
@@ -101,33 +143,24 @@ def lsmr_solve(
     --------
     >>> import jax.numpy as jnp
     >>> from linox import Matrix
-    >>> # Over-determined system (least squares)
-    >>> A = Matrix(jnp.random.randn(100, 50))
-    >>> x_true = jnp.random.randn(50)
-    >>> b = A @ x_true + 0.01 * jnp.random.randn(100)
-    >>> x, info = lsmr_solve(A, b, atol=1e-6, btol=1e-6)
-    >>> print(f"Converged in {info['itn']} iterations")
-    >>> print(f"Residual norm: {info['normr']:.6f}")
+    >>> A = Matrix(jnp.eye(50))
+    >>> b = jnp.ones(50)
+    >>> x, info = lsmr_solve(A, b)
+    >>> assert jnp.allclose(x, b)
 
     Notes
     -----
-    LSMR is based on the Golub-Kahan bidiagonalization process and is
-    mathematically equivalent to MINRES applied to the normal equations
-    A^T A x = A^T b, but is more numerically stable.
-
-    For square, symmetric positive-definite systems, use CG instead.
-    For general square systems, GMRES may be more appropriate.
-
-    The algorithm is matrix-free and only requires A @ v and A^T @ v operations.
+    This implementation closely follows matfree's LSMR, which is based on
+    Fong and Saunders (2011) and matches SciPy's implementation.
 
     References
     ----------
-    Based on Fong and Saunders (2011) [1] and matfree.lstsq [2, 3].
+    .. [1] D. C.-L. Fong and M. A. Saunders, "LSMR: An iterative algorithm for
+           sparse least-squares problems," SIAM J. Sci. Comput., 2011.
+    .. [2] https://github.com/pnkraemer/matfree
     """
     b = jnp.asarray(b)
     m = b.shape[0]
-
-    # Get matrix shape
     n = A.shape[1]
 
     if maxiter is None:
@@ -135,255 +168,294 @@ def lsmr_solve(
 
     # Initialize x
     if x0 is None:
-        x = jnp.zeros(n)
+        x = jnp.zeros(n, dtype=b.dtype)
+        Ax = jnp.zeros(m, dtype=b.dtype)
         u = b.copy()
         beta = jnp.linalg.norm(u)
     else:
         x = jnp.asarray(x0)
-        u = b - A @ x
+        Ax = A @ x
+        u = b - Ax
         beta = jnp.linalg.norm(u)
 
-    # Handle zero RHS
-    if beta == 0:
-        return x, {
-            "istop": 0,
-            "itn": 0,
-            "normr": 0.0,
-            "normar": 0.0,
-            "normA": 0.0,
-            "condA": 0.0,
-            "normx": jnp.linalg.norm(x),
-        }
+    normb = jnp.linalg.norm(b)
 
-    u = u / beta
+    # Normalize u
+    u = u / jnp.where(beta > 0, beta, 1.0)
 
     # Apply A^T to u
     v = A.T @ u
-
     alpha = jnp.linalg.norm(v)
+    v = v / jnp.where(alpha > 0, alpha, 1.0)
+    v = jnp.where(beta == 0, jnp.zeros_like(v), v)
+    alpha = jnp.where(beta == 0, jnp.zeros_like(alpha), alpha)
 
-    if alpha == 0:
-        return x, {
-            "istop": 0,
-            "itn": 0,
-            "normr": beta,
-            "normar": 0.0,
-            "normA": 0.0,
-            "condA": 0.0,
-            "normx": jnp.linalg.norm(x),
-        }
-
-    v = v / alpha
-
-    # Initialize variables
-    alphabar = alpha
+    # Initialize variables for 1st iteration
     zetabar = alpha * beta
+    alphabar = alpha
     rho = 1.0
     rhobar = 1.0
     cbar = 1.0
     sbar = 0.0
 
     h = v.copy()
-    hbar = jnp.zeros(n)
+    hbar = jnp.zeros_like(x)
 
-    # Norms and stopping criteria
+    # Initialize variables for estimation of ||r||
+    betadd = beta
+    betad = 0.0
+    rhodold = 1.0
+    tautildeold = 0.0
+    thetatilde = 0.0
+    zeta = 0.0
+    d = 0.0
+
+    # Initialize variables for estimation of ||A|| and cond(A)
     normA2 = alpha * alpha
     maxrbar = 0.0
-    minrbar = 1e100
+    minrbar = 1e10
     normA = jnp.sqrt(normA2)
     condA = 1.0
     normx = 0.0
 
-    # Iteration state
-    def lsmr_step(carry, _):
+    # Items for use in stopping rules
+    normr = beta
+    normar = alpha * beta
+
+    # Iteration loop using lax.while_loop
+    def cond_fun(carry):
+        itn, istop, *_ = carry
+        return (istop == 0) & (itn < maxiter)
+
+    def body_fun(carry):
         (
-            x,
+            itn,
+            istop,
             u,
             v,
             alpha,
             beta,
             alphabar,
-            zetabar,
-            rho,
             rhobar,
-            cbar,
+            rho,
+            zeta,
             sbar,
-            h,
+            cbar,
+            zetabar,
             hbar,
+            h,
+            x,
+            betadd,
+            thetatilde,
+            rhodold,
+            betad,
+            tautildeold,
+            d,
             normA2,
             maxrbar,
             minrbar,
-            k,
+            normar,
+            normr,
+            normA,
+            condA,
+            normx,
         ) = carry
 
-        # Bidiagonalization
-        u = A @ v - alpha * u
+        # Perform the next step of the bidiagonalization
+        Av = A @ v
+        u = Av - alpha * u
         beta = jnp.linalg.norm(u)
-        u = lax.cond(beta > 0, lambda: u / beta, lambda: u)
-
-        normA2 = normA2 + alpha * alpha + beta * beta + damp * damp
+        u = u / jnp.where(beta > 0, beta, 1.0)
 
         v = A.T @ u - beta * v
-
         alpha = jnp.linalg.norm(v)
-        v = lax.cond(alpha > 0, lambda: v / alpha, lambda: v)
+        v = v / jnp.where(alpha > 0, alpha, 1.0)
 
-        # Construct and apply rotation
-        rhobar1 = jnp.sqrt(rhobar * rhobar + damp * damp)
-        cs1 = rhobar / rhobar1
-        sn1 = damp / rhobar1
-        psi = sn1 * alphabar
-        alphabar = cs1 * alphabar
+        # Construct rotation Qhat_{k,2k+1}
+        chat, shat, alphahat = _sym_ortho(alphabar, damp)
 
-        # Second rotation
-        rho = jnp.sqrt(rhobar1 * rhobar1 + beta * beta)
-        cs = rhobar1 / rho
-        sn = beta / rho
-        theta = sn * alpha
-        rhobar = -cs * alpha
-        phi = cs * zetabar
-        zetabar = sn * zetabar
+        # Use a plane rotation (Q_i) to turn B_i to R_i
+        rhoold = rho
+        c, s, rho = _sym_ortho(alphahat, beta)
+        thetanew = s * alpha
+        alphabar = c * alpha
 
-        # Update h, hbar, and x
-        hbar = h - (theta * rhobar / (rho * rho)) * hbar
-        x = x + (phi / rho) * hbar
-        h = v - (theta / rho) * h
+        # Use a plane rotation (Qbar_i) to turn R_i^T to R_i^bar
+        rhobarold = rhobar
+        zetaold = zeta
+        thetabar = sbar * rho
+        rhotemp = cbar * rho
+        cbar, sbar, rhobar = _sym_ortho(rhotemp, thetanew)
+        zeta = cbar * zetabar
+        zetabar = -sbar * zetabar
 
-        # Estimate norms
+        # Update h, h_hat, x
+        hbar = h - hbar * (thetabar * rho / (rhoold * rhobarold))
+        x = x + (zeta / (rho * rhobar)) * hbar
+        h = v - h * (thetanew / rho)
+
+        # Estimate of ||r||
+        # Apply rotation Qhat_{k,2k+1}
+        betaacute = chat * betadd
+        betacheck = -shat * betadd
+
+        # Apply rotation Q_{k,k+1}
+        betahat = c * betaacute
+        betadd = -s * betaacute
+
+        # Apply rotation Qtilde_{k-1}
+        thetatildeold = thetatilde
+        ctildeold, stildeold, rhotildeold = _sym_ortho(rhodold, thetabar)
+        thetatilde = stildeold * rhobar
+        rhodold = ctildeold * rhobar
+        betad = -stildeold * betad + ctildeold * betahat
+
+        tautildeold = (zetaold - thetatildeold * tautildeold) / rhotildeold
+        taud = (zeta - thetatilde * tautildeold) / rhodold
+        d = d + betacheck * betacheck
+        normr = jnp.sqrt(d + (betad - taud) ** 2 + betadd * betadd)
+
+        # Estimate ||A||
+        normA2 = normA2 + beta * beta
         normA = jnp.sqrt(normA2)
-        condA = normA * jnp.sqrt(jnp.abs(maxrbar / minrbar))
-        normr = jnp.abs(zetabar)
+        normA2 = normA2 + alpha * alpha
+
+        # Estimate cond(A)
+        maxrbar = jnp.maximum(maxrbar, rhobarold)
+        minrbar = jnp.where(itn > 1, jnp.minimum(minrbar, rhobarold), minrbar)
+        condA = jnp.maximum(maxrbar, rhotemp) / jnp.minimum(minrbar, rhotemp)
+
+        # Compute norms for convergence testing
+        normar = jnp.abs(zetabar)
         normx = jnp.linalg.norm(x)
 
-        # Update min/max rbar
-        maxrbar = jnp.maximum(maxrbar, rhobar)
-        minrbar = lax.cond(k == 0, lambda: rhobar, lambda: jnp.minimum(minrbar, rhobar))
+        # Check whether we should stop
+        itn = itn + 1
+        test1 = normr / normb
+        z = normA * normr
+        z_safe = jnp.where(z != 0, z, 1.0)
+        test2 = jnp.where(z != 0, normar / z_safe, _LARGE_VALUE)
+        test3 = 1.0 / condA
+        t1 = test1 / (1 + normA * normx / normb)
+        rtol = btol + atol * normA * normx / normb
+
+        # Determine stopping condition (following matfree/scipy order)
+        istop = 0
+        istop = jnp.where(normar == 0, 9, istop)
+        istop = jnp.where(normb == 0, 8, istop)
+        istop = jnp.where(itn >= maxiter, 7, istop)
+        istop = jnp.where(1 + test3 <= 1, 6, istop)
+        istop = jnp.where(1 + test2 <= 1, 5, istop)
+        istop = jnp.where(1 + t1 <= 1, 4, istop)
+        istop = jnp.where(test3 <= ctol, 3, istop)
+        istop = jnp.where(test2 <= atol, 2, istop)
+        istop = jnp.where(test1 <= rtol, 1, istop)
 
         return (
-            x,
+            itn,
+            istop,
             u,
             v,
             alpha,
             beta,
             alphabar,
-            zetabar,
-            rho,
             rhobar,
-            cbar,
+            rho,
+            zeta,
             sbar,
-            h,
+            cbar,
+            zetabar,
             hbar,
+            h,
+            x,
+            betadd,
+            thetatilde,
+            rhodold,
+            betad,
+            tautildeold,
+            d,
             normA2,
             maxrbar,
             minrbar,
-            k + 1,
-        ), None
+            normar,
+            normr,
+            normA,
+            condA,
+            normx,
+        )
 
-    # Convergence condition
-    def converged(carry):
-        (
-            x_curr,
-            _,
-            _,
-            _,
-            _,
-            _,
-            zetabar,
-            _,
-            _,
-            _,
-            _,
-            _,
-            _,
-            normA2,
-            _,
-            _,
-            k,
-        ) = carry
-        normA = jnp.sqrt(normA2)
-        normr = jnp.abs(zetabar)
-        # Test convergence
-        norm_b = jnp.linalg.norm(b)
-        test1 = normr / (normA * jnp.linalg.norm(x_curr) + norm_b)
-        test2 = jnp.where(norm_b > 0, normr / norm_b, normr)
-
-        converged = (test1 <= atol) | (test2 <= btol)
-        continue_iter = (~converged) & (k < maxiter)
-
-        return continue_iter
-
-    # Run iterations
     init_carry = (
-        x,
+        0,  # itn
+        0,  # istop
         u,
         v,
         alpha,
         beta,
         alphabar,
-        zetabar,
-        rho,
         rhobar,
-        cbar,
+        rho,
+        zeta,
         sbar,
-        h,
+        cbar,
+        zetabar,
         hbar,
+        h,
+        x,
+        betadd,
+        thetatilde,
+        rhodold,
+        betad,
+        tautildeold,
+        d,
         normA2,
         maxrbar,
         minrbar,
-        0,
+        normar,
+        normr,
+        normA,
+        condA,
+        normx,
     )
 
-    final_carry = lax.while_loop(converged, lambda c: lsmr_step(c, None)[0], init_carry)
+    final_carry = lax.while_loop(cond_fun, body_fun, init_carry)
 
+    # Extract final values
     (
+        itn,
+        istop,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
         x,
         _,
         _,
         _,
         _,
         _,
-        zetabar,
         _,
         _,
         _,
         _,
-        _,
-        _,
-        normA2,
-        maxrbar,
-        minrbar,
-        itn,
+        normar,
+        normr,
+        normA,
+        condA,
+        normx,
     ) = final_carry
 
-    # Determine stopping condition
-    normA = jnp.sqrt(normA2)
-    condA = normA * jnp.sqrt(jnp.abs(maxrbar / minrbar))
-    normr = jnp.abs(zetabar)
-    normar = jnp.abs(zetabar) * normA
-    normx = jnp.linalg.norm(x)
-
-    norm_b = jnp.linalg.norm(b)
-    test1 = normr / (normA * normx + norm_b)
-    test2 = jnp.where(norm_b > 0, normr / norm_b, normr)
-
-    # Determine istop using JAX-friendly approach (priority order)
-    istop = jnp.where(
-        itn >= maxiter, 5,
-        jnp.where(
-            (test1 <= atol) & (test2 <= btol), 3,
-            jnp.where(
-                test1 <= atol, 1,
-                jnp.where(
-                    test2 <= btol, 2,
-                    jnp.where(condA >= conlim, 4, 0)
-                )
-            )
-        )
-    )
-
     info = {
-        "istop": istop,
-        "itn": itn,
+        "istop": int(istop),
+        "itn": int(itn),
         "normr": float(normr),
         "normar": float(normar),
         "normA": float(normA),
