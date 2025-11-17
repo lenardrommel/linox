@@ -50,6 +50,88 @@
 - `Permutation`: Permutation matrix operator
 - `EigenD`: Eigenvalue decomposition operator
 
+## Matrix-Free Algorithms
+
+`linox` provides efficient matrix-free algorithms for large-scale linear algebra problems, inspired by the [matfree](https://github.com/pnkraemer/matfree) library. These algorithms only require matrix-vector products, making them ideal for large sparse or structured matrices.
+
+### Eigenvalue & Singular Value Decompositions
+- **`lanczos_tridiag`**: Lanczos tridiagonalization for symmetric operators
+- **`arnoldi_iteration`**: Arnoldi iteration for general operators
+- **`lanczos_eigh`**: Compute few eigenvalues using Lanczos
+- **`lanczos_bidiag`**: Lanczos bidiagonalization (Golub-Kahan process)
+- **`svd_partial`**: Partial SVD via Lanczos bidiagonalization
+
+### Trace Estimation
+- **`hutchinson_trace`**: Stochastic trace estimation using Monte Carlo
+- **`hutchinson_diagonal`**: Stochastic diagonal estimation
+- **`hutchinson_trace_and_diagonal`**: Joint trace and diagonal estimation
+
+### Matrix Functions
+- **`lanczos_matrix_function`**: Compute f(A)v using Lanczos for symmetric A
+- **`arnoldi_matrix_function`**: Compute f(A)v using Arnoldi for general A
+- **`stochastic_lanczos_quadrature`**: Estimate trace(f(A)) using SLQ
+
+### High-Level API
+- **`ltrace(A)`**: Estimate trace of any linear operator
+- **`lexp(A, v)`**: Matrix exponential-vector product
+- **`llog(A, v)`**: Matrix logarithm-vector product
+- **`lpow(A, power, v)`**: Matrix power-vector product
+- **`lsvd(A, k)`**: Compute k largest singular values/vectors
+
+### Example: Matrix-Free SVD
+
+```python
+import jax
+import jax.numpy as jnp
+from linox import Matrix
+import linox
+
+# Large sparse-like matrix (e.g., from a discretized PDE)
+key = jax.random.PRNGKey(0)
+A_dense = jax.random.normal(key, (1000, 500))
+A = Matrix(A_dense)
+
+# Compute top 10 singular values/vectors without forming full SVD
+U, S, Vt = linox.lsvd(A, k=10, num_iters=30)
+
+print(f"Top 10 singular values: {S}")
+# U has shape (1000, 10)
+# S has shape (10,)
+# Vt has shape (10, 500)
+
+# Low-rank approximation
+A_approx = U @ jnp.diag(S) @ Vt
+```
+
+### Example: Trace Estimation
+
+```python
+import jax
+import jax.numpy as jnp
+from linox import Matrix
+import linox
+
+# Large matrix where computing full trace is expensive
+key = jax.random.PRNGKey(42)
+A = Matrix(jax.random.normal(key, (10000, 10000)))
+
+# Stochastic trace estimation (no densification needed)
+trace_est, trace_std = linox.ltrace(A, key=key, num_samples=100)
+print(f"Trace estimate: {trace_est:.2f} ± {trace_std:.2f}")
+
+# Matrix exponential trace: trace(exp(A))
+exp_trace_est, exp_trace_std = linox.stochastic_lanczos_quadrature(
+    A, jnp.exp, key, num_samples=50, num_iters=20
+)
+```
+
+**Key Features:**
+- **Matrix-Free**: Only requires matrix-vector products, no explicit matrix construction
+- **Scalable**: Efficient for large sparse or structured matrices
+- **JAX-Compatible**: Fully differentiable and JIT-compilable
+- **Numerically Stable**: Full reorthogonalization in Krylov methods
+- **Structure-Aware**: Specialized dispatches for Diagonal, Kronecker, Identity, etc.
+
 ## Benefits of JAX Integration
 
 - **Automatic Differentiation**: Compute gradients automatically through operator compositions
