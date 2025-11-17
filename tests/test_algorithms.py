@@ -5,7 +5,6 @@
 These tests verify the correctness of:
 - Lanczos and Arnoldi iterations
 - Hutchinson trace estimation
-- LSMR solver
 - Matrix function approximations
 - Stochastic Lanczos quadrature
 """
@@ -19,14 +18,12 @@ from linox import Matrix
 from linox._algorithms import (
     arnoldi_iteration,
     arnoldi_matrix_function,
-    chebyshev_matrix_function,
     hutchinson_diagonal,
     hutchinson_trace,
     hutchinson_trace_and_diagonal,
     lanczos_eigh,
     lanczos_matrix_function,
     lanczos_tridiag,
-    lsmr_solve,
     stochastic_lanczos_quadrature,
 )
 
@@ -192,62 +189,6 @@ class TestHutchinsonTrace:
         assert jnp.abs(trace_norm - n) < 10.0
 
 
-class TestLSMR:
-    """Tests for LSMR solver."""
-
-    def test_lsmr_identity(self):
-        """Test LSMR on identity system."""
-        n = 50
-        A = Matrix(jnp.eye(n))
-        b = jnp.ones(n)
-
-        x, info = lsmr_solve(A, b, atol=1e-8, btol=1e-8)
-
-        assert jnp.allclose(x, b, atol=1e-6)
-        assert info["istop"] in [1, 2, 3]  # Converged
-
-    def test_lsmr_diagonal(self):
-        """Test LSMR on diagonal system."""
-        n = 50
-        diag_vals = jnp.arange(1.0, n + 1.0)
-        A = Matrix(jnp.diag(diag_vals))
-        x_true = jnp.ones(n)
-        b = A @ x_true
-
-        x, info = lsmr_solve(A, b, atol=1e-10, btol=1e-10)
-
-        assert jnp.allclose(x, x_true, atol=1e-6)
-        assert info["istop"] in [1, 2, 3]
-
-    def test_lsmr_overdetermined(self):
-        """Test LSMR on overdetermined least-squares problem."""
-        m, n = 100, 50
-        key = jax.random.PRNGKey(0)
-        A_dense = jax.random.normal(key, (m, n))
-        A = Matrix(A_dense)
-        x_true = jax.random.normal(jax.random.PRNGKey(1), (n,))
-        b = A @ x_true + 0.01 * jax.random.normal(jax.random.PRNGKey(2), (m,))
-
-        x, info = lsmr_solve(A, b, atol=1e-8, btol=1e-8, maxiter=200)
-
-        # Should get close to true solution
-        assert jnp.linalg.norm(x - x_true) < 0.5
-        # Residual should be small
-        assert info["normr"] < 1.0
-
-    def test_lsmr_with_damping(self):
-        """Test LSMR with Tikhonov regularization."""
-        n = 50
-        A = Matrix(jnp.eye(n))
-        b = jnp.ones(n)
-        damp = 0.1
-
-        x, _ = lsmr_solve(A, b, damp=damp, atol=1e-8, btol=1e-8)
-
-        # With damping, solution should be slightly smaller than b
-        assert jnp.allclose(x, b / (1 + damp**2), atol=1e-2)
-
-
 class TestMatrixFunctions:
     """Tests for matrix function approximations."""
 
@@ -293,19 +234,6 @@ class TestMatrixFunctions:
         expected = jax.scipy.linalg.expm(A_dense) @ v
         assert jnp.allclose(result, expected, atol=1e-2)
 
-    def test_chebyshev_exp_small_matrix(self):
-        """Test Chebyshev matrix exponential."""
-        n = 20
-        A = Matrix(0.5 * jnp.eye(n))  # Eigenvalues in [-1, 1]
-        v = jnp.ones(n)
-        num_terms = 20
-
-        result = chebyshev_matrix_function(A, v, jnp.exp, num_terms, bounds=(-1.0, 1.0))
-
-        # exp(0.5*I)v = exp(0.5) * v
-        expected = jnp.exp(0.5) * v
-        assert jnp.allclose(result, expected, atol=1e-2)
-
 
 class TestStochasticLanczosQuadrature:
     """Tests for stochastic Lanczos quadrature (SLQ)."""
@@ -336,8 +264,8 @@ class TestStochasticLanczosQuadrature:
         )
 
         true_logdet = jnp.sum(jnp.log(diag_vals))
-        # Should be within a few standard errors
-        assert jnp.abs(logdet_est - true_logdet) < 5 * logdet_std
+        # Should be within a few standard errors (or numerically exact)
+        assert jnp.abs(logdet_est - true_logdet) <= 5 * logdet_std + 1e-12
 
     def test_slq_trace_exp(self):
         """Test trace(exp(A)) estimation."""

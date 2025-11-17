@@ -13,8 +13,6 @@ _lanczos_arnoldi
     Lanczos tridiagonalization and Arnoldi iteration for eigenvalue problems
 _trace
     Stochastic trace estimation using Hutchinson's method
-_lsmr
-    LSMR iterative solver for least-squares problems
 _matrix_functions
     Matrix function approximations using Krylov methods
 _toeplitz
@@ -39,14 +37,12 @@ hutchinson_trace_and_diagonal : Joint trace and diagonal estimation
 
 Linear Solvers
 ~~~~~~~~~~~~~~
-lsmr_solve : LSMR solver for least-squares problems
 lanczos_solve_sqrt : Low-rank inverse factors (existing)
 
 Matrix Functions
 ~~~~~~~~~~~~~~~~
 lanczos_matrix_function : f(A)v using Lanczos for symmetric A
 arnoldi_matrix_function : f(A)v using Arnoldi for general A
-chebyshev_matrix_function : f(A)v using Chebyshev polynomials
 stochastic_lanczos_quadrature : Estimate trace(f(A)) using SLQ
 
 Toeplitz Solvers
@@ -113,13 +109,9 @@ from linox._algorithms._trace import (
     hutchinson_trace_and_diagonal,
 )
 
-# LSMR solver
-from linox._algorithms._lsmr import lsmr_solve
-
 # Matrix functions
 from linox._algorithms._matrix_functions import (
     arnoldi_matrix_function,
-    chebyshev_matrix_function,
     lanczos_matrix_function,
     stochastic_lanczos_quadrature,
 )
@@ -138,12 +130,10 @@ __all__ = [
     "hutchinson_diagonal",
     "hutchinson_trace_and_diagonal",
     # Linear solvers
-    "lsmr_solve",
     "lanczos_solve_sqrt",
     # Matrix functions
     "lanczos_matrix_function",
     "arnoldi_matrix_function",
-    "chebyshev_matrix_function",
     "stochastic_lanczos_quadrature",
     # Toeplitz
     "solve_toeplitz_jax",
