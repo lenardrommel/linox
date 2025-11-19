@@ -213,7 +213,7 @@ def case_diagonal(shape: ShapeType, batch_shape: ShapeType) -> CaseType:
 
 @pytest.mark.parametrize("batch_shape", batch_shapes_basic)
 @pytest.mark.parametrize("shape", basic_shapes)
-def case_add_operator(shape: ShapeType, batch_shape: ShapeType) -> CaseType:
+def case_add_operator(shape: ShapeType, batch_shape: ShapeType) -> CaseType:  # noqa: ARG001
     linop, matrix = sample_add_operator(shape)
     return linop, matrix
 
@@ -239,6 +239,15 @@ def case_transposed_operator(shape: ShapeType, batch_shape: ShapeType) -> CaseTy
     return linop, matrix
 
 
+@pytest.mark.parametrize("batch_shape", batch_shapes_basic)
+@pytest.mark.parametrize("shape", symmetric_shapes)
+def case_isotropic_additive(shape: ShapeType, batch_shape: ShapeType) -> CaseType:
+    """Test case for IsotropicAdditiveLinearOperator (square matrices only)."""
+    full_shape = batch_shape + (shape[0], shape[0])
+    linop, matrix = sample_isotropic_additive(full_shape)
+    return linop, matrix
+
+
 @pytest.mark.parametrize("batch_shapes", batch_shapes_general)
 @pytest.mark.parametrize(
     ("shape", "get_linop"),
@@ -254,7 +263,7 @@ def case_transposed_operator(shape: ShapeType, batch_shape: ShapeType) -> CaseTy
 )
 def case_add(
     shape: ShapeType,
-    batch_shapes: tuple[ShapeType, ShapeType],
+    batch_shapes: tuple[ShapeType, ShapeType],  # noqa: ARG001
     get_linop: tuple[Callable, Callable],
 ) -> tuple[CaseType, CaseType]:
     get_linop1, get_linop2 = get_linop
@@ -281,7 +290,7 @@ def case_add(
 )
 def case_matmul(
     shapes: tuple[ShapeType, ShapeType],
-    batch_shapes: tuple[ShapeType, ShapeType],
+    batch_shapes: tuple[ShapeType, ShapeType],  # noqa: ARG001
     get_linop: tuple[Callable, Callable],
 ) -> tuple[CaseType, CaseType]:
     get_linop1, get_linop2 = get_linop

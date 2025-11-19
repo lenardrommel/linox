@@ -17,8 +17,6 @@ import jax.numpy as jnp
 
 from linox import utils
 from linox._arithmetic import (
-    InverseLinearOperator,
-    PseudoInverseLinearOperator,
     ScaledLinearOperator,
     congruence_transform,
     diagonal,
@@ -128,7 +126,7 @@ def _(a: Matrix) -> Matrix:
     identity = jnp.eye(a.shape[-1], dtype=a.dtype)
     try:
         chol = jnp.linalg.cholesky(a.A + jitter * identity)
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         msg = "Matrix square root requires a symmetric positive-definite matrix."
         raise ValueError(msg) from err
     return Matrix(chol)

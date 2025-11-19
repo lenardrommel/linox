@@ -9,13 +9,10 @@ import linox
 from linox._eigen import EigenD, leigh
 from linox._linear_operator import LinearOperator
 from linox._matrix import Matrix
-from linox.typing import ShapeType
 from tests.test_linox_cases._matrix_cases import (
-    case_add,
     case_add_operator,
     case_diagonal,
     case_identity,
-    case_matmul,
     case_matrix,
     case_ones,
     case_product_operator,

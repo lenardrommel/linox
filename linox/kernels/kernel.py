@@ -23,7 +23,6 @@ class Kernel(abc.ABC):
         Returns:
             Kernel matrix of shape (n, m).
         """
-        pass
 
     @property
     def params(self):

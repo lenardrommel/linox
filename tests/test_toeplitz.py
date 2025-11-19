@@ -1,12 +1,10 @@
 # test_toeplitz.py
 
-import time
 
 import jax
 import jax.numpy as jnp
 import pytest
 import pytest_cases
-from scipy.linalg import solve_toeplitz
 
 import linox
 from linox._toeplitz import Toeplitz, solve_toeplitz_jax

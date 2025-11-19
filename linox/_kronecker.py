@@ -16,13 +16,10 @@ from linox import utils
 from linox._arithmetic import (
     ProductLinearOperator,
     diagonal,
-    ladd,
     lcholesky,
     ldet,
-    ldiv,
     leigh,
     linverse,
-    lmul,
     lpinverse,
     lqr,
     lsqrt,
@@ -31,7 +28,6 @@ from linox._arithmetic import (
 )
 from linox._linear_operator import LinearOperator
 from linox._registry import get, register
-from linox.typing import DTypeLike, ScalarLike, ShapeLike
 
 
 class Kronecker(LinearOperator):
@@ -256,7 +252,7 @@ def make_kronecker(
     *,
     maker_A: str = "matrix",
     maker_B: str = "matrix",
-    **kwargs,
+    **kwargs,  # noqa: ARG001
 ) -> Kronecker:
     m, n = shape
     mA, mB = _factor_pair(m)

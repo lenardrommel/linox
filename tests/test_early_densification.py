@@ -14,8 +14,8 @@ Early densification is dangerous because:
 """
 
 import functools
-from typing import Any, Callable
-from unittest.mock import patch
+from collections.abc import Callable
+from typing import Any
 
 import jax
 import jax.numpy as jnp
@@ -23,23 +23,16 @@ import pytest
 
 import linox
 from linox import (
-    AddLinearOperator,
     BlockDiagonal,
-    BlockMatrix,
-    BlockMatrix2x2,
     Diagonal,
     Identity,
     IsotropicAdditiveLinearOperator,
     Kronecker,
     Matrix,
-    ProductLinearOperator,
-    ScaledLinearOperator,
 )
-from linox._arithmetic import diagonal, linverse, lpinverse, lsqrt
+from linox._arithmetic import diagonal, linverse
 from linox._low_rank import (
     IsotropicScalingPlusSymmetricLowRank,
-    LowRank,
-    PositiveDiagonalPlusSymmetricLowRank,
     SymmetricLowRank,
 )
 

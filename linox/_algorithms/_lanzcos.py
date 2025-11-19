@@ -3,14 +3,14 @@
 import jax
 import jax.numpy as jnp
 
-from linox.typing import ArrayLike, LinearOperatorLike, ScalarLike
+from linox.typing import ArrayLike, LinearOperatorLike
 
 
 def lanczos_solve_sqrt(
     A: LinearOperatorLike,
     b: ArrayLike,
     tol=1e-5,
-    min_eta=1e-14,
+    min_eta=1e-14,  # noqa: ARG001
     max_iter=10,
     overwrite_b=False,
 ) -> jax.Array:
@@ -82,7 +82,6 @@ def lanczos_solve_sqrt(
 
     # Initialize loop variables
     sqtol = tol**2
-    min_eta = min_eta
     eta = jnp.inf
     rs = rs.at[:, 0].set(b)
     p = b if overwrite_b else b.copy()

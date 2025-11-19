@@ -13,12 +13,11 @@ of an array.
 import jax
 from jax import numpy as jnp
 
-import linox as lo
 from linox._arithmetic import leigh
 from linox._linear_operator import LinearOperator
-from linox._matrix import Diagonal, Matrix
-from linox.typing import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
-from linox.utils import as_linop, as_shape
+from linox._matrix import Diagonal
+from linox.typing import ArrayLike
+from linox.utils import as_linop
 
 
 class EigenD(LinearOperator):
@@ -26,6 +25,7 @@ class EigenD(LinearOperator):
     Represents a linear operator :math:`A` in its eigenvalue decomposition form
     :math:`A = U \Lambda U^T` where :math:`U` is orthogonal and :math:`\Lambda`
     is diagonal.
+
     Args:
         A: The square matrix to decompose.
     """  # noqa: D205

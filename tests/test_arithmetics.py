@@ -14,6 +14,7 @@ from tests.test_linox_cases._matrix_cases import (
     case_add_operator,
     case_diagonal,
     case_identity,
+    case_isotropic_additive,
     case_matmul,
     case_matrix,
     case_ones,
@@ -33,6 +34,7 @@ special_linops = [
     case_scaled_operator,
     case_product_operator,
     case_transposed_operator,
+    case_isotropic_additive,
 ]
 
 

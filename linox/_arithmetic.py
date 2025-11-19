@@ -28,11 +28,10 @@ import jax
 import jax.numpy as jnp
 import plum  # type: ignore  # noqa: PGH003
 
-import linox
 from linox import utils
 from linox._linear_operator import LinearOperator
 from linox.config import warn as _warn
-from linox.typing import ArrayLike, ScalarLike, ShapeLike
+from linox.typing import ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
 
@@ -154,6 +153,7 @@ def svd(
     compute_uv: bool = True,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Singular Value Decomposition of a linear operator.
+
     Args:
         a: Linear operator
         full_matrices: If True, return full-sized U and Vh matrices
@@ -163,7 +163,7 @@ def svd(
         U: Left singular vectors
         S: Singular values
         Vh: Right singular vectors (Hermitian)
-    """  # noqa: D205
+    """
     _warn(f"Linear operator {a} is densed for svd computation.")
     return jax.scipy.linalg.svd(
         a.todense(),
@@ -190,7 +190,7 @@ def lsolve(a: LinearOperator, b: jax.Array) -> jax.Array:
     if a.shape[-1] != b.shape[0]:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
-    # print(f"Warning: Linear operator {a} is densed for lsolve computation.")  # noqa: T201
+    # print(f"Warning: Linear operator {a} is densed for lsolve computation.")
     # return jax.scipy.linalg.solve(a.todense(), b, assume_a="sym")
     return linverse(a) @ b
 
@@ -217,8 +217,11 @@ def lu_solve(a: LinearOperator, b: jax.Array) -> jax.Array:
 
 
 @plum.dispatch
-def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001
-    """Solve the linear system Ax = b."""
+def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001, ARG001
+    """Solve the linear system Ax = b.
+
+    Note: rtol parameter is currently unused but kept for API compatibility.
+    """
     if a.shape[-1] != b.shape[0]:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
@@ -367,14 +370,8 @@ def is_hermitian(
         x = x / jnp.linalg.norm(x)
 
         # Compute Ax and A^H x (conjugate transpose)
+        # For Hermitian: A x = conj(A^T conj(x))
         v1 = a @ x
-        v2 = a.T @ jnp.conj(x)
-
-        # For Hermitian: <Ax, x> = <x, Ax> = conj(<Ax, x>)
-        # Equivalently: Ax should equal conj(A^T conj(x))
-        # Or more directly: check if <v1, x> ≈ conj(<v2, x>)
-        # But simpler: check if v1 ≈ conj(v2) when x is real
-        # Actually, let's use the proper test: A x = conj(A^T conj(x))
         v2_hermitian = jnp.conj(a.T @ jnp.conj(x))
 
         if not jnp.allclose(v1, v2_hermitian, rtol=rtol, atol=atol):
@@ -852,7 +849,7 @@ def ldet(a: InverseLinearOperator) -> jax.Array:
     return 1 / ldet(a.operator)
 
 
-class CongruenceTransform(ProductLinearOperator):  # noqa: F811
+class CongruenceTransform(ProductLinearOperator):
     r""":math:`A B A^\top`."""
 
     def __init__(self, A: ArithmeticType, B: ArithmeticType) -> None:
@@ -883,6 +880,7 @@ class PseudoInverseLinearOperator(LinearOperator):
         r"""# TODO:
         Compute the dense pseudo-inverse using SVD.
         U, S, Vh = svd(self.operator)
+
         Returns:
             x_LS = \sum_i (u_i^T b) / s_i v_i
             -> U, S, Vh = svd(self.operator)
@@ -919,9 +917,9 @@ def _(
     hermitian: bool = False,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     U, S, Vh = svd(a.operator, full_matrices, compute_uv, hermitian)
-    S_inv = jnp.where(S > a.tol, 1 / S, 0)
-    U = jnp.where(S > a.tol, U, 0)
-    Vh = jnp.where(S > a.tol, Vh, 0)
+    S_inv = jnp.where(a.tol < S, 1 / S, 0)
+    U = jnp.where(a.tol < S, U, 0)
+    Vh = jnp.where(a.tol < S, Vh, 0)
     return U, S_inv, Vh
 
 
