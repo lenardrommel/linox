@@ -4,7 +4,11 @@
 
 # `linox`: Linear Operators in JAX
 
-`linox` is a Python package that provides a collection of linear operators for JAX, enabling efficient and flexible linear algebra operations with lazy evaluation. This package is designed as an JAX alternative to [`probnum.linops`](https://probnum.readthedocs.io/en/latest/api/linops.html), but it is currently still under development having less and more instable features. It has no dependencies other than [JAX](https://github.com/jax-ml/jax) and [`plum`](https://github.com/beartype/plum) for multiple dispatch.
+**Version:** 0.0.2
+
+`linox` is a Python package that provides a collection of linear operators for JAX, enabling efficient and flexible linear algebra operations with lazy evaluation. This package is designed as a JAX alternative to [`probnum.linops`](https://probnum.readthedocs.io/en/latest/api/linops.html), but it is currently still under development having less and more instable features. It has no dependencies other than [JAX](https://github.com/jax-ml/jax) and [`plum`](https://github.com/beartype/plum) for multiple dispatch.
+
+**Note (v0.0.2):** The API has been updated to remove the "l" prefix from function names. Functions like `lsolve`, `linverse`, `ldet`, etc. are now available as `solve`, `inverse`, `det`, etc. The old "l"-prefixed functions are deprecated and will be removed in version 0.0.3.
 
 <div align="center">
   <picture>
@@ -49,6 +53,65 @@
 - `Kronecker`: Kronecker product operator
 - `Permutation`: Permutation matrix operator
 - `EigenD`: Eigenvalue decomposition operator
+- `Toeplitz`: Toeplitz matrix operator
+- `IsotropicAdditiveLinearOperator`: Efficient operator for `s*I + A` with spectral transforms
+
+### Composite Operators
+- `ScaledLinearOperator`: Scalar multiple of an operator
+- `AddLinearOperator`: Sum of multiple operators
+- `ProductLinearOperator`: Product of multiple operators
+- `TransposedLinearOperator`: Transpose of an operator
+- `InverseLinearOperator`: Inverse of an operator
+- `PseudoInverseLinearOperator`: Pseudo-inverse of an operator
+- `CongruenceTransform`: Congruence transformation `A B A^T`
+
+## Arithmetic Operations
+
+### Linear System Solvers
+- `solve(A, b)`: Solve the linear system `Ax = b`
+- `psolve(A, b)`: Solve using pseudo-inverse for singular/rectangular systems
+- `lu_factor(A)`: LU factorization
+- `lu_solve(A, b)`: Solve using LU factorization
+
+### Matrix Decompositions
+- `eigh(A)`: Eigendecomposition for Hermitian matrices
+- `svd(A)`: Singular Value Decomposition
+- `qr(A)`: QR decomposition
+- `cholesky(A)`: Cholesky decomposition
+
+### Matrix Functions
+- `inverse(A)`: Compute inverse `A^{-1}`
+- `pinverse(A)`: Compute pseudo-inverse `A^†`
+- `sqrt(A)`: Compute matrix square root
+- `transpose(A)`: Transpose operator
+- `det(A)`: Compute determinant
+- `slogdet(A)`: Compute sign and log-determinant
+
+### Element-wise & Structural Operations
+- `diagonal(A)`: Extract diagonal elements
+- `symmetrize(A)`: Symmetrize operator `(A + A^T)/2`
+- `congruence_transform(A, B)`: Compute `A B A^T`
+- `kron(A, B)`: Kronecker product
+- `iso(s, A)`: Create isotropic additive operator `s*I + A`
+
+### Arithmetic Operators
+- `add(A, B)`: Add two operators
+- `sub(A, B)`: Subtract operators
+- `mul(scalar, A)`: Scalar multiplication
+- `matmul(A, B)`: Matrix multiplication
+- `neg(A)`: Negate operator
+- `div(A, B)`: Division (for diagonal operators)
+
+### Property Checks
+- `is_square(A)`: Check if operator is square
+- `is_symmetric(A)`: Check symmetry without densification (randomized)
+- `is_hermitian(A)`: Check Hermitian property without densification (randomized)
+
+### Utilities
+- `todense(A)`: Convert to dense array
+- `allclose(A, B)`: Compare operators
+- `set_debug(enabled)`: Enable/disable densification warnings
+- `is_debug()`: Check debug mode status
 
 ## Matrix-Free Algorithms
 
@@ -148,7 +211,7 @@ exp_trace_est, exp_trace_std = linox.stochastic_lanczos_quadrature(
 ```python
 import jax
 import jax.numpy as jnp
-from linox import Matrix, Diagonal, BlockMatrix
+from linox import Matrix, Diagonal, BlockMatrix, inverse, solve, det
 
 # Create operators
 A = Matrix(jnp.array([[1, 2], [3, 4]], dtype=jnp.float32))
@@ -160,6 +223,14 @@ B = BlockMatrix([[A, D], [D, A]])
 # Apply to vector
 x = jnp.ones((4,), dtype=jnp.float32)
 y = B @ x  # Lazy evaluation
+
+# Solve linear system
+b = jnp.ones((4,), dtype=jnp.float32)
+x_solved = solve(B, b)
+
+# Compute inverse and determinant
+B_inv = inverse(B)
+det_B = det(B)
 
 # Parallelize over batch of vectors
 x_batched = jnp.ones((10, 4), dtype=jnp.float32)
@@ -289,4 +360,58 @@ Examples of operations that may warn when debug is enabled:
 
 Note: Many structure‑aware paths remain lazy (e.g., diagonals of Kronecker
 products and of diagonal‑like products). The warnings help ensure large operators
-aren’t accidentally densified.
+aren't accidentally densified.
+
+## Related Work & Citations
+
+### matfree
+`linox` draws inspiration from and complements [`matfree`](https://github.com/pnkraemer/matfree) by Nicholas Krämer, which provides matrix-free linear algebra methods in JAX including randomized and deterministic methods for trace estimation, functions of matrices, and matrix factorizations.
+
+If you use matrix-free methods or differentiable linear algebra iterations in your work, consider citing the matfree library:
+
+**For differentiable Lanczos or Arnoldi iterations:**
+```bibtex
+@article{kraemer2024gradients,
+  title={Gradients of functions of large matrices},
+  author={Krämer, Nicholas and Moreno-Muñoz, Pablo and Roy, Hrittik and Hauberg, Søren},
+  journal={Advances in Neural Information Processing Systems},
+  volume={37},
+  pages={49484--49518},
+  year={2024}
+}
+```
+
+**For differentiable LSMR implementation:**
+```bibtex
+@article{roy2025matrix,
+  title={Matrix-Free Least Squares Solvers: Values, Gradients, and What to Do With Them},
+  author={Roy, Hrittik and Hauberg, Søren and Krämer, Nicholas},
+  journal={arXiv preprint arXiv:2510.19634},
+  year={2025}
+}
+```
+
+### Other JAX Linear Algebra Libraries
+- [`probnum.linops`](https://probnum.readthedocs.io/en/latest/api/linops.html): The original inspiration for linox, providing linear operators in Python/NumPy
+- [`matfree`](https://pnkraemer.github.io/matfree/): Specialized matrix-free methods for large-scale problems
+
+## Installation
+
+```bash
+pip install linox
+```
+
+Or install from source:
+```bash
+git clone https://github.com/2bys/linox.git
+cd linox
+pip install -e .
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit pull requests or open issues on the [GitHub repository](https://github.com/2bys/linox).
+
+## License
+
+This project is licensed under the MIT License.

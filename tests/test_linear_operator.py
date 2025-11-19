@@ -209,3 +209,115 @@ def test_symmetrize(linop: linox.LinearOperator, matrix: jnp.ndarray) -> None:
         assert linox.is_symmetric(sym_linop)
 
         assert jnp.array_equal(sym_linop.todense(), sym_linop.todense().T)
+
+
+def test_is_symmetric_with_symmetric_matrix(key: jax.random.PRNGKey) -> None:
+    """Test that is_symmetric correctly identifies symmetric matrices."""
+    # Create a symmetric matrix
+    n = 10
+    A_dense = jax.random.normal(key, (n, n))
+    A_dense = (A_dense + A_dense.T) / 2
+    A = linox.Matrix(A_dense)
+
+    assert linox.is_symmetric(A)
+    assert linox.is_symmetric(A, num_probes=3)
+
+
+def test_is_symmetric_with_non_symmetric_matrix(key: jax.random.PRNGKey) -> None:
+    """Test that is_symmetric correctly identifies non-symmetric matrices."""
+    # Create a non-symmetric matrix
+    n = 10
+    A_dense = jax.random.normal(key, (n, n))
+    # Make it definitely non-symmetric by adding asymmetry
+    A_dense = A_dense + jnp.tril(jnp.ones((n, n)), -1)
+    A = linox.Matrix(A_dense)
+
+    # For a random matrix, it should not be symmetric
+    assert not linox.is_symmetric(A)
+
+
+def test_is_symmetric_with_identity() -> None:
+    """Test that is_symmetric correctly identifies identity as symmetric."""
+    I = linox.Identity(shape=(10, 10))
+    assert linox.is_symmetric(I)
+
+
+def test_is_symmetric_with_diagonal(key: jax.random.PRNGKey) -> None:
+    """Test that is_symmetric correctly identifies diagonal matrices as symmetric."""
+    d = jax.random.normal(key, (10,))
+    D = linox.Diagonal(d)
+    assert linox.is_symmetric(D)
+
+
+def test_is_symmetric_non_square() -> None:
+    """Test that is_symmetric returns False for non-square matrices."""
+    A = linox.Matrix(jnp.ones((5, 3)))
+    assert not linox.is_symmetric(A)
+
+
+def test_is_symmetric_with_scaled_operator(key: jax.random.PRNGKey) -> None:
+    """Test that is_symmetric works with scaled symmetric operators."""
+    n = 10
+    A_dense = jax.random.normal(key, (n, n))
+    A_dense = (A_dense + A_dense.T) / 2
+    A = linox.Matrix(A_dense)
+
+    scaled_A = 3.0 * A
+    assert linox.is_symmetric(scaled_A)
+
+
+def test_is_hermitian_with_hermitian_matrix(key: jax.random.PRNGKey) -> None:
+    """Test that is_hermitian correctly identifies Hermitian matrices."""
+    # Create a Hermitian matrix (complex symmetric with A = A^H)
+    n = 10
+    key1, key2 = jax.random.split(key)
+    A_real = jax.random.normal(key1, (n, n))
+    A_imag = jax.random.normal(key2, (n, n))
+    A_dense = A_real + 1j * A_imag
+    # Make it Hermitian: A = (A + A^H) / 2
+    A_dense = (A_dense + jnp.conj(A_dense.T)) / 2
+    A = linox.Matrix(A_dense)
+
+    assert linox.is_hermitian(A)
+    assert linox.is_hermitian(A, num_probes=3)
+
+
+def test_is_hermitian_with_real_symmetric_matrix(key: jax.random.PRNGKey) -> None:
+    """Test that is_hermitian works with real symmetric matrices."""
+    # For real matrices, Hermitian = symmetric
+    n = 10
+    A_dense = jax.random.normal(key, (n, n))
+    A_dense = (A_dense + A_dense.T) / 2
+    A = linox.Matrix(A_dense)
+
+    assert linox.is_hermitian(A)
+
+
+def test_is_hermitian_with_non_hermitian_matrix(key: jax.random.PRNGKey) -> None:
+    """Test that is_hermitian correctly identifies non-Hermitian matrices."""
+    # Create a non-Hermitian complex matrix
+    n = 10
+    key1, key2 = jax.random.split(key)
+    A_real = jax.random.normal(key1, (n, n))
+    A_imag = jax.random.normal(key2, (n, n))
+    A_dense = A_real + 1j * A_imag
+    A = linox.kron(linox.Matrix(A_dense), linox.Identity(1))
+
+    assert not linox.is_hermitian(A)
+
+
+def test_is_hermitian_non_square() -> None:
+    """Test that is_hermitian returns False for non-square matrices."""
+    A = linox.Matrix(jnp.ones((5, 3)) + 0j)
+    assert not linox.is_hermitian(A)
+
+
+def test_is_symmetric_with_low_rank(key: jax.random.PRNGKey) -> None:
+    """Test that is_symmetric works with symmetric low-rank operators."""
+    n = 10
+    rank = 3
+    U = jax.random.normal(key, (n, rank))
+
+    # Create symmetric low-rank operator: U U^T
+    A = linox.SymmetricLowRank(U)
+    assert linox.is_symmetric(A)
