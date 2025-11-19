@@ -257,7 +257,7 @@ def test_pinverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     )
 
 
-def test_cholesky():
+def test_cholesky() -> None:
     shape = (4, 4)
     linop, matrix = sample_spd_isotropic_additive(shape)
     lin_chol = linox.lcholesky(linop)

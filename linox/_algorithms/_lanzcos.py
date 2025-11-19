@@ -3,7 +3,7 @@
 import jax
 import jax.numpy as jnp
 
-from linox.typing import ArrayLike, LinearOperatorLike, ScalarLike
+from linox.typing import ArrayLike, LinearOperatorLike
 
 
 def lanczos_solve_sqrt(
@@ -71,7 +71,7 @@ def lanczos_solve_sqrt(
         return ds, rs, rs_norm_sq, p, eta, k + 1
 
     def _cond_fun(values):
-        ds, _, rs_norm_sq, _, eta, k = values
+        _ds, _, rs_norm_sq, _, _eta, k = values
         return (rs_norm_sq[k] > sqtol) & (k < max_iter)
 
     # Initialization

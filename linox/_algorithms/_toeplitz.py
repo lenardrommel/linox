@@ -123,7 +123,7 @@ def hybrid_bwd(residuals, grad_output):
     Returns:
         (grad_toeplitz_vec, grad_b): Gradients w.r.t. inputs
     """
-    toeplitz_vec, b, x = residuals
+    toeplitz_vec, _b, x = residuals
     n = len(toeplitz_vec)
 
     # Reconstruct Toeplitz matrix for gradient computation
@@ -173,4 +173,3 @@ def solve_toeplitz_jax(c_or_cr, b, check_finite=True):  # noqa: ARG001
         return jnp.array(x_np)
     # Symmetric case: use hybrid solver with custom VJP
     return toeplitz_solve_hybrid(c_or_cr, b)
-

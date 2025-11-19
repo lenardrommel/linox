@@ -14,7 +14,8 @@ def test_diagonal_kronecker_no_densify_simple(monkeypatch) -> None:
 
     # Ensure we never densify the Kronecker to compute the diagonal
     def fail_if_called(_self):  # pragma: no cover
-        raise AssertionError("Kronecker.todense must not be called for diagonal")
+        msg = "Kronecker.todense must not be called for diagonal"
+        raise AssertionError(msg)
 
     monkeypatch.setattr(linox._kronecker.Kronecker, "todense", fail_if_called)
 
@@ -47,7 +48,8 @@ def test_diagonal_isotropic_add_scaled_product_in_kronecker_no_densify(
 
     # Forbid densification on Kronecker and Add during diagonal evaluation
     def fail_if_called(_self):  # pragma: no cover
-        raise AssertionError("Unexpected densify called during diagonal computation")
+        msg = "Unexpected densify called during diagonal computation"
+        raise AssertionError(msg)
 
     monkeypatch.setattr(linox._kronecker.Kronecker, "todense", fail_if_called)
     monkeypatch.setattr(linox._arithmetic.AddLinearOperator, "todense", fail_if_called)

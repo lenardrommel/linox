@@ -1,27 +1,22 @@
 # new_gp.py (moved from tests/new_gp.py)
 
 import functools
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
+from typing import Any
 
 import jax
 import jax.numpy as jnp
 import numpy as np
-from matplotlib import pyplot as plt
 
 import linox as lo
 from helper.gp import (
-    BIAS,
     KERNEL_REGISTRY,
-    LENGTHSCALE_X,
-    LENGTHSCALE_Y,
-    LINOPS_REGISTRY,
     CombinationConfig,
     CombinationStrategy,
     KernelType,
-    LinearOperation,
 )
 
 try:
@@ -37,26 +32,12 @@ try:
         plot_uncertainty_2d,
     )
 except ModuleNotFoundError:  # pragma: no cover - fallback when helper not on path
-    from tests.helper.plotting import (  # type: ignore[no-redef]
-        generate_preprocess_data_1d,
-        generate_preprocess_data_2d,
-        plot_error_analysis_2d,
-        plot_kernel_predictions_1d,
-        plot_kernel_predictions_2d,
-        plot_marginal_analysis_2d,
-        plot_profile_comparison_2d,
-        plot_samples_2d,
-        plot_uncertainty_2d,
-    )
+    pass
 from linox import (
-    AddLinearOperator,
-    IsotropicAdditiveLinearOperator,
     Kronecker,
-    ProductLinearOperator,
     ScaledLinearOperator,
 )
 from linox._kernel import ArrayKernel
-from linox.kernels.kernel import L2InnerProductKernel, RBFKernel
 
 try:  # Python < 3.11 compatibility
     from enum import StrEnum  # type: ignore[attr-defined]
@@ -65,16 +46,14 @@ except ImportError:  # pragma: no cover - only exercised on older interpreters
     class StrEnum(str, Enum):
         """Fallback StrEnum implementation."""
 
-        pass
-
 
 jax.config.update("jax_enable_x64", True)
 
-Params = Dict[str, Dict[str, jnp.ndarray] | jnp.ndarray]
+Params = dict[str, dict[str, jnp.ndarray] | jnp.ndarray]
 
 
 # Serialization helpers
-def _flatten_dict(d: Mapping, prefix: str = "") -> Dict[str, np.ndarray]:
+def _flatten_dict(d: Mapping, prefix: str = "") -> dict[str, np.ndarray]:
     out = {}
     for k, v in d.items():
         key = f"{prefix}.{k}" if prefix else k
@@ -84,7 +63,7 @@ def _flatten_dict(d: Mapping, prefix: str = "") -> Dict[str, np.ndarray]:
     return out
 
 
-def _unflatten_dict(flat: Mapping[str, np.ndarray]) -> Dict:
+def _unflatten_dict(flat: Mapping[str, np.ndarray]) -> dict:
     root = {}
     for k, v in flat.items():
         if k.startswith("__") and k.endswith("__"):
@@ -118,7 +97,7 @@ def _to_jax_array(value: Any) -> jnp.ndarray:
 
 
 def _coerce_params(tree: Mapping[str, Any]) -> Params:
-    coerced: Dict[str, Any] = {}
+    coerced: dict[str, Any] = {}
     for key, value in tree.items():
         if isinstance(value, Mapping):
             coerced[key] = _coerce_params(value)
@@ -130,17 +109,17 @@ def _coerce_params(tree: Mapping[str, Any]) -> Params:
 @dataclass
 class DimensionSpec:
     kernel_type: KernelType
-    kernel_params: Dict[str, Any] = field(default_factory=dict)
+    kernel_params: dict[str, Any] = field(default_factory=dict)
     is_spatial: bool = True
     name: str = ""
-    scope_key: Optional[str] = None
+    scope_key: str | None = None
 
 
 @dataclass
 class StructureConfig:
-    spatial_dims: List[DimensionSpec]
-    function_dims: List[DimensionSpec]
-    channel_dims: Optional[List[DimensionSpec]] = None
+    spatial_dims: list[DimensionSpec]
+    function_dims: list[DimensionSpec]
+    channel_dims: list[DimensionSpec] | None = None
 
     def __post_init__(self) -> None:
         for dim in self.spatial_dims:
@@ -162,7 +141,7 @@ class CombinationConfig:
 
 
 def params_from_structure(structure: StructureConfig) -> Params:
-    params: Dict[str, Any] = {}
+    params: dict[str, Any] = {}
 
     for dim in structure.spatial_dims:
         key = dim.scope_key or f"spatial_{dim.name}"
@@ -205,7 +184,7 @@ class ModularHParams:
     def from_dict(cls, params: Mapping[str, Any]) -> "ModularHParams":
         return cls(params=_coerce_params(dict(params)))
 
-    def to_json(self) -> Dict[str, Any]:
+    def to_json(self) -> dict[str, Any]:
         def _to_python(value: Any) -> Any:
             if isinstance(value, Mapping):
                 return {k: _to_python(v) for k, v in value.items()}
@@ -227,7 +206,7 @@ class ModularHParams:
 
     @staticmethod
     def from_kernel_config(
-        kernel_config: Dict[str, Any], structure_config: StructureConfig
+        kernel_config: dict[str, Any], structure_config: StructureConfig
     ) -> "ModularHParams":
         params = params_from_structure(structure_config)
 
@@ -249,7 +228,7 @@ class ModularHParams:
         return ModularHParams(params=params)
 
     def print_formatted(
-        self, structure_config: Optional[StructureConfig] = None
+        self, structure_config: StructureConfig | None = None
     ) -> None:
         spatial_params = {
             k: v for k, v in self.params.items() if k.startswith("spatial_")
@@ -260,30 +239,18 @@ class ModularHParams:
         global_params = {
             k: v
             for k, v in self.params.items()
-            if not (k.startswith("spatial_") or k.startswith("function_"))
+            if not (k.startswith(("spatial_", "function_")))
         }
 
         def _print_block(title: str, block: Mapping[str, Any]) -> None:
             if not block:
                 return
-            print(title)
-            for key, value in block.items():
+            for value in block.values():
                 if isinstance(value, Mapping):
-                    for sub_key, sub_val in value.items():
-                        exp_val = jnp.exp(sub_val)
-                        print(
-                            "  "
-                            f"{key.replace('_', ' ')}_{sub_key}: "
-                            f"{float(sub_val):.6f} (exp: {float(exp_val):.6e})"
-                        )
+                    for sub_val in value.values():
+                        jnp.exp(sub_val)
                 else:
-                    exp_val = jnp.exp(value)
-                    print(
-                        "  "
-                        f"{key.replace('_', ' ')}: "
-                        f"{float(value):.6f} (exp: {float(exp_val):.6e})"
-                    )
-            print("-" * 40)
+                    jnp.exp(value)
 
         _print_block("Spatial kernels:", spatial_params)
         _print_block("Function kernels:", function_params)
@@ -303,12 +270,13 @@ class ModularGPPrior:
     ) -> None:
         self.structure_config = structure_config
         self.combination_config = combination_config
-        self._params: Optional[Params] = None
+        self._params: Params | None = None
 
     @property
     def params(self) -> Params:
         if self._params is None:
-            raise ValueError("Parameters not set.")
+            msg = "Parameters not set."
+            raise ValueError(msg)
         return self._params
 
     @property
@@ -317,16 +285,16 @@ class ModularGPPrior:
             "noise_variance", jnp.log(self.combination_config.noise_variance)
         )
 
-    def set_params(self, params: Union[Params, ModularHParams]) -> None:
+    def set_params(self, params: Params | ModularHParams) -> None:
         if isinstance(params, ModularHParams):
             params = params.to_dict()
         self._params = _coerce_params(params)
 
     def _transformed_scope_params(
         self, params: Params, dim: DimensionSpec
-    ) -> Dict[str, jnp.ndarray]:
+    ) -> dict[str, jnp.ndarray]:
         raw = params.get(dim.scope_key or "", {})
-        transformed: Dict[str, jnp.ndarray] = {}
+        transformed: dict[str, jnp.ndarray] = {}
         if isinstance(raw, Mapping):
             for name, value in raw.items():
                 array = _to_jax_array(value)
@@ -338,7 +306,7 @@ class ModularGPPrior:
         defaults.update(transformed)
         return defaults
 
-    def _extract_coords(self, grid: Optional[jnp.ndarray]) -> List[jnp.ndarray]:
+    def _extract_coords(self, grid: jnp.ndarray | None) -> list[jnp.ndarray]:
         if grid is None:
             return []
 
@@ -359,11 +327,11 @@ class ModularGPPrior:
 
     def _build_axis_kernel(
         self,
-        dims: List[DimensionSpec],
-        coords: List[jnp.ndarray],
+        dims: list[DimensionSpec],
+        coords: list[jnp.ndarray],
         params: Params,
-        coords2: Optional[List[jnp.ndarray]] = None,
-    ) -> Optional[ArrayKernel]:
+        coords2: list[jnp.ndarray] | None = None,
+    ) -> ArrayKernel | None:
         if not dims:
             return None
 
@@ -371,7 +339,8 @@ class ModularGPPrior:
         for i, dim in enumerate(dims):
             kernel_factory = KERNEL_REGISTRY.get(dim.kernel_type)
             if kernel_factory is None:
-                raise KeyError(f"Kernel type {dim.kernel_type} is not registered.")
+                msg = f"Kernel type {dim.kernel_type} is not registered."
+                raise KeyError(msg)
             kernel_params = self._transformed_scope_params(params, dim)
             kernel_fn = kernel_factory(**kernel_params)
             x1 = coords[i]
@@ -384,14 +353,11 @@ class ModularGPPrior:
         self,
         x: jnp.ndarray,
         grid: jnp.ndarray,
-        params: Union[Params, ModularHParams],
-        x2: Optional[jnp.ndarray] = None,
-        grid2: Optional[jnp.ndarray] = None,
+        params: Params | ModularHParams,
+        x2: jnp.ndarray | None = None,
+        grid2: jnp.ndarray | None = None,
     ) -> Any:
-        if isinstance(params, ModularHParams):
-            params_dict = params.to_dict()
-        else:
-            params_dict = params
+        params_dict = params.to_dict() if isinstance(params, ModularHParams) else params
 
         function_inputs = [x] * len(self.structure_config.function_dims)
         function_inputs2 = (
@@ -413,13 +379,11 @@ class ModularGPPrior:
             spatial_coords2,
         )
 
-        if fop and sop:
-            base = Kronecker(fop, sop)
-        else:
-            base = fop or sop
+        base = Kronecker(fop, sop) if fop and sop else fop or sop
 
         if base is None:
-            raise ValueError("No kernels defined in structure configuration.")
+            msg = "No kernels defined in structure configuration."
+            raise ValueError(msg)
 
         scale_raw = params_dict.get("output_scale")
         if scale_raw is None:
@@ -430,37 +394,39 @@ class ModularGPPrior:
         return kernel
 
     def build_spatial_kernels_list(
-        self, grid: jnp.ndarray, params: Optional[Union[Params, ModularHParams]] = None
-    ) -> List[ArrayKernel]:
+        self, grid: jnp.ndarray, params: Params | ModularHParams | None = None
+    ) -> list[ArrayKernel]:
         params_dict = (
             self.params
             if params is None
             else (params.to_dict() if isinstance(params, ModularHParams) else params)
         )
         spatial_coords = self._extract_coords(grid)
-        kernels: List[ArrayKernel] = []
+        kernels: list[ArrayKernel] = []
         for i, dim in enumerate(self.structure_config.spatial_dims):
             kernel_factory = KERNEL_REGISTRY.get(dim.kernel_type)
             if kernel_factory is None:
-                raise KeyError(f"Kernel type {dim.kernel_type} is not registered.")
+                msg = f"Kernel type {dim.kernel_type} is not registered."
+                raise KeyError(msg)
             kernel_params = self._transformed_scope_params(params_dict, dim)
             kernel_fn = kernel_factory(**kernel_params)
             kernels.append(ArrayKernel(kernel_fn, spatial_coords[i]))
         return kernels
 
     def build_function_kernels_list(
-        self, x: jnp.ndarray, params: Optional[Union[Params, ModularHParams]] = None
-    ) -> List[ArrayKernel]:
+        self, x: jnp.ndarray, params: Params | ModularHParams | None = None
+    ) -> list[ArrayKernel]:
         params_dict = (
             self.params
             if params is None
             else (params.to_dict() if isinstance(params, ModularHParams) else params)
         )
-        kernels: List[ArrayKernel] = []
+        kernels: list[ArrayKernel] = []
         for dim in self.structure_config.function_dims:
             kernel_factory = KERNEL_REGISTRY.get(dim.kernel_type)
             if kernel_factory is None:
-                raise KeyError(f"Kernel type {dim.kernel_type} is not registered.")
+                msg = f"Kernel type {dim.kernel_type} is not registered."
+                raise KeyError(msg)
             kernel_params = self._transformed_scope_params(params_dict, dim)
             kernel_fn = kernel_factory(**kernel_params)
             kernels.append(ArrayKernel(kernel_fn, x))
@@ -479,7 +445,7 @@ class ModularGPPrior:
         key: jax.Array,
         x: jnp.ndarray,
         grid: jnp.ndarray,
-        params: Optional[Union[Params, ModularHParams]] = None,
+        params: Params | ModularHParams | None = None,
         size=(),
         dtype=jnp.float32,
     ) -> jnp.ndarray:
@@ -517,7 +483,7 @@ class ModularGPPrior:
         grid_train: jnp.ndarray,
         x_test: jnp.ndarray,
         grid_test: jnp.ndarray,
-        params: Optional[Union[Params, ModularHParams]] = None,
+        params: Params | ModularHParams | None = None,
         size=(),
         dtype=jnp.float32,
     ) -> jnp.ndarray:
@@ -560,8 +526,8 @@ class ModularGPPrior:
         grid_train: jnp.ndarray,
         x_test: jnp.ndarray,
         grid_test: jnp.ndarray,
-        params: Union[Params, ModularHParams],
-    ) -> Tuple[jnp.ndarray, Any]:
+        params: Params | ModularHParams,
+    ) -> tuple[jnp.ndarray, Any]:
         K_train = self.build_kernel(x_train, grid_train, params)
         # Add isotropic noise for numerical stability and better conditioning
         params_dict = params.to_dict() if isinstance(params, ModularHParams) else params

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import os
 
-_DEBUG: bool = os.getenv("LINOX_DEBUG", "0") not in ("0", "false", "False", "")
+_DEBUG: bool = os.getenv("LINOX_DEBUG", "0") not in {"0", "false", "False", ""}
 
 
 def set_debug(value: bool) -> None:
@@ -37,4 +37,4 @@ def warn(msg: str, *, prefix: str = "Warning") -> None:
         prefix: Optional prefix for the message, defaults to 'Warning'.
     """
     if _DEBUG:
-        print(f"{prefix}: {msg}")
+        pass

@@ -2,13 +2,10 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import jax
 import jax.numpy as jnp
-import numpy as np
-from matplotlib import pyplot as plt
 
 try:  # Python < 3.11 compatibility
     from enum import StrEnum  # type: ignore[attr-defined]
@@ -17,10 +14,6 @@ except ImportError:  # pragma: no cover - only exercised on older interpreters
     class StrEnum(str, Enum):
         """Fallback StrEnum implementation for Python < 3.11."""
 
-        pass
-
-
-import linox as lo
 
 try:
     from helper.plotting import (
@@ -34,24 +27,12 @@ try:
         plot_uncertainty_2d,
     )
 except ModuleNotFoundError:  # pragma: no cover - fallback for package installs
-    from tests.helper.plotting import (  # type: ignore[no-redef]
-        generate_preprocess_data_1d,
-        generate_preprocess_data_2d,
-        plot_error_analysis_2d,
-        plot_kernel_predictions_1d,
-        plot_kernel_predictions_2d,
-        plot_marginal_analysis_2d,
-        plot_profile_comparison_2d,
-        plot_uncertainty_2d,
-    )
+    pass
 from linox import (
     AddLinearOperator,
-    IsotropicAdditiveLinearOperator,
     Kronecker,
     ProductLinearOperator,
-    ScaledLinearOperator,
 )
-from linox._kernel import ArrayKernel
 from linox.kernels.kernel import L2InnerProductKernel, RBFKernel
 
 jax.config.update("jax_enable_x64", True)
@@ -83,14 +64,14 @@ LENGTHSCALE_Y = jnp.pi / 20
 
 
 KERNEL_REGISTRY = {
-    KernelType.RBF: lambda **kwargs: RBFKernel(**kwargs),
-    KernelType.L2: lambda **kwargs: L2InnerProductKernel(**kwargs),
+    KernelType.RBF: RBFKernel,
+    KernelType.L2: L2InnerProductKernel,
 }
 
 LINOPS_REGISTRY = {
-    LinearOperation.KRONECKER: lambda A, B: Kronecker(A, B),
-    LinearOperation.PRODUCT: lambda A, B: ProductLinearOperator(A, B),
-    LinearOperation.SUM: lambda A, B: AddLinearOperator(A, B),
+    LinearOperation.KRONECKER: Kronecker,
+    LinearOperation.PRODUCT: ProductLinearOperator,
+    LinearOperation.SUM: AddLinearOperator,
 }
 
 
@@ -100,7 +81,7 @@ class DimensionSpec:
 
     name: str
     kernel_type: KernelType
-    kernel_params: Dict[str, Any] = field(default_factory=dict)
+    kernel_params: dict[str, Any] = field(default_factory=dict)
     is_spatial: bool = True
 
 
@@ -108,9 +89,9 @@ class DimensionSpec:
 class StructureConfig:
     """Configuration for the structure of the problem."""
 
-    spatial_dims: List[DimensionSpec]
-    function_dims: List[DimensionSpec]
-    channel_dims: Optional[List[DimensionSpec]] = None
+    spatial_dims: list[DimensionSpec]
+    function_dims: list[DimensionSpec]
+    channel_dims: list[DimensionSpec] | None = None
 
     @property
     def total_spatial_dims(self) -> int:
@@ -133,4 +114,3 @@ class CombinationConfig:
 # The rest of the original tests/gp.py module contains plotting/workflow helpers
 # that rely on pytest context. For helper usage, prefer helper/new_gp.py which
 # contains the composable GP prior implementation and sampling utilities.
-

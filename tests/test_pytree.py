@@ -330,14 +330,10 @@ def test_vmap_compatibility() -> None:
     keys = jax.random.split(key, batch_size)
 
     # Create a batch of matrices
-    matrices = jnp.stack([
-        jax.random.normal(k, (2, 2)) for k in keys
-    ])
+    matrices = jnp.stack([jax.random.normal(k, (2, 2)) for k in keys])
 
     # Create a batch of vectors
-    vectors = jnp.stack([
-        jax.random.normal(k, (2,)) for k in keys
-    ])
+    vectors = jnp.stack([jax.random.normal(k, (2,)) for k in keys])
 
     # Define a function that creates a linear operator and applies it
     def apply_matrix(mat, vec):
@@ -363,7 +359,7 @@ def test_grad_compatibility() -> None:
     def loss_fn(matrix, vector):
         linop = linox.Matrix(matrix)
         result = linop @ vector
-        return jnp.sum(result ** 2)
+        return jnp.sum(result**2)
 
     grad_fn = jax.grad(loss_fn, argnums=0)
     grad_result = grad_fn(A, x)
@@ -381,10 +377,7 @@ def test_blockmatrix_pytree() -> None:
     C = jnp.array([[9.0, 10.0], [11.0, 12.0]])
     D = jnp.array([[13.0, 14.0], [15.0, 16.0]])
 
-    blocks = [
-        [linox.Matrix(A), linox.Matrix(B)],
-        [linox.Matrix(C), linox.Matrix(D)]
-    ]
+    blocks = [[linox.Matrix(A), linox.Matrix(B)], [linox.Matrix(C), linox.Matrix(D)]]
 
     linop = linox.BlockMatrix(blocks)
 
@@ -442,10 +435,7 @@ def test_blockmatrix2x2_pytree() -> None:
     D = jnp.array([[13.0, 14.0], [15.0, 16.0]])
 
     linop = linox.BlockMatrix2x2(
-        A=linox.Matrix(A),
-        B=linox.Matrix(B),
-        C=linox.Matrix(C),
-        D=linox.Matrix(D)
+        A=linox.Matrix(A), B=linox.Matrix(B), C=linox.Matrix(C), D=linox.Matrix(D)
     )
 
     # Test flattening
@@ -485,11 +475,7 @@ def test_blockdiagonal_pytree() -> None:
     B = jnp.array([[5.0, 6.0], [7.0, 8.0]])
     C = jnp.array([[9.0, 10.0], [11.0, 12.0]])
 
-    linop = linox.BlockDiagonal(
-        linox.Matrix(A),
-        linox.Matrix(B),
-        linox.Matrix(C)
-    )
+    linop = linox.BlockDiagonal(linox.Matrix(A), linox.Matrix(B), linox.Matrix(C))
 
     # Test flattening
     children, aux_data = linop.tree_flatten()
@@ -527,10 +513,7 @@ def test_block_jit_compatibility() -> None:
     C = jnp.array([[9.0, 10.0], [11.0, 12.0]])
     D = jnp.array([[13.0, 14.0], [15.0, 16.0]])
 
-    blocks = [
-        [linox.Matrix(A), linox.Matrix(B)],
-        [linox.Matrix(C), linox.Matrix(D)]
-    ]
+    blocks = [[linox.Matrix(A), linox.Matrix(B)], [linox.Matrix(C), linox.Matrix(D)]]
 
     linop = linox.BlockMatrix(blocks)
 
@@ -549,15 +532,15 @@ def test_block_vmap_compatibility() -> None:
 
     # Create batches of matrices for blocks
     As = jnp.stack([jax.random.normal(keys[i], (2, 2)) for i in range(batch_size)])
-    Bs = jnp.stack(
-        [jax.random.normal(keys[i + batch_size], (2, 2)) for i in range(batch_size)]
-    )
-    Cs = jnp.stack(
-        [jax.random.normal(keys[i + 2 * batch_size], (2, 2)) for i in range(batch_size)]
-    )
-    Ds = jnp.stack(
-        [jax.random.normal(keys[i + 3 * batch_size], (2, 2)) for i in range(batch_size)]
-    )
+    Bs = jnp.stack([
+        jax.random.normal(keys[i + batch_size], (2, 2)) for i in range(batch_size)
+    ])
+    Cs = jnp.stack([
+        jax.random.normal(keys[i + 2 * batch_size], (2, 2)) for i in range(batch_size)
+    ])
+    Ds = jnp.stack([
+        jax.random.normal(keys[i + 3 * batch_size], (2, 2)) for i in range(batch_size)
+    ])
 
     # Create a batch of vectors
     vectors = jnp.stack([jax.random.normal(keys[i], (4,)) for i in range(batch_size)])
@@ -565,10 +548,7 @@ def test_block_vmap_compatibility() -> None:
     # Define a function that creates a block matrix and applies it
     def apply_block_matrix(A, B, C, D, vec):
         linop = linox.BlockMatrix2x2(
-            A=linox.Matrix(A),
-            B=linox.Matrix(B),
-            C=linox.Matrix(C),
-            D=linox.Matrix(D)
+            A=linox.Matrix(A), B=linox.Matrix(B), C=linox.Matrix(C), D=linox.Matrix(D)
         )
         return linop @ vec
 
@@ -592,12 +572,9 @@ def test_block_grad_compatibility() -> None:
     x = jnp.array([1.0, 2.0])
 
     def loss_fn(matrix_A, matrix_B, vector):
-        linop = linox.BlockDiagonal(
-            linox.Matrix(matrix_A),
-            linox.Matrix(matrix_B)
-        )
+        linop = linox.BlockDiagonal(linox.Matrix(matrix_A), linox.Matrix(matrix_B))
         result = linop @ jnp.concatenate([vector, vector])
-        return jnp.sum(result ** 2)
+        return jnp.sum(result**2)
 
     grad_fn = jax.grad(loss_fn, argnums=(0, 1))
     grad_A, _grad_B = grad_fn(A, B, x)
@@ -664,15 +641,13 @@ def test_eigend_pytree() -> None:
     # Create batches of matrices and vectors
     Us = jnp.stack([jax.random.normal(keys[i], (n, n)) for i in range(batch_size)])
     Qs = jnp.stack([jnp.linalg.qr(Us[i])[0] for i in range(batch_size)])
-    Ss = jnp.stack(
-        [
-            jnp.abs(jax.random.normal(keys[i + batch_size], (n,)))
-            for i in range(batch_size)
-        ]
-    )
-    vectors = jnp.stack(
-        [jax.random.normal(keys[i + 2 * batch_size], (n,)) for i in range(batch_size)]
-    )
+    Ss = jnp.stack([
+        jnp.abs(jax.random.normal(keys[i + batch_size], (n,)))
+        for i in range(batch_size)
+    ])
+    vectors = jnp.stack([
+        jax.random.normal(keys[i + 2 * batch_size], (n,)) for i in range(batch_size)
+    ])
 
     # Define a function that creates an EigenD operator and applies it
     def apply_eigend_batch(U, S, vec):
@@ -684,8 +659,7 @@ def test_eigend_pytree() -> None:
 
     # Compute the expected result
     expected_result = jnp.stack([
-        apply_eigend_batch(Qs[i], Ss[i], vectors[i])
-        for i in range(batch_size)
+        apply_eigend_batch(Qs[i], Ss[i], vectors[i]) for i in range(batch_size)
     ])
 
     assert jnp.allclose(batched_result, expected_result)
@@ -694,7 +668,7 @@ def test_eigend_pytree() -> None:
     def loss_fn(U, S, vector):
         linop = linox.EigenD(U=U, S=S)
         result = linop @ vector
-        return jnp.sum(result ** 2)
+        return jnp.sum(result**2)
 
     # Take gradient with respect to S (eigenvalues)
     grad_fn = jax.grad(loss_fn, argnums=1)
@@ -753,12 +727,12 @@ def test_kronecker_pytree() -> None:
 
     # Create batches of matrices and vectors
     As = jnp.stack([jax.random.normal(keys[i], (2, 2)) for i in range(batch_size)])
-    Bs = jnp.stack(
-        [jax.random.normal(keys[i + batch_size], (2, 2)) for i in range(batch_size)]
-    )
-    vectors = jnp.stack(
-        [jax.random.normal(keys[i + 2 * batch_size], (4,)) for i in range(batch_size)]
-    )
+    Bs = jnp.stack([
+        jax.random.normal(keys[i + batch_size], (2, 2)) for i in range(batch_size)
+    ])
+    vectors = jnp.stack([
+        jax.random.normal(keys[i + 2 * batch_size], (4,)) for i in range(batch_size)
+    ])
 
     # Define a function that creates a Kronecker operator and applies it
     def apply_kronecker_batch(A, B, vec):
@@ -770,20 +744,16 @@ def test_kronecker_pytree() -> None:
 
     # Compute the expected result
     expected_result = jnp.stack([
-        apply_kronecker_batch(As[i], Bs[i], vectors[i])
-        for i in range(batch_size)
+        apply_kronecker_batch(As[i], Bs[i], vectors[i]) for i in range(batch_size)
     ])
 
     assert jnp.allclose(batched_result, expected_result)
 
     # Test with grad
     def loss_fn(A_mat, B_mat, vector):
-        linop = linox.Kronecker(
-            A=linox.Matrix(A_mat),
-            B=linox.Matrix(B_mat)
-        )
+        linop = linox.Kronecker(A=linox.Matrix(A_mat), B=linox.Matrix(B_mat))
         result = linop @ vector
-        return jnp.sum(result ** 2)
+        return jnp.sum(result**2)
 
     # Take gradient with respect to A
     grad_fn = jax.grad(loss_fn, argnums=0)
@@ -895,9 +865,7 @@ def test_positivediagonalplussymmetriclowrank_pytree() -> None:
     low_rank_scale = 0.75
 
     linop = linox.PositiveDiagonalPlusSymmetricLowRank(
-        diagonal=diagonal,
-        low_rank=low_rank,
-        low_rank_scale=low_rank_scale
+        diagonal=diagonal, low_rank=low_rank, low_rank_scale=low_rank_scale
     )
 
     # Test flattening

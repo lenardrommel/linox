@@ -28,17 +28,17 @@ import jax
 import jax.numpy as jnp
 import plum  # type: ignore  # noqa: PGH003
 
-import linox
 from linox import utils
 from linox._linear_operator import LinearOperator
 from linox.config import warn as _warn
-from linox.typing import ArrayLike, ScalarLike, ShapeLike
+from linox.typing import ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
 
 
 def _deprecated_l_prefix(func_name: str):
     """Create deprecation warning for functions with 'l' prefix."""
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -46,10 +46,12 @@ def _deprecated_l_prefix(func_name: str):
                 f"'{func_name}' is deprecated and will be removed in linox 0.0.3. "
                 f"Use '{func_name[1:]}' instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -191,7 +193,7 @@ def svd(
         - For large matrices, use k parameter to avoid densification
         - Structure-exploiting dispatches exist for Kronecker and other special operators
         - Partial SVD uses Lanczos bidiagonalization (Golub-Kahan process)
-    """  # noqa: D205
+    """
     if k is not None:
         # Use matrix-free partial SVD
         from linox._algorithms._svd import svd_partial  # noqa: PLC0415
@@ -283,7 +285,7 @@ def lsolve(a: LinearOperator, b: jax.Array) -> jax.Array:
     if a.shape[-1] != b.shape[0]:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
-    # print(f"Warning: Linear operator {a} is densed for lsolve computation.")  # noqa: T201
+    # print(f"Warning: Linear operator {a} is densed for lsolve computation.")
     # return jax.scipy.linalg.solve(a.todense(), b, assume_a="sym")
     return linverse(a) @ b
 
@@ -431,11 +433,10 @@ def lexp(
     # Compute exp(A)v using Krylov methods
     if method == "lanczos":
         return lanczos_matrix_function(a, v, jnp.exp, num_iters, reortho=True)
-    elif method == "arnoldi":
+    if method == "arnoldi":
         return arnoldi_matrix_function(a, v, jnp.exp, num_iters)
-    else:
-        msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
-        raise ValueError(msg)
+    msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
+    raise ValueError(msg)
 
 
 @plum.dispatch
@@ -476,11 +477,10 @@ def llog(
     # Compute log(A)v using Krylov methods
     if method == "lanczos":
         return lanczos_matrix_function(a, v, jnp.log, num_iters, reortho=True)
-    elif method == "arnoldi":
+    if method == "arnoldi":
         return arnoldi_matrix_function(a, v, jnp.log, num_iters)
-    else:
-        msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
-        raise ValueError(msg)
+    msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
+    raise ValueError(msg)
 
 
 @plum.dispatch
@@ -528,11 +528,10 @@ def lpow(
     # Compute A^p @ v using Krylov methods
     if method == "lanczos":
         return lanczos_matrix_function(a, v, power_func, num_iters, reortho=True)
-    elif method == "arnoldi":
+    if method == "arnoldi":
         return arnoldi_matrix_function(a, v, power_func, num_iters)
-    else:
-        msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
-        raise ValueError(msg)
+    msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
+    raise ValueError(msg)
 
 
 # --------------------------------------------------------------------------- #
@@ -579,7 +578,7 @@ def is_symmetric(
         # Generate random normalized vector
         probe_key = jax.random.fold_in(key, i)
         x = jax.random.normal(probe_key, (n,), dtype=a.dtype)
-        x = x / jnp.linalg.norm(x)
+        x /= jnp.linalg.norm(x)
 
         # Compute Ax and A^T x
         v1 = a @ x
@@ -632,12 +631,12 @@ def is_hermitian(
         if jnp.issubdtype(a.dtype, jnp.complexfloating):
             # For complex operators, add imaginary part
             x_imag = jax.random.normal(probe_key, (n,), dtype=a.dtype)
-            x = x + 1j * x_imag
-        x = x / jnp.linalg.norm(x)
+            x += 1j * x_imag
+        x /= jnp.linalg.norm(x)
 
         # Compute Ax and A^H x (conjugate transpose)
         v1 = a @ x
-        v2 = a.T @ jnp.conj(x)
+        a.T @ jnp.conj(x)
 
         # For Hermitian: <Ax, x> = <x, Ax> = conj(<Ax, x>)
         # Equivalently: Ax should equal conj(A^T conj(x))
@@ -1121,7 +1120,7 @@ def ldet(a: InverseLinearOperator) -> jax.Array:
     return 1 / ldet(a.operator)
 
 
-class CongruenceTransform(ProductLinearOperator):  # noqa: F811
+class CongruenceTransform(ProductLinearOperator):
     r""":math:`A B A^\top`."""
 
     def __init__(self, A: ArithmeticType, B: ArithmeticType) -> None:
@@ -1166,7 +1165,8 @@ class PseudoInverseLinearOperator(LinearOperator):
     def todense(self) -> jax.Array:
         r"""# TODO:
         Compute the dense pseudo-inverse using SVD.
-        U, S, Vh = svd(self.operator)
+        U, S, Vh = svd(self.operator).
+
         Returns:
             x_LS = \sum_i (u_i^T b) / s_i v_i
             -> U, S, Vh = svd(self.operator)
@@ -1209,10 +1209,10 @@ def _(
     U, S, Vh = svd(a.operator, **kwargs)
 
     # Invert singular values (zero out those below tolerance)
-    S_inv = jnp.where(S > a.tol, 1 / S, 0)
+    S_inv = jnp.where(a.tol < S, 1 / S, 0)
 
     # Create a mask for each singular value
-    mask = (S > a.tol).astype(U.dtype)
+    mask = (a.tol < S).astype(U.dtype)
 
     # Apply mask to relevant columns/rows
     # Note: With full_matrices=True, U can be (m, m) but S is (min(m,n),)

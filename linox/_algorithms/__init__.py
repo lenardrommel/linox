@@ -50,7 +50,7 @@ Toeplitz Solvers
 solve_toeplitz_jax : JAX-compatible Toeplitz solver (existing)
 levinson : Levinson recursion for Toeplitz systems (existing)
 
-References
+References:
 ----------
 .. [1] N. Kraemer, M. Schober, and P. Hennig, "Gradients of functions of large matrices,"
        arXiv preprint arXiv:2405.17277, 2024.
@@ -63,7 +63,7 @@ References
        Citation: Please cite the matfree library and relevant papers when using
        algorithms inspired by their work.
 
-Examples
+Examples:
 --------
 Eigenvalue computation with Lanczos:
 
@@ -102,12 +102,8 @@ from linox._algorithms._lanczos_arnoldi import (
     lanczos_tridiag,
 )
 
-# Trace estimation
-from linox._algorithms._trace import (
-    hutchinson_diagonal,
-    hutchinson_trace,
-    hutchinson_trace_and_diagonal,
-)
+# Existing algorithms
+from linox._algorithms._lanzcos import lanczos_solve_sqrt
 
 # Matrix functions
 from linox._algorithms._matrix_functions import (
@@ -115,27 +111,31 @@ from linox._algorithms._matrix_functions import (
     lanczos_matrix_function,
     stochastic_lanczos_quadrature,
 )
-
-# Existing algorithms
-from linox._algorithms._lanzcos import lanczos_solve_sqrt
 from linox._algorithms._toeplitz import levinson, solve_toeplitz_jax
 
+# Trace estimation
+from linox._algorithms._trace import (
+    hutchinson_diagonal,
+    hutchinson_trace,
+    hutchinson_trace_and_diagonal,
+)
+
 __all__ = [
-    # Eigenvalue & decomposition
-    "lanczos_tridiag",
     "arnoldi_iteration",
-    "lanczos_eigh",
+    "arnoldi_matrix_function",
+    "hutchinson_diagonal",
     # Trace estimation
     "hutchinson_trace",
-    "hutchinson_diagonal",
     "hutchinson_trace_and_diagonal",
-    # Linear solvers
-    "lanczos_solve_sqrt",
+    "lanczos_eigh",
     # Matrix functions
     "lanczos_matrix_function",
-    "arnoldi_matrix_function",
-    "stochastic_lanczos_quadrature",
+    # Linear solvers
+    "lanczos_solve_sqrt",
+    # Eigenvalue & decomposition
+    "lanczos_tridiag",
+    "levinson",
     # Toeplitz
     "solve_toeplitz_jax",
-    "levinson",
+    "stochastic_lanczos_quadrature",
 ]

@@ -1,12 +1,10 @@
 # test_toeplitz.py
 
-import time
 
 import jax
 import jax.numpy as jnp
 import pytest
 import pytest_cases
-from scipy.linalg import solve_toeplitz
 
 import linox
 from linox._toeplitz import Toeplitz, solve_toeplitz_jax
@@ -16,12 +14,9 @@ CaseType = tuple[linox.LinearOperator, jax.Array]
 KeyType = jax.random.PRNGKey
 
 
-jax.config.update("jax_enable_x64", True)
-
-
 def sample_toeplitz(size: int) -> CaseType:
     key = jax.random.PRNGKey(42)
-    key1, key2 = jax.random.split(key)
+    key1, _key2 = jax.random.split(key)
 
     c = jax.random.normal(key1, (size,))
 

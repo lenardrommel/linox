@@ -229,7 +229,7 @@ def test_is_symmetric_with_non_symmetric_matrix(key: jax.random.PRNGKey) -> None
     n = 10
     A_dense = jax.random.normal(key, (n, n))
     # Make it definitely non-symmetric by adding asymmetry
-    A_dense = A_dense + jnp.tril(jnp.ones((n, n)), -1)
+    A_dense += jnp.tril(jnp.ones((n, n)), -1)
     A = linox.Matrix(A_dense)
 
     # For a random matrix, it should not be symmetric

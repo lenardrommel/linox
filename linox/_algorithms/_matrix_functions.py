@@ -12,7 +12,7 @@ Key algorithms:
 - Chebyshev polynomial approximations
 - Stochastic Lanczos quadrature for trace(f(A))
 
-References
+References:
 ----------
 .. [1] N. Krämer, M. Schober, and P. Hennig, "Gradients of functions of large matrices,"
        arXiv preprint arXiv:2405.17277, 2024.
@@ -29,7 +29,6 @@ References
 
 import jax
 import jax.numpy as jnp
-from jax import lax
 
 from linox._algorithms._lanczos_arnoldi import arnoldi_iteration, lanczos_tridiag
 from linox.typing import ArrayLike, LinearOperatorLike
@@ -67,12 +66,12 @@ def lanczos_matrix_function(
     reortho : bool, optional
         Whether to use full reorthogonalization. Default is True.
 
-    Returns
+    Returns:
     -------
     result : jax.Array
         Approximation to f(A) @ v.
 
-    Examples
+    Examples:
     --------
     >>> import jax.numpy as jnp
     >>> from linox import Matrix
@@ -83,7 +82,7 @@ def lanczos_matrix_function(
     >>> result = lanczos_matrix_function(A, v, jnp.exp, num_iters=10)
     >>> print(f"Approximation: {result[0]:.4f}")  # Should be ~0.368
 
-    Notes
+    Notes:
     -----
     For symmetric operators, this is the most efficient method for computing
     f(A)v. The approximation improves as num_iters increases.
@@ -95,7 +94,7 @@ def lanczos_matrix_function(
     - Inverse square root: lambda M: jnp.linalg.inv(sqrtm(M))
     - Power: lambda M: jnp.linalg.matrix_power(M, p)
 
-    References
+    References:
     ----------
     Based on matfree.funm.funm_lanczos_sym [1, 2] and Saad (1992) [3].
     """
@@ -149,12 +148,12 @@ def arnoldi_matrix_function(
     num_iters : int
         Number of Arnoldi iterations.
 
-    Returns
+    Returns:
     -------
     result : jax.Array
         Approximation to f(A) @ v.
 
-    Examples
+    Examples:
     --------
     >>> import jax.numpy as jnp
     >>> from linox import Matrix
@@ -163,12 +162,12 @@ def arnoldi_matrix_function(
     >>> v = jnp.array([1., 1.])
     >>> result = arnoldi_matrix_function(A, v, jnp.exp, num_iters=2)
 
-    Notes
+    Notes:
     -----
     For symmetric operators, lanczos_matrix_function is more efficient.
     Use this function when the operator is known to be non-symmetric.
 
-    References
+    References:
     ----------
     Based on matfree.funm.funm_arnoldi [1, 2].
     """
@@ -235,14 +234,14 @@ def stochastic_lanczos_quadrature(
     reortho : bool, optional
         Whether to use full reorthogonalization in Lanczos. Default is True.
 
-    Returns
+    Returns:
     -------
     trace_estimate : jax.Array
         Estimate of trace(f(A)).
     trace_std : jax.Array
         Standard error of the estimate.
 
-    Examples
+    Examples:
     --------
     >>> import jax
     >>> import jax.numpy as jnp
@@ -258,7 +257,7 @@ def stochastic_lanczos_quadrature(
     >>> print(f"Estimate: {trace_est:.2f} ± {trace_std:.2f}")
     >>> print(f"True value: {true_logdet:.2f}")
 
-    Notes
+    Notes:
     -----
     This is one of the most important algorithms for GP inference, as it
     allows computing log|K| where K is a large GP covariance matrix without
@@ -271,7 +270,7 @@ def stochastic_lanczos_quadrature(
     Increasing num_samples reduces variance (stochastic error).
     Increasing num_iters reduces bias (Lanczos approximation error).
 
-    References
+    References:
     ----------
     Based on matfree.funm.integrand_funm_sym and matfree.stochtrace [1, 2].
     This method is central to the approach in Ubaru et al. (2017).
@@ -279,10 +278,7 @@ def stochastic_lanczos_quadrature(
     from jax import random
 
     # Get operator shape
-    if hasattr(A, "shape"):
-        n = A.shape[0]
-    else:
-        n = A.shape[0]
+    n = A.shape[0] if hasattr(A, "shape") else A.shape[0]
 
     # Generate test vectors
     if distribution == "rademacher":

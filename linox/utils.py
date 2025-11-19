@@ -171,6 +171,7 @@ def allclose(
         b: Second linear operator.
         rtol: Relative tolerance.
         atol: Absolute tolerance.
+
     Returns:
         Whether the two linear operators are close to each other.
     """

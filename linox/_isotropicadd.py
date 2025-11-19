@@ -308,9 +308,8 @@ def _(
         from linox._arithmetic import congruence_transform  # noqa: PLC0415
 
         return congruence_transform(a.Q, exp_eigvals)
-    else:
-        # exp(sI + A) @ v = U @ exp(s + λ) @ U^T @ v
-        return a.Q @ (jnp.exp(eigvals) * (a.Q.T @ v))
+    # exp(sI + A) @ v = U @ exp(s + λ) @ U^T @ v
+    return a.Q @ (jnp.exp(eigvals) * (a.Q.T @ v))
 
 
 @llog.dispatch
@@ -336,9 +335,8 @@ def _(
         from linox._arithmetic import congruence_transform  # noqa: PLC0415
 
         return congruence_transform(a.Q, log_eigvals)
-    else:
-        # log(sI + A) @ v = U @ log(s + λ) @ U^T @ v
-        return a.Q @ (jnp.log(eigvals) * (a.Q.T @ v))
+    # log(sI + A) @ v = U @ log(s + λ) @ U^T @ v
+    return a.Q @ (jnp.log(eigvals) * (a.Q.T @ v))
 
 
 @lpow.dispatch
@@ -366,6 +364,5 @@ def _(
         from linox._arithmetic import congruence_transform  # noqa: PLC0415
 
         return congruence_transform(a.Q, pow_eigvals)
-    else:
-        # (sI + A)^p @ v = U @ (s + λ)^p @ U^T @ v
-        return a.Q @ ((eigvals**power) * (a.Q.T @ v))
+    # (sI + A)^p @ v = U @ (s + λ)^p @ U^T @ v
+    return a.Q @ ((eigvals**power) * (a.Q.T @ v))

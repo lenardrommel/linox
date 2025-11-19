@@ -12,7 +12,7 @@ Key algorithms:
 - Lanczos tridiagonalization: Reduces symmetric operators to tridiagonal form
 - Arnoldi iteration: Reduces general operators to Hessenberg form
 
-References
+References:
 ----------
 .. [1] N. Krämer, M. Schober, and P. Hennig, "Gradients of functions of large matrices,"
        arXiv preprint arXiv:2405.17277, 2024.
@@ -59,7 +59,7 @@ def lanczos_tridiag(
         Whether to perform full reorthogonalization to maintain numerical
         stability. Recommended for num_iters > 50. Default is True.
 
-    Returns
+    Returns:
     -------
     Q : jax.Array, shape (n, num_iters)
         Orthonormal Lanczos vectors (columns).
@@ -68,7 +68,7 @@ def lanczos_tridiag(
     beta : jax.Array, shape (num_iters-1,)
         Off-diagonal elements of the tridiagonal matrix T.
 
-    Notes
+    Notes:
     -----
     The tridiagonal matrix T has the form:
         T = [[alpha[0], beta[0],    0,       ...],
@@ -80,7 +80,7 @@ def lanczos_tridiag(
     may lose orthogonality for large num_iters. When reortho=True, performs
     full Gram-Schmidt reorthogonalization at each step.
 
-    Examples
+    Examples:
     --------
     >>> import jax.numpy as jnp
     >>> from linox import Matrix
@@ -90,7 +90,7 @@ def lanczos_tridiag(
     >>> # Q contains orthonormal Lanczos vectors
     >>> # T = diag(alpha) + diag(beta, 1) + diag(beta, -1)
 
-    References
+    References:
     ----------
     Inspired by matfree.decomp.tridiag_sym [1, 2].
     """
@@ -99,7 +99,7 @@ def lanczos_tridiag(
 
     # Normalize initial vector
     beta_0 = jnp.linalg.norm(v0)
-    v0 = v0 / beta_0
+    v0 /= beta_0
 
     # Pre-allocate arrays
     Q = jnp.zeros((n, num_iters))
@@ -121,14 +121,14 @@ def lanczos_tridiag(
         alpha_curr = alpha_curr.at[k].set(alpha_k)
 
         # Update w (three-term recurrence)
-        w = w - alpha_k * v
+        w -= alpha_k * v
         # Subtract previous vector (if k > 0)
         prev_contrib = lax.cond(
             k > 0,
             lambda: beta_curr[k - 1] * Q_curr[:, k - 1],
             lambda: jnp.zeros_like(w),
         )
-        w = w - prev_contrib
+        w -= prev_contrib
 
         # Reorthogonalization (full Gram-Schmidt) against all previous vectors
         # Only reorthogonalize if k > 0 (we have previous vectors) and reortho is enabled
@@ -195,14 +195,14 @@ def arnoldi_iteration(
     num_iters : int
         Number of Arnoldi iterations (size of Krylov subspace).
 
-    Returns
+    Returns:
     -------
     Q : jax.Array, shape (n, num_iters)
         Orthonormal Arnoldi vectors (columns).
     H : jax.Array, shape (num_iters+1, num_iters)
         Upper Hessenberg matrix. The last row contains the residual norms.
 
-    Notes
+    Notes:
     -----
     The Hessenberg matrix H is upper Hessenberg (zeros below the first subdiagonal).
     The algorithm performs full reorthogonalization at each step to maintain
@@ -210,7 +210,7 @@ def arnoldi_iteration(
 
     For symmetric operators, use lanczos_tridiag instead as it is more efficient.
 
-    Examples
+    Examples:
     --------
     >>> import jax.numpy as jnp
     >>> from linox import Matrix
@@ -220,7 +220,7 @@ def arnoldi_iteration(
     >>> # Q contains orthonormal Arnoldi vectors
     >>> # H is upper Hessenberg
 
-    References
+    References:
     ----------
     Inspired by matfree.decomp.hessenberg [1, 2].
     """
@@ -229,7 +229,7 @@ def arnoldi_iteration(
 
     # Normalize initial vector
     beta_0 = jnp.linalg.norm(v0)
-    v0 = v0 / beta_0
+    v0 /= beta_0
 
     # Pre-allocate arrays
     Q = jnp.zeros((n, num_iters))
@@ -250,7 +250,7 @@ def arnoldi_iteration(
             w_state, H_state = state
             h_jk = jnp.dot(w_state, Q_curr[:, j])
             H_state = H_state.at[j, k].set(h_jk)
-            w_state = w_state - h_jk * Q_curr[:, j]
+            w_state -= h_jk * Q_curr[:, j]
             return (w_state, H_state)
 
         w, H_curr = lax.fori_loop(0, k + 1, gs_body, (w, H_curr))
@@ -312,14 +312,14 @@ def lanczos_eigh(
     reortho : bool, optional
         Whether to use full reorthogonalization in Lanczos. Default is True.
 
-    Returns
+    Returns:
     -------
     eigenvalues : jax.Array, shape (k,)
         Approximate eigenvalues.
     eigenvectors : jax.Array, shape (n, k)
         Approximate eigenvectors (columns).
 
-    Examples
+    Examples:
     --------
     >>> import jax.numpy as jnp
     >>> from linox import Matrix
@@ -329,7 +329,7 @@ def lanczos_eigh(
     >>> # Compute top 5 eigenvalues
     >>> eigs, vecs = lanczos_eigh(A, v0, num_iters=20, k=5, which='LA')
 
-    Notes
+    Notes:
     -----
     This is the matrix-free alternative to jnp.linalg.eigh for large sparse
     symmetric operators where only a few eigenvalues are needed.

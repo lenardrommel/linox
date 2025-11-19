@@ -94,7 +94,9 @@ SMALL_FLOATS = st.floats(
 )
 
 
-def _matrix_strategy(n: int) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
+def _matrix_strategy(
+    n: int,
+) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
     return arrays(np.float32, (n, n), elements=FLOATS).map(
         lambda arr: (
             linox.Matrix(jnp.asarray(arr, dtype=DTYPE)),
@@ -103,7 +105,9 @@ def _matrix_strategy(n: int) -> st.SearchStrategy[tuple[linox.LinearOperator, jn
     )
 
 
-def _diagonal_strategy(n: int) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
+def _diagonal_strategy(
+    n: int,
+) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
     return arrays(np.float32, (n,), elements=FLOATS).map(
         lambda diag: (
             linox.Diagonal(jnp.asarray(diag, dtype=DTYPE)),
@@ -115,7 +119,9 @@ def _diagonal_strategy(n: int) -> st.SearchStrategy[tuple[linox.LinearOperator, 
 def _symmetric_low_rank_strategy(
     n: int,
 ) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
-    def _build(args: tuple[np.ndarray, np.ndarray]) -> tuple[linox.LinearOperator, jnp.ndarray]:
+    def _build(
+        args: tuple[np.ndarray, np.ndarray],
+    ) -> tuple[linox.LinearOperator, jnp.ndarray]:
         u, s = args
         u = jnp.asarray(u, dtype=DTYPE)
         s = jnp.asarray(s, dtype=DTYPE)
@@ -129,18 +135,24 @@ def _symmetric_low_rank_strategy(
     ).map(_build)
 
 
-def _kronecker_strategy(n: int) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
+def _kronecker_strategy(
+    n: int,
+) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
     """Strategy for Kronecker products of smaller operators."""
     # Use smaller dimension for Kronecker to avoid explosion
     # For n=4, use 2x2; for n=9, use 3x3, etc.
-    k = int(np.sqrt(n)) if int(np.sqrt(n))**2 == n else 2
+    k = int(np.sqrt(n)) if int(np.sqrt(n)) ** 2 == n else 2
 
     if k * k != n:
         # If n is not a perfect square, fall back to diagonal
         return _diagonal_strategy(n)
 
-    def _build_kron(pair: tuple[tuple[linox.LinearOperator, jnp.ndarray],
-                                  tuple[linox.LinearOperator, jnp.ndarray]]) -> tuple[linox.LinearOperator, jnp.ndarray]:
+    def _build_kron(
+        pair: tuple[
+            tuple[linox.LinearOperator, jnp.ndarray],
+            tuple[linox.LinearOperator, jnp.ndarray],
+        ],
+    ) -> tuple[linox.LinearOperator, jnp.ndarray]:
         (op1, dense1), (op2, dense2) = pair
         return linox.Kronecker(op1, op2), jnp.kron(dense1, dense2)
 
@@ -153,34 +165,51 @@ def _kronecker_strategy(n: int) -> st.SearchStrategy[tuple[linox.LinearOperator,
     return st.tuples(small_strat, small_strat).map(_build_kron)
 
 
-def _block_diagonal_strategy(n: int) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
+def _block_diagonal_strategy(
+    n: int,
+) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
     """Strategy for block diagonal matrices."""
     # Split n into 2 or 3 blocks
     num_blocks = st.integers(min_value=2, max_value=min(3, n))
 
-    def _build_block_diag(args: tuple[int, list[tuple[linox.LinearOperator, jnp.ndarray]]]) -> tuple[linox.LinearOperator, jnp.ndarray]:
+    def _build_block_diag(
+        args: tuple[int, list[tuple[linox.LinearOperator, jnp.ndarray]]],
+    ) -> tuple[linox.LinearOperator, jnp.ndarray]:
         _, blocks = args
         ops = [op for op, _ in blocks]
         denses = [dense for _, dense in blocks]
-        return linox.BlockDiagonal(*ops), jnp.block([[jnp.zeros((d1.shape[0], d2.shape[1])) if i != j else d1
-                                                       for j, d2 in enumerate(denses)]
-                                                      for i, d1 in enumerate(denses)])
+        return linox.BlockDiagonal(*ops), jnp.block([
+            [
+                jnp.zeros((d1.shape[0], d2.shape[1])) if i != j else d1
+                for j, d2 in enumerate(denses)
+            ]
+            for i, d1 in enumerate(denses)
+        ])
 
     # Generate block sizes that sum to n
     def _split_size(total: int, num: int) -> list[int]:
         if num == 1:
             return [total]
         size = max(1, total // num)
-        return [size] + _split_size(total - size, num - 1)
+        return [size, *_split_size(total - size, num - 1)]
 
-    return num_blocks.flatmap(lambda nb: st.builds(
-        lambda sizes: (nb, [(linox.Diagonal(jnp.ones(s, dtype=DTYPE)), jnp.eye(s, dtype=DTYPE))
-                            for s in sizes]),
-        st.just(_split_size(n, nb))
-    )).map(_build_block_diag)
+    return num_blocks.flatmap(
+        lambda nb: st.builds(
+            lambda sizes: (
+                nb,
+                [
+                    (linox.Diagonal(jnp.ones(s, dtype=DTYPE)), jnp.eye(s, dtype=DTYPE))
+                    for s in sizes
+                ],
+            ),
+            st.just(_split_size(n, nb)),
+        )
+    ).map(_build_block_diag)
 
 
-def _block_matrix_2x2_strategy(n: int) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
+def _block_matrix_2x2_strategy(
+    n: int,
+) -> st.SearchStrategy[tuple[linox.LinearOperator, jnp.ndarray]]:
     """Strategy for 2x2 block matrices."""
     if n < 2:
         return _diagonal_strategy(n)
@@ -189,26 +218,50 @@ def _block_matrix_2x2_strategy(n: int) -> st.SearchStrategy[tuple[linox.LinearOp
     n1 = n // 2
     n2 = n - n1
 
-    def _build_2x2(blocks: tuple[tuple[linox.LinearOperator, jnp.ndarray],
-                                 tuple[linox.LinearOperator, jnp.ndarray],
-                                 tuple[linox.LinearOperator, jnp.ndarray],
-                                 tuple[linox.LinearOperator, jnp.ndarray]]) -> tuple[linox.LinearOperator, jnp.ndarray]:
+    def _build_2x2(
+        blocks: tuple[
+            tuple[linox.LinearOperator, jnp.ndarray],
+            tuple[linox.LinearOperator, jnp.ndarray],
+            tuple[linox.LinearOperator, jnp.ndarray],
+            tuple[linox.LinearOperator, jnp.ndarray],
+        ],
+    ) -> tuple[linox.LinearOperator, jnp.ndarray]:
         (A_op, A_dense), (B_op, B_dense), (C_op, C_dense), (D_op, D_dense) = blocks
         op = linox.BlockMatrix2x2(A_op, B_op, C_op, D_op)
         dense = jnp.block([[A_dense, B_dense], [C_dense, D_dense]])
         return op, dense
 
     # Create simple strategies for each block
-    A_strat = st.one_of(_diagonal_strategy(n1),
-                        arrays(np.float32, (n1, n1), elements=SMALL_FLOATS).map(
-                            lambda arr: (linox.Matrix(jnp.asarray(arr, dtype=DTYPE)), jnp.asarray(arr, dtype=DTYPE))))
+    A_strat = st.one_of(
+        _diagonal_strategy(n1),
+        arrays(np.float32, (n1, n1), elements=SMALL_FLOATS).map(
+            lambda arr: (
+                linox.Matrix(jnp.asarray(arr, dtype=DTYPE)),
+                jnp.asarray(arr, dtype=DTYPE),
+            )
+        ),
+    )
     B_strat = arrays(np.float32, (n1, n2), elements=SMALL_FLOATS).map(
-        lambda arr: (linox.Matrix(jnp.asarray(arr, dtype=DTYPE)), jnp.asarray(arr, dtype=DTYPE)))
+        lambda arr: (
+            linox.Matrix(jnp.asarray(arr, dtype=DTYPE)),
+            jnp.asarray(arr, dtype=DTYPE),
+        )
+    )
     C_strat = arrays(np.float32, (n2, n1), elements=SMALL_FLOATS).map(
-        lambda arr: (linox.Matrix(jnp.asarray(arr, dtype=DTYPE)), jnp.asarray(arr, dtype=DTYPE)))
-    D_strat = st.one_of(_diagonal_strategy(n2),
-                        arrays(np.float32, (n2, n2), elements=SMALL_FLOATS).map(
-                            lambda arr: (linox.Matrix(jnp.asarray(arr, dtype=DTYPE)), jnp.asarray(arr, dtype=DTYPE))))
+        lambda arr: (
+            linox.Matrix(jnp.asarray(arr, dtype=DTYPE)),
+            jnp.asarray(arr, dtype=DTYPE),
+        )
+    )
+    D_strat = st.one_of(
+        _diagonal_strategy(n2),
+        arrays(np.float32, (n2, n2), elements=SMALL_FLOATS).map(
+            lambda arr: (
+                linox.Matrix(jnp.asarray(arr, dtype=DTYPE)),
+                jnp.asarray(arr, dtype=DTYPE),
+            )
+        ),
+    )
 
     return st.tuples(A_strat, B_strat, C_strat, D_strat).map(_build_2x2)
 
@@ -230,12 +283,11 @@ def _base_operator_strategy(
     ]
 
     # Add structured operators for appropriate sizes
-    if n == 4 or n == 9:  # Perfect squares for Kronecker
+    if n in {4, 9}:  # Perfect squares for Kronecker
         strategies.append(_kronecker_strategy(n))
 
     if n >= 2:  # Block operators need at least 2x2
-        strategies.append(_block_diagonal_strategy(n))
-        strategies.append(_block_matrix_2x2_strategy(n))
+        strategies.extend((_block_diagonal_strategy(n), _block_matrix_2x2_strategy(n)))
 
     return st.one_of(*strategies)
 
@@ -258,9 +310,7 @@ def _combine_strategy(
     )
     scalar_scale = st.tuples(child, SMALL_FLOATS).map(
         lambda pair: (
-            linox.ScaledLinearOperator(
-                pair[0][0], jnp.asarray(pair[1], dtype=DTYPE)
-            ),
+            linox.ScaledLinearOperator(pair[0][0], jnp.asarray(pair[1], dtype=DTYPE)),
             jnp.asarray(pair[1], dtype=DTYPE) * jnp.asarray(pair[0][1]),
         )
     )
@@ -500,7 +550,7 @@ def test_specific_complex_combination_2() -> None:
 
     expected = jnp.block([
         [block1_dense, jnp.zeros((n1, n2), dtype=DTYPE)],
-        [jnp.zeros((n2, n1), dtype=DTYPE), block2_dense]
+        [jnp.zeros((n2, n1), dtype=DTYPE), block2_dense],
     ])
 
     actual = result.todense()
@@ -515,8 +565,7 @@ def test_specific_complex_combination_3() -> None:
     A = linox.Kronecker(A1, A2)
 
     # B block: Scaled matrix
-    B_mat = jnp.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [0.0, 1.0]],
-                      dtype=DTYPE)
+    B_mat = jnp.array([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [0.0, 1.0]], dtype=DTYPE)
     B = linox.ScaledLinearOperator(linox.Matrix(B_mat), 0.5)
 
     # C block: Zero
@@ -559,9 +608,7 @@ def test_five_level_depth_combination() -> None:
     level3 = linox.ScaledLinearOperator(level2, jnp.array(0.5, dtype=DTYPE))
 
     # Level 4: Add isotropic term
-    level4 = linox.IsotropicAdditiveLinearOperator(
-        jnp.array(0.1, dtype=DTYPE), level3
-    )
+    level4 = linox.IsotropicAdditiveLinearOperator(jnp.array(0.1, dtype=DTYPE), level3)
     # 0.5 * (D + I) + 0.1 * I
 
     # Level 5: Transpose and add to original
@@ -606,9 +653,7 @@ def test_ultra_deep_combination() -> None:
     level3 = linox.ScaledLinearOperator(level2, jnp.array(0.5, dtype=DTYPE))
 
     # Level 4: Add isotropic
-    level4 = linox.IsotropicAdditiveLinearOperator(
-        jnp.array(0.2, dtype=DTYPE), level3
-    )
+    level4 = linox.IsotropicAdditiveLinearOperator(jnp.array(0.2, dtype=DTYPE), level3)
 
     # Level 5: Transpose
     level5 = linox.TransposedLinearOperator(level4)
@@ -662,15 +707,15 @@ def test_block_operators_nested() -> None:
     # Compute expected
     block1_dense = jnp.block([
         [A1.todense(), B1.todense()],
-        [C1.todense(), D1.todense()]
+        [C1.todense(), D1.todense()],
     ])
     block2_dense = jnp.block([
         [A2.todense(), B2.todense()],
-        [C2.todense(), D2.todense()]
+        [C2.todense(), D2.todense()],
     ])
     expected = jnp.block([
         [block1_dense, jnp.zeros((4, 4), dtype=DTYPE)],
-        [jnp.zeros((4, 4), dtype=DTYPE), block2_dense]
+        [jnp.zeros((4, 4), dtype=DTYPE), block2_dense],
     ])
 
     actual = result.todense()
@@ -724,7 +769,7 @@ def test_mixed_operators_stress() -> None:
 
     E_dense = jnp.block([
         [E1.todense(), jnp.zeros((2, 2), dtype=DTYPE)],
-        [jnp.zeros((2, 2), dtype=DTYPE), E2.todense()]
+        [jnp.zeros((2, 2), dtype=DTYPE), E2.todense()],
     ])
 
     right_dense = D_iso_dense @ E_dense

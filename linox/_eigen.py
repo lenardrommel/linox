@@ -13,12 +13,11 @@ of an array.
 import jax
 from jax import numpy as jnp
 
-import linox as lo
 from linox._arithmetic import leigh, lexp, llog, lpow, ltrace
 from linox._linear_operator import LinearOperator
 from linox._matrix import Diagonal, Matrix
-from linox.typing import ArrayLike, DTypeLike, ScalarLike, ScalarType, ShapeLike
-from linox.utils import as_linop, as_shape
+from linox.typing import ArrayLike
+from linox.utils import as_linop
 
 
 class EigenD(LinearOperator):
@@ -26,11 +25,14 @@ class EigenD(LinearOperator):
     Represents a linear operator :math:`A` in its eigenvalue decomposition form
     :math:`A = U \Lambda U^T` where :math:`U` is orthogonal and :math:`\Lambda`
     is diagonal.
+
     Args:
         A: The square matrix to decompose.
     """  # noqa: D205
 
-    def __init__(self, A: ArrayLike = None, U: ArrayLike = None, S: ArrayLike = None) -> None:
+    def __init__(
+        self, A: ArrayLike = None, U: ArrayLike = None, S: ArrayLike = None
+    ) -> None:
         if A is not None:
             # Standard construction from matrix
             self.A = as_linop(A)
@@ -42,9 +44,12 @@ class EigenD(LinearOperator):
             self.A = None
             self._Q = U if isinstance(U, LinearOperator) else Matrix(U)
             self._S = S if isinstance(S, jax.Array) else jnp.array(S)
-            super().__init__(shape=(self._Q.shape[0], self._Q.shape[1]), dtype=self._Q.dtype)
+            super().__init__(
+                shape=(self._Q.shape[0], self._Q.shape[1]), dtype=self._Q.dtype
+            )
         else:
-            raise ValueError("Either A or both U and S must be provided")
+            msg = "Either A or both U and S must be provided"
+            raise ValueError(msg)
 
     def _ensure_eigh(self) -> None:
         if (self._S is None) or (self._Q is None):
@@ -93,7 +98,12 @@ def _(a: EigenD) -> tuple[LinearOperator, LinearOperator]:
 
 # New matrix-free function dispatches for EigenD
 @ltrace.dispatch
-def _(a: EigenD, key: jax.Array | None = None, num_samples: int = 100, distribution: str = "rademacher") -> tuple[jax.Array, jax.Array]:
+def _(
+    a: EigenD,
+    key: jax.Array | None = None,
+    num_samples: int = 100,
+    distribution: str = "rademacher",
+) -> tuple[jax.Array, jax.Array]:
     """Exact trace from eigenvalues: trace(A) = sum(λ)."""
     trace_value = jnp.sum(a.S)
     trace_std = jnp.array(0.0, dtype=a.dtype)  # Exact computation
@@ -101,7 +111,9 @@ def _(a: EigenD, key: jax.Array | None = None, num_samples: int = 100, distribut
 
 
 @lexp.dispatch
-def _(a: EigenD, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(
+    a: EigenD, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos"
+) -> jax.Array | LinearOperator:
     """Matrix exponential from eigendecomposition: exp(UΛU^T) = U exp(Λ) U^T."""
     if v is None:
         # Return lazy operator: U @ Diagonal(exp(λ)) @ U^T
@@ -110,13 +122,14 @@ def _(a: EigenD, v: jax.Array | None = None, num_iters: int = 20, method: str = 
         from linox._arithmetic import congruence_transform  # noqa: PLC0415
 
         return congruence_transform(a.U, exp_S)
-    else:
-        # exp(A) @ v = U @ exp(Λ) @ U^T @ v
-        return a.U @ (jnp.exp(a.S) * (a.U.T @ v))
+    # exp(A) @ v = U @ exp(Λ) @ U^T @ v
+    return a.U @ (jnp.exp(a.S) * (a.U.T @ v))
 
 
 @llog.dispatch
-def _(a: EigenD, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(
+    a: EigenD, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos"
+) -> jax.Array | LinearOperator:
     """Matrix logarithm from eigendecomposition: log(UΛU^T) = U log(Λ) U^T."""
     if v is None:
         # Return lazy operator: U @ Diagonal(log(λ)) @ U^T
@@ -124,23 +137,28 @@ def _(a: EigenD, v: jax.Array | None = None, num_iters: int = 20, method: str = 
         from linox._arithmetic import congruence_transform  # noqa: PLC0415
 
         return congruence_transform(a.U, log_S)
-    else:
-        # log(A) @ v = U @ log(Λ) @ U^T @ v
-        return a.U @ (jnp.log(a.S) * (a.U.T @ v))
+    # log(A) @ v = U @ log(Λ) @ U^T @ v
+    return a.U @ (jnp.log(a.S) * (a.U.T @ v))
 
 
 @lpow.dispatch
-def _(a: EigenD, *, power: float, v: jax.Array | None = None, num_iters: int = 20, method: str = "lanczos") -> jax.Array | LinearOperator:
+def _(
+    a: EigenD,
+    *,
+    power: float,
+    v: jax.Array | None = None,
+    num_iters: int = 20,
+    method: str = "lanczos",
+) -> jax.Array | LinearOperator:
     """Matrix power from eigendecomposition: (UΛU^T)^p = U Λ^p U^T."""
     if v is None:
         # Return lazy operator: U @ Diagonal(λ^p) @ U^T
-        pow_S = Diagonal(a.S ** power)
+        pow_S = Diagonal(a.S**power)
         from linox._arithmetic import congruence_transform  # noqa: PLC0415
 
         return congruence_transform(a.U, pow_S)
-    else:
-        # A^p @ v = U @ Λ^p @ U^T @ v
-        return a.U @ ((a.S ** power) * (a.U.T @ v))
+    # A^p @ v = U @ Λ^p @ U^T @ v
+    return a.U @ ((a.S**power) * (a.U.T @ v))
 
 
 # Register EigenD as a PyTree

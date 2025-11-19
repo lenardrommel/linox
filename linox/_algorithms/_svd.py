@@ -11,7 +11,7 @@ Key algorithms:
 - Lanczos bidiagonalization: Reduces matrix to bidiagonal form
 - Partial SVD: Computes k largest singular values/vectors
 
-References
+References:
 ----------
 .. [1] N. Krämer, M. Schober, and P. Hennig, "Gradients of functions of large matrices,"
        arXiv preprint arXiv:2405.17277, 2024.
@@ -60,7 +60,7 @@ def lanczos_bidiag(
         numerical stability at the cost of O(num_iters^2) operations.
         Default is True (recommended).
 
-    Returns
+    Returns:
     -------
     U : jax.Array, shape (m, num_iters)
         Left orthonormal basis vectors (columns).
@@ -71,7 +71,7 @@ def lanczos_bidiag(
     beta : jax.Array, shape (num_iters-1,)
         Super-diagonal elements of bidiagonal matrix B.
 
-    Notes
+    Notes:
     -----
     The bidiagonal matrix B has the form:
         B = [[alpha[0], beta[0],    0,       ...],
@@ -82,7 +82,7 @@ def lanczos_bidiag(
     This is related to Golub-Kahan bidiagonalization and is used in
     algorithms like LSMR and partial SVD computation.
 
-    Examples
+    Examples:
     --------
     >>> import jax
     >>> import jax.numpy as jnp
@@ -94,7 +94,7 @@ def lanczos_bidiag(
     >>> # U and V contain orthonormal vectors
     >>> # B = diag(alpha) + diag(beta, 1) is bidiagonal
 
-    References
+    References:
     ----------
     Inspired by matfree.decomp.bidiag [1, 2] and the Golub-Kahan process [3].
     """
@@ -104,7 +104,7 @@ def lanczos_bidiag(
 
     # Normalize initial vector
     beta_0 = jnp.linalg.norm(u0)
-    u0 = u0 / beta_0
+    u0 /= beta_0
 
     # Pre-allocate arrays
     U = jnp.zeros((m, num_iters))
@@ -134,6 +134,7 @@ def lanczos_bidiag(
 
         # Full reorthogonalization against all previous V vectors
         if reortho:
+
             def reortho_v(v_in):
                 # Compute V[:, :k].T @ v using a masked operation
                 # Create a mask for the first k columns
@@ -144,15 +145,10 @@ def lanczos_bidiag(
                 coeffs = V_masked.T @ v_in
                 v_out = v_in - V_masked @ coeffs
                 coeffs = V_masked.T @ v_out
-                v_out = v_out - V_masked @ coeffs
+                v_out -= V_masked @ coeffs
                 return v_out
 
-            v_orth = lax.cond(
-                k > 0,
-                reortho_v,
-                lambda x: x,
-                v_orth
-            )
+            v_orth = lax.cond(k > 0, reortho_v, lambda x: x, v_orth)
 
         # Compute alpha_k and normalize v
         alpha_k = jnp.linalg.norm(v_orth)
@@ -175,9 +171,9 @@ def lanczos_bidiag(
 
                 # Reorthogonalize twice for better numerical stability
                 coeffs = U_masked.T @ u_new
-                u_new = u_new - U_masked @ coeffs
+                u_new -= U_masked @ coeffs
                 coeffs = U_masked.T @ u_new
-                u_new = u_new - U_masked @ coeffs
+                u_new -= U_masked @ coeffs
 
             beta_k = jnp.linalg.norm(u_new)
             u_norm = u_new / (beta_k + 1e-16)
@@ -238,7 +234,7 @@ def svd_partial(
         Whether to use full reorthogonalization in bidiagonalization.
         This significantly improves numerical stability. Default is True.
 
-    Returns
+    Returns:
     -------
     U : jax.Array, shape (m, k)
         Left singular vectors (columns).
@@ -247,7 +243,7 @@ def svd_partial(
     Vt : jax.Array, shape (k, n)
         Right singular vectors (rows).
 
-    Examples
+    Examples:
     --------
     >>> import jax
     >>> import jax.numpy as jnp
@@ -263,7 +259,7 @@ def svd_partial(
     >>> A_approx = U @ jnp.diag(S) @ Vt
     >>> error = jnp.linalg.norm(A_dense - A_approx)
 
-    Notes
+    Notes:
     -----
     This is a matrix-free alternative to jnp.linalg.svd for computing
     a few singular values/vectors of large sparse or structured matrices.
@@ -273,7 +269,7 @@ def svd_partial(
     2. Computes SVD of small bidiagonal matrix B
     3. Projects back to get singular vectors of A
 
-    References
+    References:
     ----------
     Inspired by matfree library [1, 2].
     """
@@ -281,7 +277,7 @@ def svd_partial(
     n = A.shape[1]
 
     if num_iters is None:
-        num_iters = min(2 * k, min(m, n))
+        num_iters = min(2 * k, m, n)
 
     if u0 is None:
         u0 = jnp.ones(m)
@@ -292,7 +288,7 @@ def svd_partial(
     # Construct bidiagonal matrix
     B = jnp.diag(alpha)
     if beta.size > 0:
-        B = B + jnp.diag(beta, k=1)
+        B += jnp.diag(beta, k=1)
 
     # Compute SVD of small bidiagonal matrix
     U_small, S_small, Vt_small = jnp.linalg.svd(B, full_matrices=False)

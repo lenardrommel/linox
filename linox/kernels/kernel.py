@@ -7,7 +7,7 @@ import jax.numpy as jnp
 
 class Kernel(abc.ABC):
     @abc.abstractmethod
-    def __init__(self, learnable: bool):
+    def __init__(self, learnable: bool) -> None:
         """Initialize kernel parameters."""
         self.learnable = learnable
         self.__kernel_name = self.__class__.__name__
@@ -23,7 +23,6 @@ class Kernel(abc.ABC):
         Returns:
             Kernel matrix of shape (n, m).
         """
-        pass
 
     @property
     def params(self):
@@ -39,7 +38,7 @@ class Kernel(abc.ABC):
 
 
 class L2InnerProductKernel(Kernel):
-    def __init__(self, learnable: bool = False, bias=1e-4):
+    def __init__(self, learnable: bool = False, bias=1e-4) -> None:
         super().__init__(learnable=learnable)
         self.bias = bias
 
@@ -52,12 +51,12 @@ class L2InnerProductKernel(Kernel):
 
 
 class RBFKernel(Kernel):
-    def __init__(self, learnable: bool = True, lengthscale=1.0):
+    def __init__(self, learnable: bool = True, lengthscale=1.0) -> None:
         super().__init__(learnable=learnable)
         self.lengthscale = lengthscale
 
     def __call__(self, x, y: jax.Array | None = None) -> jax.Array:
-        """Compute RBF kernel between individual points"""
+        """Compute RBF kernel between individual points."""
         if y is None:
             y = x
 
@@ -67,14 +66,14 @@ class RBFKernel(Kernel):
 
 
 class Matern32Kernel(Kernel):
-    def __init__(self, learnable: bool = True, lengthscale=1.0):
+    def __init__(self, learnable: bool = True, lengthscale=1.0) -> None:
         super().__init__(learnable=learnable)
         self.lengthscale = lengthscale
         self.nu = 1.5
         self._sqrt3 = math.sqrt(3)
 
     def __call__(self, x, y):
-        """Compute Matern 3/2 kernel between individual points"""
+        """Compute Matern 3/2 kernel between individual points."""
         if y is None:
             y = x
 

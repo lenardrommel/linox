@@ -31,7 +31,7 @@ from linox._algorithms import (
 class TestLanczosArnoldi:
     """Tests for Lanczos and Arnoldi iterations."""
 
-    def test_lanczos_tridiag_shape(self):
+    def test_lanczos_tridiag_shape(self) -> None:
         """Test that Lanczos returns correct shapes."""
         n = 100
         A = Matrix(jnp.eye(n))
@@ -44,7 +44,7 @@ class TestLanczosArnoldi:
         assert alpha.shape == (num_iters,)
         assert beta.shape == (num_iters - 1,)
 
-    def test_lanczos_orthogonality(self):
+    def test_lanczos_orthogonality(self) -> None:
         """Test that Lanczos vectors are orthonormal."""
         n = 50
         key = jax.random.PRNGKey(0)
@@ -54,13 +54,13 @@ class TestLanczosArnoldi:
         v0 = jax.random.normal(jax.random.PRNGKey(1), (n,))
         num_iters = 10
 
-        Q, alpha, beta = lanczos_tridiag(A, v0, num_iters, reortho=True)
+        Q, _alpha, _beta = lanczos_tridiag(A, v0, num_iters, reortho=True)
 
         # Check orthonormality
         QTQ = Q.T @ Q
         assert jnp.allclose(QTQ, jnp.eye(num_iters), atol=1e-6)
 
-    def test_lanczos_eigenvalues_identity(self):
+    def test_lanczos_eigenvalues_identity(self) -> None:
         """Test Lanczos eigenvalue computation on scaled identity."""
         n = 100
         A = Matrix(3.0 * jnp.eye(n))  # Scaled identity with eigenvalue 3
@@ -75,7 +75,7 @@ class TestLanczosArnoldi:
         # Eigenvalue should be 3 (one-dimensional Krylov subspace)
         assert jnp.allclose(eigs[0], 3.0, atol=1e-6)
 
-    def test_lanczos_eigenvalues_diagonal(self):
+    def test_lanczos_eigenvalues_diagonal(self) -> None:
         """Test Lanczos eigenvalue computation on diagonal matrix."""
         n = 50
         diag_vals = jnp.arange(1.0, n + 1.0)
@@ -84,7 +84,7 @@ class TestLanczosArnoldi:
         num_iters = 30  # Increased for better convergence
         k = 5
 
-        eigs, vecs = lanczos_eigh(A, v0, num_iters, k=k, which="LA")
+        eigs, _vecs = lanczos_eigh(A, v0, num_iters, k=k, which="LA")
 
         # Should get top k eigenvalues (approximate, not exact)
         expected = diag_vals[-k:][::-1]
@@ -92,7 +92,7 @@ class TestLanczosArnoldi:
             eigs, expected, atol=1.0
         )  # Relaxed tolerance for Lanczos approximation
 
-    def test_arnoldi_shape(self):
+    def test_arnoldi_shape(self) -> None:
         """Test that Arnoldi returns correct shapes."""
         n = 100
         A = Matrix(jnp.eye(n))
@@ -104,7 +104,7 @@ class TestLanczosArnoldi:
         assert Q.shape == (n, num_iters)
         assert H.shape == (num_iters + 1, num_iters)
 
-    def test_arnoldi_orthogonality(self):
+    def test_arnoldi_orthogonality(self) -> None:
         """Test that Arnoldi vectors are orthonormal."""
         n = 50
         key = jax.random.PRNGKey(0)
@@ -112,7 +112,7 @@ class TestLanczosArnoldi:
         v0 = jax.random.normal(jax.random.PRNGKey(1), (n,))
         num_iters = 10
 
-        Q, H = arnoldi_iteration(A, v0, num_iters)
+        Q, _H = arnoldi_iteration(A, v0, num_iters)
 
         # Check orthonormality
         QTQ = Q.T @ Q
@@ -122,7 +122,7 @@ class TestLanczosArnoldi:
 class TestHutchinsonTrace:
     """Tests for Hutchinson trace estimation."""
 
-    def test_trace_identity(self):
+    def test_trace_identity(self) -> None:
         """Test trace estimation on identity matrix."""
         n = 100
         A = Matrix(jnp.eye(n))
@@ -134,7 +134,7 @@ class TestHutchinsonTrace:
         assert jnp.abs(trace_est - n) <= 3 * trace_std  # Within 3 sigma
         assert jnp.abs(trace_est - n) <= 5.0  # Should be quite accurate
 
-    def test_trace_diagonal(self):
+    def test_trace_diagonal(self) -> None:
         """Test trace estimation on diagonal matrix."""
         n = 50
         diag_vals = jnp.arange(1.0, n + 1.0)
@@ -146,18 +146,18 @@ class TestHutchinsonTrace:
         true_trace = jnp.sum(diag_vals)
         assert jnp.abs(trace_est - true_trace) <= 3 * trace_std
 
-    def test_diagonal_estimation(self):
+    def test_diagonal_estimation(self) -> None:
         """Test diagonal estimation."""
         n = 50
         diag_vals = jnp.arange(1.0, n + 1.0)
         A = Matrix(jnp.diag(diag_vals))
         key = jax.random.PRNGKey(0)
 
-        diag_est, diag_std = hutchinson_diagonal(A, key, num_samples=500)
+        diag_est, _diag_std = hutchinson_diagonal(A, key, num_samples=500)
 
         assert jnp.allclose(diag_est, diag_vals, atol=0.5)  # Stochastic estimate
 
-    def test_trace_and_diagonal_joint(self):
+    def test_trace_and_diagonal_joint(self) -> None:
         """Test joint trace and diagonal estimation."""
         n = 50
         diag_vals = jnp.arange(1.0, n + 1.0)
@@ -167,13 +167,13 @@ class TestHutchinsonTrace:
         result = hutchinson_trace_and_diagonal(A, key, num_samples=500)
 
         trace_est, trace_std = result["trace"]
-        diag_est, diag_std = result["diagonal"]
+        diag_est, _diag_std = result["diagonal"]
 
         true_trace = jnp.sum(diag_vals)
         assert jnp.abs(trace_est - true_trace) <= 3 * trace_std
         assert jnp.allclose(diag_est, diag_vals, atol=0.5)
 
-    def test_rademacher_vs_normal(self):
+    def test_rademacher_vs_normal(self) -> None:
         """Test that both distributions give reasonable estimates."""
         n = 100
         A = Matrix(jnp.eye(n))
@@ -192,7 +192,7 @@ class TestHutchinsonTrace:
 class TestMatrixFunctions:
     """Tests for matrix function approximations."""
 
-    def test_lanczos_exp_identity(self):
+    def test_lanczos_exp_identity(self) -> None:
         """Test matrix exponential on -I."""
         n = 100
         A = Matrix(-jnp.eye(n))
@@ -205,7 +205,7 @@ class TestMatrixFunctions:
         expected = jnp.exp(-1.0) * v
         assert jnp.allclose(result, expected, atol=1e-3)
 
-    def test_lanczos_log_identity(self):
+    def test_lanczos_log_identity(self) -> None:
         """Test matrix logarithm on scaled identity."""
         n = 50
         scale = 2.0
@@ -220,7 +220,7 @@ class TestMatrixFunctions:
         expected = jnp.log(scale) * v
         assert jnp.allclose(result, expected, atol=1e-3)
 
-    def test_arnoldi_exp_triangular(self):
+    def test_arnoldi_exp_triangular(self) -> None:
         """Test Arnoldi matrix exponential on upper triangular matrix."""
         n = 10
         A_dense = jnp.triu(jnp.ones((n, n)) * 0.1)
@@ -238,7 +238,7 @@ class TestMatrixFunctions:
 class TestStochasticLanczosQuadrature:
     """Tests for stochastic Lanczos quadrature (SLQ)."""
 
-    def test_slq_logdet_identity(self):
+    def test_slq_logdet_identity(self) -> None:
         """Test log-determinant estimation on identity."""
         n = 50
         A = Matrix(jnp.eye(n))
@@ -252,7 +252,7 @@ class TestStochasticLanczosQuadrature:
         assert jnp.abs(logdet_est) < 3 * logdet_std + 1e-6
         assert jnp.abs(logdet_est) < 1.0
 
-    def test_slq_logdet_diagonal(self):
+    def test_slq_logdet_diagonal(self) -> None:
         """Test log-determinant estimation on diagonal matrix."""
         n = 20
         diag_vals = jnp.arange(1.0, n + 1.0)
@@ -267,7 +267,7 @@ class TestStochasticLanczosQuadrature:
         # Should be within a few standard errors (or numerically exact)
         assert jnp.abs(logdet_est - true_logdet) <= 5 * logdet_std + 1e-12
 
-    def test_slq_trace_exp(self):
+    def test_slq_trace_exp(self) -> None:
         """Test trace(exp(A)) estimation."""
         n = 20
         A = Matrix(-jnp.eye(n))  # -I
@@ -286,17 +286,17 @@ class TestStochasticLanczosQuadrature:
 class TestArithmeticIntegration:
     """Tests for integration with linox arithmetic module."""
 
-    def test_ltrace_basic(self):
+    def test_ltrace_basic(self) -> None:
         """Test ltrace function from linox."""
         n = 100
         A = linox.Matrix(jnp.eye(n))
         key = jax.random.PRNGKey(0)
 
-        trace_est, trace_std = linox.ltrace(A, key=key, num_samples=200)
+        trace_est, _trace_std = linox.ltrace(A, key=key, num_samples=200)
 
         assert jnp.abs(trace_est - n) < 5.0
 
-    def test_ltrace_default_key(self):
+    def test_ltrace_default_key(self) -> None:
         """Test ltrace with default key."""
         n = 50
         A = linox.Matrix(jnp.eye(n))
@@ -305,7 +305,7 @@ class TestArithmeticIntegration:
 
         assert jnp.abs(trace_est - n) < 10.0
 
-    def test_lexp_with_vector(self):
+    def test_lexp_with_vector(self) -> None:
         """Test lexp function with vector."""
         n = 50
         A = linox.Matrix(-jnp.eye(n))
@@ -316,7 +316,7 @@ class TestArithmeticIntegration:
         expected = jnp.exp(-1.0) * v
         assert jnp.allclose(result, expected, atol=1e-3)
 
-    def test_llog_with_vector(self):
+    def test_llog_with_vector(self) -> None:
         """Test llog function with vector."""
         n = 30
         A = linox.Matrix(2.0 * jnp.eye(n))
@@ -327,7 +327,7 @@ class TestArithmeticIntegration:
         expected = jnp.log(2.0) * v
         assert jnp.allclose(result, expected, atol=1e-3)
 
-    def test_lpow_with_vector(self):
+    def test_lpow_with_vector(self) -> None:
         """Test lpow function with vector."""
         n = 30
         A = linox.Matrix(4.0 * jnp.eye(n))
@@ -344,7 +344,7 @@ class TestArithmeticIntegration:
 class TestJAXTransformations:
     """Test that algorithms are compatible with JAX transformations."""
 
-    def test_hutchinson_trace_jit(self):
+    def test_hutchinson_trace_jit(self) -> None:
         """Test that Hutchinson trace can be JIT compiled."""
 
         @jax.jit
@@ -358,7 +358,7 @@ class TestJAXTransformations:
         trace_est, _ = traced_func(A_dense, key)
         assert jnp.abs(trace_est - 10.0) < 5.0
 
-    def test_lanczos_tridiag_jit(self):
+    def test_lanczos_tridiag_jit(self) -> None:
         """Test that Lanczos can be JIT compiled."""
 
         @jax.jit
@@ -369,7 +369,7 @@ class TestJAXTransformations:
         A_dense = jnp.eye(20)
         v0 = jnp.ones(20)
 
-        Q, alpha, beta = lanczos_func(A_dense, v0)
+        Q, _alpha, _beta = lanczos_func(A_dense, v0)
         assert Q.shape == (20, 5)
 
 
