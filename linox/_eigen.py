@@ -33,6 +33,9 @@ class EigenD(LinearOperator):
     def __init__(self, A: ArrayLike) -> None:
         self.A = as_linop(A)
         super().__init__(shape=(A.shape[0], A.shape[0]), dtype=A.dtype)
+        self._S = None
+        self._Q = None
+        self._ensure_eigh()
 
     def _ensure_eigh(self) -> None:
         if (self._S is None) or (self._Q is None):
@@ -52,7 +55,7 @@ class EigenD(LinearOperator):
         return self.U @ (self.S[:, None] * (self.U.T @ vec))
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
-        children = (self.U, self.S)
+        children = (self._U, self._S)
         aux_data = {}
         return children, aux_data
 
@@ -71,7 +74,7 @@ class EigenD(LinearOperator):
     ) -> "EigenD":
         del aux_data
         U, S = children
-        return cls(U=U, S=S)
+        return cls(U @ Diagonal(S) @ U.T)
 
 
 @leigh.dispatch
