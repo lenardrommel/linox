@@ -38,6 +38,7 @@ ArithmeticType = LinearOperator | jax.Array
 
 def _deprecated_l_prefix(func_name: str):
     """Create deprecation warning for functions with 'l' prefix."""
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -45,10 +46,12 @@ def _deprecated_l_prefix(func_name: str):
                 f"'{func_name}' is deprecated and will be removed in linox 0.0.3. "
                 f"Use '{func_name[1:]}' instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -313,7 +316,7 @@ def is_symmetric(
         # Generate random normalized vector
         probe_key = jax.random.fold_in(key, i)
         x = jax.random.normal(probe_key, (n,), dtype=a.dtype)
-        x = x / jnp.linalg.norm(x)
+        x /= jnp.linalg.norm(x)
 
         # Compute Ax and A^T x
         v1 = a @ x
@@ -360,17 +363,13 @@ def is_hermitian(
     n = a.shape[-1]
 
     for i in range(num_probes):
-        # Generate random normalized vector
         probe_key = jax.random.fold_in(key, i)
         x = jax.random.normal(probe_key, (n,), dtype=a.dtype)
         if jnp.issubdtype(a.dtype, jnp.complexfloating):
-            # For complex operators, add imaginary part
             x_imag = jax.random.normal(probe_key, (n,), dtype=a.dtype)
-            x = x + 1j * x_imag
-        x = x / jnp.linalg.norm(x)
+            x += 1j * x_imag
+        x /= jnp.linalg.norm(x)
 
-        # Compute Ax and A^H x (conjugate transpose)
-        # For Hermitian: A x = conj(A^T conj(x))
         v1 = a @ x
         v2_hermitian = jnp.conj(a.T @ jnp.conj(x))
 
@@ -590,9 +589,9 @@ def _(a: "ProductLinearOperator") -> jax.Array:
     element-wise product of the factor diagonals. Otherwise, fall back to a
     dense computation for correctness.
     """
-    from linox._matrix import Diagonal as _Diag
-    from linox._matrix import Identity as _Id
-    from linox._matrix import Scalar as _Scal
+    from linox._matrix import Diagonal as _Diag  # noqa: PLC0415
+    from linox._matrix import Identity as _Id  # noqa: PLC0415
+    from linox._matrix import Scalar as _Scal  # noqa: PLC0415
 
     def _is_diag_like(op: LinearOperator) -> bool:
         if isinstance(op, (_Diag, _Id, _Scal)):
@@ -612,7 +611,7 @@ def _(a: "ProductLinearOperator") -> jax.Array:
                 diags.append(jnp.asarray(diagonal(op)))
         return reduce(operator.mul, diags)
 
-    # Fallback: compute dense diagonal for correctness
+    # TODO: check if this is necessary
     _warn(f"Converting product of shape {a.shape} to dense array for diagonal.")
     dense = a.todense()
     if dense.ndim <= 2:
@@ -694,7 +693,7 @@ class ProductLinearOperator(LinearOperator):
         return cls(*children)
 
 
-# not properly tested
+# TODO: not properly tested
 class CongruenceTransform(ProductLinearOperator):
     r"""Congruence transformation of linear operators.
 
@@ -792,7 +791,6 @@ def _(a: TransposedLinearOperator) -> tuple[LinearOperator, LinearOperator]:
     return lams, Q.transpose()
 
 
-# NOT TESTED
 class InverseLinearOperator(LinearOperator):
     """Inverse of a linear operator.
 
@@ -861,6 +859,18 @@ class CongruenceTransform(ProductLinearOperator):
     def transpose(self) -> LinearOperator:
         return CongruenceTransform(self._A, self._B.T)
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self._A, self._B)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(
+        cls, aux_data: dict[str, any], children: tuple[any, ...]
+    ) -> "CongruenceTransform":
+        del aux_data
+        return cls(*children)
+
 
 @plum.dispatch
 def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:  # noqa: F811
@@ -877,15 +887,14 @@ class PseudoInverseLinearOperator(LinearOperator):
         return PseudoInverseLinearOperator(self.operator).transpose()
 
     def todense(self) -> jax.Array:
-        r"""# TODO:
-        Compute the dense pseudo-inverse using SVD.
-        U, S, Vh = svd(self.operator)
+        r"""Compute the dense pseudo-inverse using SVD.
+        U, S, Vh = svd(self.operator).
 
         Returns:
-            x_LS = \sum_i (u_i^T b) / s_i v_i
-            -> U, S, Vh = svd(self.operator)
-            return U @ jnp.diag(1 / S) @ Vh.
-        """  # noqa: D205
+            $x_LS = \sum_i (u_i^T b) / s_i v_i$
+            $-> U, S, Vh = svd(self.operator)$
+            $return U @ jnp.diag(1 / S) @ Vh.$
+        """
         return jnp.linalg.pinv(self.operator.todense(), rtol=self.tol)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
