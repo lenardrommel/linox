@@ -1,19 +1,4 @@
 # __init__.py
-
-import warnings
-
-# Suppress Pydantic field attribute warnings from dependencies
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=".*'repr' attribute.*Field.*has no effect.*",
-)
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=".*'frozen' attribute.*Field.*has no effect.*",
-)
-
 r"""`linox`: Linear operators in JAX.
 
 This package provides a collection of linear operators for JAX, including:
@@ -35,6 +20,21 @@ All operators support lazy evaluation and can be combined to form complex linear
 transformations.
 """
 
+import warnings
+
+# Suppress Pydantic field attribute warnings from dependencies
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=".*'repr' attribute.*Field.*has no effect.*",
+)
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=".*'frozen' attribute.*Field.*has no effect.*",
+)
+
+
 __version__ = "0.0.2"
 
 # Import functions from _arithmetic module
@@ -48,18 +48,16 @@ from ._arithmetic import (
     # New API (0.0.2+) - functions without "l" prefix
     add,
     cholesky,
+    # Common operations and utilities
+    congruence_transform,
     det,
+    diagonal,
     eigh,
     inverse,
-    matmul,
-    mul,
-    neg,
-    pinverse,
-    psolve,
-    qr,
-    solve,
-    sqrt,
-    sub,
+    is_hermitian,
+    is_square,
+    is_symmetric,
+    kron,
     # Deprecated API (will be removed in 0.0.3) - functions with "l" prefix
     lcholesky,
     ldet,
@@ -70,14 +68,16 @@ from ._arithmetic import (
     lqr,
     lsolve,
     lsqrt,
-    # Common operations and utilities
-    congruence_transform,
-    diagonal,
-    is_hermitian,
-    is_square,
-    is_symmetric,
-    kron,
+    matmul,
+    mul,
+    neg,
+    pinverse,
+    psolve,
+    qr,
     slogdet,
+    solve,
+    sqrt,
+    sub,
     svd,
     symmetrize,
     transpose,
