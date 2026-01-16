@@ -51,16 +51,17 @@ class ArrayKernel(KernelOperator):
             K: Kernel matrix (batch_size, batch_size)
         """
         # self.context_points shape: (N_batch,) + input_shape
+        x0 = self.x0
+        x1 = self.x1
 
-        return jax.vmap(
-            jax.vmap(
-                self.kernel,
-                in_axes=(None, 0),
-                out_axes=0,
-            ),
-            in_axes=(0, None),
-            out_axes=0,
-        )(self.x0, self.x1)
+        def row_kernel(xi):
+            return jax.lax.map(
+                lambda xj: self.kernel(xi, xj),
+                x1,
+                batch_size=1,
+            )
+
+        return jax.lax.map(row_kernel, x0)
 
     def _matmul(self, vec: jax.Array) -> jax.Array:
         """Compute matrix-vector product: K @ v.
