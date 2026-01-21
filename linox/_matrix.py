@@ -321,6 +321,11 @@ class Diagonal(LinearOperator):
         return cls(diag=diag)
 
 
+@diagonal.dispatch
+def _(a: Diagonal) -> jax.Array:
+    return a.diag
+
+
 @ladd.dispatch
 def _(a: Diagonal, b: Diagonal) -> Diagonal:
     return Diagonal(a.diag + b.diag)

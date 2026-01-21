@@ -1,19 +1,5 @@
 # __init__.py
 
-import warnings
-
-# Suppress Pydantic field attribute warnings from dependencies
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=".*'repr' attribute.*Field.*has no effect.*",
-)
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=".*'frozen' attribute.*Field.*has no effect.*",
-)
-
 r"""`linox`: Linear operators in JAX.
 
 This package provides a collection of linear operators for JAX, including:
@@ -34,6 +20,19 @@ Common operations:
 All operators support lazy evaluation and can be combined to form complex linear
 transformations.
 """
+
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=".*'repr' attribute.*Field.*has no effect.*",
+)
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=".*'frozen' attribute.*Field.*has no effect.*",
+)
 
 __version__ = "0.0.2"
 
@@ -88,7 +87,12 @@ from ._block import BlockDiagonal, BlockMatrix, BlockMatrix2x2
 from ._eigen import EigenD
 from ._isotropicadd import IsotropicAdditiveLinearOperator
 from ._kernel import ArrayKernel
-from ._kronecker import Kronecker
+from ._kronecker import (
+    Kronecker,
+    KroneckerSelectedEigenvectors,
+    KroneckerSelectedEigenvectorsTranspose,
+    topk_eigh,
+)
 from ._linear_operator import LinearOperator
 from ._low_rank import (
     IsotropicScalingPlusSymmetricLowRank,
@@ -117,6 +121,8 @@ __all__ = [
     "IsotropicAdditiveLinearOperator",
     "IsotropicScalingPlusSymmetricLowRank",
     "Kronecker",
+    "KroneckerSelectedEigenvectors",
+    "KroneckerSelectedEigenvectorsTranspose",
     "LinearOperator",
     "LowRank",
     "Matrix",
@@ -168,6 +174,7 @@ __all__ = [
     "svd",
     "symmetrize",
     "todense",
+    "topk_eigh",
     "transpose",
     # Configuration
     "is_debug",

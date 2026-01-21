@@ -257,9 +257,7 @@ def test_eigh(square_spd_kronecker: tuple[Kronecker, jax.Array]) -> None:
     linop_eigenvalues, linop_eigenvectors = linox.leigh(linop)
 
     assert jnp.allclose(
-        (
-            linop_eigenvectors @ jnp.diag(linop_eigenvalues) @ linop_eigenvectors.T
-        ).todense(),
+        (linop_eigenvectors @ linop_eigenvalues @ linop_eigenvectors.T).todense(),
         matrix,
     )
 

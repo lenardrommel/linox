@@ -224,7 +224,11 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
 
     inv_iso = linverse(a.s)
 
-    D = Diagonal(S / (s * (S + s)))
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+    D = Diagonal(eigs / (s * (eigs + s)))
 
     return inv_iso - (Q @ D @ Q.T)
 
@@ -237,7 +241,11 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
 
     inv_iso = lpinverse(a.s)
 
-    D = Diagonal(S / (s * (S + s)))
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+    D = Diagonal(eigs / (s * (eigs + s)))
 
     return inv_iso - (Q @ D @ Q.T)
 
@@ -247,7 +255,11 @@ def _(a: IsotropicAdditiveLinearOperator) -> tuple[LinearOperator, LinearOperato
     a._ensure_eigh()  # noqa: SLF001
     Q, S = a.Q, a.S  # cached
     s = a.s.scalar
-    new_lam = utils.as_linop(S + s)
+    if isinstance(S, LinearOperator):
+        n = S.shape[0]
+        new_lam = S + s * Identity(n, dtype=S.dtype)
+    else:
+        new_lam = utils.as_linop(S + s)
     return new_lam, Q
 
 

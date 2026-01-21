@@ -2,12 +2,18 @@
 
 r"""Kronecker product operations for linear operators.
 
-This module includes a linear operator that represents the Kronecker product
-of two linear operators.
+This module includes:
 
 - :class:`Kronecker`: Represents the Kronecker product :math:`A \otimes B` of two
     linear operators :math:`A` and :math:`B`
+- :class:`KroneckerSelectedEigenvectors`: Matrix-free operator for selected
+    eigenvectors of a Kronecker product
+- :func:`topk_eigh`: Compute top-k or bottom-k eigenvalues/vectors of a Kronecker
+    product without forming the full matrix
 """
+
+import heapq
+from collections.abc import Sequence
 
 import jax
 import jax.numpy as jnp
@@ -16,13 +22,10 @@ from linox import utils
 from linox._arithmetic import (
     ProductLinearOperator,
     diagonal,
-    ladd,
     lcholesky,
     ldet,
-    ldiv,
     leigh,
     linverse,
-    lmul,
     lpinverse,
     lqr,
     lsqrt,
@@ -31,7 +34,6 @@ from linox._arithmetic import (
 )
 from linox._linear_operator import LinearOperator
 from linox._registry import get, register
-from linox.typing import DTypeLike, ScalarLike, ShapeLike
 
 
 class Kronecker(LinearOperator):
@@ -76,7 +78,7 @@ class Kronecker(LinearOperator):
     def shape(self) -> tuple[int, int]:
         return self._shape
 
-    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+    def tree_flatten(self) -> tuple[tuple, dict]:
         children = (self.A, self.B)
         aux_data = {}
         return children, aux_data
@@ -84,8 +86,8 @@ class Kronecker(LinearOperator):
     @classmethod
     def tree_unflatten(
         cls,
-        aux_data: dict[str, any],  # noqa: ARG003
-        children: tuple[any, ...],
+        aux_data: dict,
+        children: tuple,
     ) -> "Kronecker":
         return cls(*children)
 
@@ -96,17 +98,10 @@ class Kronecker(LinearOperator):
         _, mA = self.A.shape
         _, mB = self.B.shape
 
-        # vec(X) -> X, i.e., reshape into stack of matrices
         y = jnp.swapaxes(vec, -2, -1)
         y = y.reshape((*y.shape[:-1], mA, mB))
-
-        # (X @ B.T).T = B @ X.T
         y = self.B @ jnp.swapaxes(y, -1, -2)
-
-        # A @ X @ B.T = A @ (B @ X.T).T
         y = self.A @ jnp.swapaxes(y, -1, -2)
-
-        # vec(A @ X @ B.T), i.e., revert to stack of vectorized matrices
         y = y.reshape((*y.shape[:-2], -1))
         y = jnp.swapaxes(y, -1, -2)
 
@@ -143,11 +138,26 @@ def _(op: Kronecker) -> Kronecker:
 
 
 @leigh.dispatch
-def _(op: Kronecker) -> tuple[jax.Array, Kronecker]:
+def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
+    r"""Eigendecomposition of a Kronecker product.
+
+    For :math:`A \otimes B` with :math:`A = Q_A \Lambda_A Q_A^T` and
+    :math:`B = Q_B \Lambda_B Q_B^T`, returns:
+
+    - Eigenvalues as :math:`\Lambda_A \otimes \Lambda_B` (Kronecker of Diagonals)
+    - Eigenvectors as :math:`Q_A \otimes Q_B` (Kronecker of orthogonal matrices)
+
+    Both are LinearOperators, avoiding dense eigenvalue arrays for large products.
+    """
+    from linox._matrix import Diagonal
+
     wA, QA = leigh(op.A)
     wB, QB = leigh(op.B)
 
-    return jnp.kron(wA, wB), Kronecker(QA, QB)
+    Lambda = Kronecker(Diagonal(wA), Diagonal(wB))
+    Q = Kronecker(QA, QB)
+
+    return Lambda, Q
 
 
 @lqr.dispatch
@@ -182,18 +192,6 @@ def _(op: Kronecker) -> tuple[Kronecker, jax.Array, Kronecker]:
     )
 
 
-# Not properly tested yet.
-# @lsolve.dispatch
-# def _(op: Kronecker, v: jax.Array) -> jax.Array:
-#     m_A, _ = op.A.shape
-#     m_B, _ = op.B.shape
-
-
-#     V = v.reshape((m_A, m_B))
-#     return jnp.ravel(lsolve(op.A, lsolve(op.B, V.T).T))  # op.A.solve(op.B.solve(V.T)
-# .T)
-
-
 @lcholesky.dispatch
 def _(op: Kronecker) -> Kronecker:
     L_A = lcholesky(op.A)
@@ -201,7 +199,6 @@ def _(op: Kronecker) -> Kronecker:
     return Kronecker(L_A, L_B)
 
 
-# Not properly tested yet.
 @ldet.dispatch
 def _(op: Kronecker) -> ProductLinearOperator:
     return ProductLinearOperator([
@@ -235,11 +232,9 @@ def _(op: Kronecker) -> jax.Array:
     return diag.reshape(batch_shape + (diag_A.shape[-1] * diag_B.shape[-1],))
 
 
-# Register Kronecker as a PyTree
 jax.tree_util.register_pytree_node_class(Kronecker)
 
 
-# Experimental registry integration
 def _factor_pair(total: int) -> tuple[int, int]:
     for k in range(2, int(total**0.5) + 1):
         if total % k == 0:
@@ -251,12 +246,11 @@ def _factor_pair(total: int) -> tuple[int, int]:
 def make_kronecker(
     key: jax.random.PRNGKey,
     shape: tuple[int, int],
-    dtype=jnp.float32,
-    require=None,
+    dtype: jnp.dtype = jnp.float32,
+    require: str | None = None,
     *,
     maker_A: str = "matrix",
     maker_B: str = "matrix",
-    **kwargs,
 ) -> Kronecker:
     m, n = shape
     mA, mB = _factor_pair(m)
@@ -267,3 +261,305 @@ def make_kronecker(
     B = get(maker_B).maker(keyB, (mB, nB), dtype, require=require)
 
     return Kronecker(A, B)
+
+
+class KroneckerSelectedEigenvectors(LinearOperator):
+    r"""Matrix-free operator for selected Kronecker eigenvectors.
+
+    Represents :math:`Q_k` where columns are
+    :math:`q_A^{(i)} \otimes q_B^{(j)} \otimes \ldots` for selected index tuples.
+
+    Never forms the full Kronecker product. For two factors A, B with
+    eigenvectors :math:`Q_A, Q_B`:
+
+    .. math::
+        Q_k \alpha = \text{vec}((U_B \odot \alpha) U_A^T)
+
+    where :math:`U_A = Q_A[:, \text{selected}_A]`, :math:`U_B = Q_B[:, \text{selected}_B]`.
+
+    Args:
+        factor_vecs: List of (n_i, n_i) eigenvector matrices from each factor
+        selected_indices: List of k tuples specifying which eigenvector combinations
+        sort_indices: Sorting permutations applied to each factor's eigenvalues
+    """
+
+    def __init__(
+        self,
+        factor_vecs: list[jax.Array],
+        selected_indices: list[tuple[int, ...]],
+        sort_indices: list[jax.Array],
+    ) -> None:
+        self._factor_vecs = factor_vecs
+        self._selected_indices = selected_indices
+        self._sort_indices = sort_indices
+
+        self._d = len(factor_vecs)
+        self._k = len(selected_indices)
+        self._factor_dims = [Q.shape[0] for Q in factor_vecs]
+        self._n_total = int(jnp.prod(jnp.array(self._factor_dims)))
+
+        self._gathered = []
+        for i in range(self._d):
+            idx_for_factor = jnp.array([
+                self._sort_indices[i][sel[i]] for sel in selected_indices
+            ])
+            self._gathered.append(self._factor_vecs[i][:, idx_for_factor])
+
+        dtype = factor_vecs[0].dtype
+        super().__init__((self._n_total, self._k), dtype)
+
+    @property
+    def k(self) -> int:
+        return self._k
+
+    @property
+    def num_factors(self) -> int:
+        return self._d
+
+    @property
+    def factor_dims(self) -> list[int]:
+        return self._factor_dims
+
+    def tree_flatten(self) -> tuple[tuple, dict]:
+        children = (
+            tuple(self._factor_vecs),
+            tuple(self._sort_indices),
+        )
+        aux_data = {
+            "selected_indices": self._selected_indices,
+        }
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(
+        cls, aux_data: dict, children: tuple
+    ) -> "KroneckerSelectedEigenvectors":
+        factor_vecs, sort_indices = children
+        return cls(
+            list(factor_vecs),
+            aux_data["selected_indices"],
+            list(sort_indices),
+        )
+
+    def _matmul(self, alpha: jax.Array) -> jax.Array:
+        r"""Compute :math:`Q_k \alpha` without forming the Kronecker product."""
+        squeeze = False
+        if alpha.ndim == 1:
+            alpha = alpha[:, None]
+            squeeze = True
+
+        if self._d == 2:
+            UA, UB = self._gathered[0], self._gathered[1]
+            nA, nB = self._factor_dims[0], self._factor_dims[1]
+            Y = jnp.einsum("il,lb,jl->ijb", UA, alpha, UB)
+            result = Y.reshape((nA * nB, -1))
+
+            if squeeze:
+                result = result.squeeze(-1)
+            return result
+
+        result = jnp.zeros((self._n_total, alpha.shape[1]), dtype=self.dtype)
+
+        for l in range(self._k):
+            vec_l = self._gathered[0][:, l]
+            for i in range(1, self._d):
+                vec_l = jnp.kron(vec_l, self._gathered[i][:, l])
+            result += vec_l[:, None] * alpha[l, :]
+
+        if squeeze:
+            result = result.squeeze(-1)
+        return result
+
+    def _rmatmul(self, v: jax.Array) -> jax.Array:
+        r"""Compute Q_k^T v."""
+        n = self._n_total
+        restore = None
+
+        if v.ndim == 1:
+            pass
+
+        elif v.ndim == 2:
+            if v.shape[0] == n and v.shape[1] != n:
+                v = jnp.swapaxes(v, 0, 1)
+                restore = ("cols",)
+
+            elif v.shape[1] == n:
+                restore = ("batch",)
+
+            elif v.shape[1] == 1 and v.shape[0] == n:
+                v = v[:, 0]
+            else:
+                msg = (
+                    f"Unsupported v shape {v.shape}. Expected (n,), (batch,n), or (n,p)"
+                )
+                raise ValueError(msg)
+        else:
+            msg = f"Unsupported v.ndim={v.ndim}. Expected 1 or 2."
+            raise ValueError(msg)
+
+        squeeze_single = False
+        if v.ndim == 1:
+            v = v[None, :]
+            squeeze_single = True
+
+        if self._d == 2:
+            UA, UB = self._gathered[0], self._gathered[1]
+            nA, nB = self._factor_dims[0], self._factor_dims[1]
+
+            X = v.reshape((v.shape[0], nA, nB))
+            T = jnp.einsum("il,bij->blj", UA, X)
+            result = jnp.einsum("blj,jl->bl", T, UB)
+
+        else:
+            result = jnp.zeros((v.shape[0], self._k), dtype=self.dtype)
+            for l in range(self._k):
+                vec_l = self._gathered[0][:, l]
+                for i in range(1, self._d):
+                    vec_l = jnp.kron(vec_l, self._gathered[i][:, l])
+                result = result.at[:, l].set(v @ vec_l)
+
+        if squeeze_single:
+            result = result[0, :]
+
+        if restore == ("cols",) and result.ndim == 2:
+            result = jnp.swapaxes(result, 0, 1)
+
+        return result
+
+    def transpose(self) -> "KroneckerSelectedEigenvectorsTranspose":
+        return KroneckerSelectedEigenvectorsTranspose(self)
+
+    def todense(self) -> jax.Array:
+        cols = []
+        for l in range(self._k):
+            vec_l = self._gathered[0][:, l]
+            for i in range(1, self._d):
+                vec_l = jnp.kron(vec_l, self._gathered[i][:, l])
+            cols.append(vec_l)
+        return jnp.stack(cols, axis=1)
+
+
+class KroneckerSelectedEigenvectorsTranspose(LinearOperator):
+    r"""Transpose of :class:`KroneckerSelectedEigenvectors`."""
+
+    def __init__(self, parent: KroneckerSelectedEigenvectors) -> None:
+        self._parent = parent
+        super().__init__((parent.shape[1], parent.shape[0]), parent.dtype)
+
+    def tree_flatten(self) -> tuple[tuple, dict]:
+        return (self._parent,), {}
+
+    @classmethod
+    def tree_unflatten(
+        cls, aux_data: dict, children: tuple
+    ) -> "KroneckerSelectedEigenvectorsTranspose":
+        return cls(children[0])
+
+    def _matmul(self, v: jax.Array) -> jax.Array:
+        return self._parent._rmatmul(v)  # noqa: SLF001
+
+    def transpose(self) -> KroneckerSelectedEigenvectors:
+        return self._parent
+
+    def todense(self) -> jax.Array:
+        return self._parent.todense().T
+
+
+jax.tree_util.register_pytree_node_class(KroneckerSelectedEigenvectors)
+jax.tree_util.register_pytree_node_class(KroneckerSelectedEigenvectorsTranspose)
+
+
+def topk_eigh(
+    factors: Sequence[LinearOperator | jax.Array],
+    k: int,
+    *,
+    largest: bool = True,
+) -> tuple[jax.Array, KroneckerSelectedEigenvectors]:
+    r"""Compute top-k or bottom-k eigenvalues/vectors of a Kronecker product.
+
+    Uses a heap-based best-first search on the monotone grid of eigenvalue
+    products. Avoids :math:`O(\prod n_i^2)` memory by never forming the full
+    Kronecker product.
+
+    Note:
+        Assumes all factors are PSD (positive semi-definite) so that
+        eigenvalues are non-negative and the monotone grid property holds.
+
+    Args:
+        factors: Sequence of symmetric PSD LinearOperators or arrays.
+        k: Number of eigenvalues to return.
+        largest: If True, return largest k eigenvalues; else smallest k.
+
+    Returns:
+        eigenvalues: Array of shape (k,) with the k largest/smallest eigenvalues.
+        eigenvectors: LinearOperator of shape (n_total, k) representing the
+            k eigenvectors without forming the full Kronecker product.
+
+    Example:
+        >>> from linox import Matrix, topk_eigh
+        >>> A = Matrix(jnp.eye(3) * 2)
+        >>> B = Matrix(jnp.eye(4) * 3)
+        >>> eigs, Q = topk_eigh([A, B], k=5, largest=True)
+        >>> v = Q @ jnp.ones(5)
+    """
+    factors = [utils.as_linop(f) for f in factors]
+    d = len(factors)
+
+    factor_eigs = []
+    factor_vecs = []
+    sort_indices = []
+
+    for A in factors:
+        w, Q = leigh(A)
+        if isinstance(w, LinearOperator):
+            w = diagonal(w)
+        order = jnp.argsort(-w) if largest else jnp.argsort(w)
+        factor_eigs.append(w[order])
+        sort_indices.append(order)
+        factor_vecs.append(Q.todense() if hasattr(Q, "todense") else jnp.asarray(Q))
+
+    sizes = [len(w) for w in factor_eigs]
+
+    def compute_eigenvalue(indices: tuple[int, ...]) -> float:
+        prod = 1.0
+        for i, idx in enumerate(indices):
+            prod *= factor_eigs[i][idx]
+        return float(prod)
+
+    initial_idx = tuple(0 for _ in range(d))
+    initial_val = compute_eigenvalue(initial_idx)
+
+    heap = [(-initial_val, initial_idx)] if largest else [(initial_val, initial_idx)]
+    visited = {initial_idx}
+
+    eigenvalues = []
+    selected_indices = []
+
+    while len(eigenvalues) < k and heap:
+        if largest:
+            neg_val, idx = heapq.heappop(heap)
+            val = -neg_val
+        else:
+            val, idx = heapq.heappop(heap)
+
+        eigenvalues.append(val)
+        selected_indices.append(idx)
+
+        for dim in range(d):
+            new_idx = list(idx)
+            new_idx[dim] += 1
+            new_idx = tuple(new_idx)
+
+            if new_idx[dim] < sizes[dim] and new_idx not in visited:
+                visited.add(new_idx)
+                new_val = compute_eigenvalue(new_idx)
+                if largest:
+                    heapq.heappush(heap, (-new_val, new_idx))
+                else:
+                    heapq.heappush(heap, (new_val, new_idx))
+
+    eigenvectors = KroneckerSelectedEigenvectors(
+        factor_vecs, selected_indices, sort_indices
+    )
+
+    return jnp.array(eigenvalues), eigenvectors

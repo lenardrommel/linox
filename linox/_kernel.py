@@ -92,11 +92,30 @@ class ArrayKernel(KernelOperator):
         """
         return jnp.asarray(self._kernel_matrix)
 
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.kernel, self.x0, self.x1)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "ArrayKernel":
+        del aux_data
+        kernel, x0, x1 = children
+        return cls(kernel=kernel, x0=x0, x1=x1)
+
 
 @lsqrt.dispatch
 def _(a: ArrayKernel) -> jax.Array:
     _jitter = 1e-6 if a.dtype == jnp.float32 else 1e-10
     return jnp.linalg.cholesky(a.todense() + _jitter * jnp.eye(a.shape[0]))
+
+
+# Register ArrayKernel as a PyTree
+jax.tree_util.register_pytree_node_class(ArrayKernel)
 
 
 class ToeplitzKernel(KernelOperator):
@@ -131,3 +150,22 @@ class ToeplitzKernel(KernelOperator):
 
     def todense(self) -> jax.Array:
         return self._toeplitz_operator.todense()
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self.kernel, self.x0, self.x1)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "ToeplitzKernel":
+        del aux_data
+        kernel, x0, x1 = children
+        return cls(kernel=kernel, x0=x0, x1=x1)
+
+
+# Register ToeplitzKernel as a PyTree
+jax.tree_util.register_pytree_node_class(ToeplitzKernel)

@@ -209,13 +209,13 @@ def test_eigh(linop: linox.LinearOperator, matrix: jax.Array) -> None:
 def test_eigh_kronecker(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     eigvals = jnp.linalg.eigvalsh(matrix)
     lin_eigvals, eigvecs = linox.leigh(linop)
-    assert jnp.allclose(eigvals, jnp.sort(as_dense(lin_eigvals)), atol=1e-5), (
+    lin_eigvals_flat = linox.diagonal(lin_eigvals)
+    assert jnp.allclose(eigvals, jnp.sort(lin_eigvals_flat), atol=1e-5), (
         "Eigenvalues do not match"
     )
-    D_lin = jnp.diag(as_dense(lin_eigvals))
-    assert jnp.allclose(as_dense(eigvecs @ D_lin @ eigvecs.T), matrix, atol=1e-5), (
-        "Eigen decomposition does not match"
-    )
+    assert jnp.allclose(
+        as_dense(eigvecs @ lin_eigvals @ eigvecs.T), matrix, atol=1e-5
+    ), "Eigen decomposition does not match"
 
 
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=case_isotropicadd)
@@ -231,4 +231,3 @@ def test_eigh_isotropicadd(linop: linox.LinearOperator, matrix: jax.Array) -> No
         if not jnp.allclose(vec1, vec2, atol=1e-5):
             vec2 = -vec2
         assert jnp.allclose(vec1, vec2, atol=1e-5), "Eigenvectors do not match"
-
