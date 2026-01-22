@@ -79,6 +79,11 @@ def linop_graph(
 class InspectReport:
     events: list[config.DebugEvent]
 
+    @property
+    def steps(self) -> list[config.DebugEvent]:
+        """Alias for events, for compatibility with test expectations."""
+        return self.events
+
     def summary(self) -> str:
         # simple summary: counts per kind
         from collections import Counter

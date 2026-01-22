@@ -68,6 +68,6 @@ def warn(msg: str, *, prefix: str = "Warning") -> None:
         msg: Message to print.
         prefix: Optional prefix for the message, defaults to 'Warning'.
     """
+    emit(DebugEvent(kind="warn", msg=f"{prefix}: {msg}"))
     if _DEBUG:
         print(f"{prefix}: {msg}")
-        emit(DebugEvent(kind="warn", msg=f"{prefix}: {msg}"))

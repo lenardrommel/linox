@@ -31,6 +31,7 @@ import plum  # type: ignore  # noqa: PGH003
 import linox
 from linox import utils
 from linox._linear_operator import LinearOperator
+from linox import config
 from linox.config import warn as _warn
 from linox.typing import ArrayLike, ScalarLike, ShapeLike
 
@@ -417,6 +418,17 @@ def symmetrize(a: LinearOperator) -> ArithmeticType:
 
 @lmatmul.dispatch
 def _(a: LinearOperator, b: jax.Array) -> jax.Array:
+    config.emit(
+        config.DebugEvent(
+            kind="matmul",
+            msg=f"matmul: {type(a).__name__} @ array",
+            op_type=type(a).__name__,
+            op_id=id(a),
+            shape=getattr(a, "shape", None),
+            dtype=getattr(a, "dtype", None),
+            meta={"rhs_shape": b.shape, "rhs_dtype": str(b.dtype)},
+        )
+    )
     return a._matmul(b)  # noqa: SLF001
 
 

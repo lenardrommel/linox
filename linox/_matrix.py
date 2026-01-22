@@ -15,7 +15,7 @@ This module implements various classic matrix operators as linear operators, inc
 import jax
 import jax.numpy as jnp
 
-from linox import utils
+from linox import config, utils
 from linox._arithmetic import (
     InverseLinearOperator,
     PseudoInverseLinearOperator,
@@ -53,6 +53,16 @@ class Matrix(LinearOperator):
 
     def __init__(self, A: ArrayLike) -> None:  # type: ignore  # noqa: PGH003
         self.A = jnp.asarray(A)
+        config.emit(
+            config.DebugEvent(
+                kind="init",
+                msg=f"Matrix initialized with shape {self.A.shape} and dtype {self.A.dtype}",
+                op_type=type(self).__name__,
+                op_id=id(self),
+                shape=self.A.shape,
+                dtype=self.A.dtype,
+            )
+        )
         super().__init__(self.A.shape, self.A.dtype)
 
     def _matmul(self, vector: jax.Array) -> jax.Array:

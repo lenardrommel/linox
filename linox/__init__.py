@@ -103,6 +103,7 @@ from ._low_rank import (
 from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
 from ._permutation import Permutation
 from ._toeplitz import Toeplitz
+from ._graph import inspect_run
 from .config import is_debug, set_debug
 from .utils import allclose, todense
 
@@ -179,4 +180,6 @@ __all__ = [
     # Configuration
     "is_debug",
     "set_debug",
+    # Debugging/Tracing
+    "inspect_run",
 ]
