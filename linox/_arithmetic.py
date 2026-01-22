@@ -39,6 +39,7 @@ ArithmeticType = LinearOperator | jax.Array
 
 def _deprecated_l_prefix(func_name: str):
     """Create deprecation warning for functions with 'l' prefix."""
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -46,10 +47,12 @@ def _deprecated_l_prefix(func_name: str):
                 f"'{func_name}' is deprecated and will be removed in linox 0.0.3. "
                 f"Use '{func_name[1:]}' instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -82,7 +85,7 @@ def lmul(a: ScalarLike | jax.Array, b: LinearOperator) -> LinearOperator:
 @plum.dispatch
 def ldiv(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     if len(a.shape) < 2 and len(b.shape) < 2:
-        return a.todense() / b.todense()
+        return a._todense() / b._todense()
     msg = f"Division only supported for Diagonal operators, got {type(a)} and {type(b)}"
     raise TypeError(msg)
 
@@ -111,7 +114,7 @@ def lsqrt(a: LinearOperator) -> LinearOperator:
 @plum.dispatch
 def diagonal(a: LinearOperator) -> jax.Array:
     _warn(f"Linear operator {a} is densed for diagonal computation.")
-    dense_matrix = a.todense()
+    dense_matrix = a._todense()
     if len(a.shape) <= 2:
         return jnp.diag(dense_matrix)
     n = dense_matrix.shape[-1]
@@ -143,7 +146,7 @@ def iso(scalar: ScalarLike, a: LinearOperator) -> LinearOperator:
 @plum.dispatch
 def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
     _warn(f"Linear operator {a} is densed for leigh computation.")
-    ev, evec = jnp.linalg.eigh(a.todense())
+    ev, evec = jnp.linalg.eigh(a._todense())
     return ev, utils.as_linop(evec)
 
 
@@ -166,7 +169,7 @@ def svd(
     """  # noqa: D205
     _warn(f"Linear operator {a} is densed for svd computation.")
     return jax.scipy.linalg.svd(
-        a.todense(),
+        a._todense(),
         full_matrices=full_matrices,
         compute_uv=compute_uv,
     )
@@ -181,7 +184,7 @@ def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
         R: Upper triangular matrix.
     """
     _warn(f"Linear operator {a} is densed for lqr computation.")
-    return jnp.linalg.qr(a.todense())
+    return jnp.linalg.qr(a._todense())
 
 
 @plum.dispatch
@@ -191,7 +194,7 @@ def lsolve(a: LinearOperator, b: jax.Array) -> jax.Array:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
     # print(f"Warning: Linear operator {a} is densed for lsolve computation.")  # noqa: T201
-    # return jax.scipy.linalg.solve(a.todense(), b, assume_a="sym")
+    # return jax.scipy.linalg.solve(a._todense(), b, assume_a="sym")
     return linverse(a) @ b
 
 
@@ -202,7 +205,7 @@ def lu_factor(
 ) -> tuple[jax.Array, jax.Array]:
     """LU factorization of a linear operator."""
     _warn(f"Linear operator {a} is densed for lu_factor computation.")
-    return jax.scipy.linalg.lu_factor(a.todense(), overwrite_a=overwrite_a)
+    return jax.scipy.linalg.lu_factor(a._todense(), overwrite_a=overwrite_a)
 
 
 @plum.dispatch
@@ -223,15 +226,15 @@ def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: A
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
 
-    # return jnp.linalg.pinv(a.todense(), rtol) @ b
-    return lpinverse(a) @ b
+    return jnp.linalg.pinv(a._todense(), rtol) @ b
+    # return lpinverse(a) @ b
 
 
 @plum.dispatch
 def lcholesky(a: LinearOperator) -> jax.Array:
     """Cholesky decomposition of a linear operator."""
     _warn(f"Linear operator {a} is densed for lcholesky computation.")
-    return jnp.linalg.cholesky(a.todense())
+    return jnp.linalg.cholesky(a._todense())
 
 
 @plum.dispatch
@@ -241,7 +244,7 @@ def ldet(a: LinearOperator) -> jax.Array:
         msg = f"Operator {a} is not square."
         raise ValueError(msg)
     _warn(f"Linear operator {a} is densed for ldet computation.")
-    return jnp.linalg.det(a.todense())
+    return jnp.linalg.det(a._todense())
 
 
 @plum.dispatch
@@ -256,7 +259,7 @@ def slogdet(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
         msg = f"Operator {a} is not square."
         raise ValueError(msg)
     _warn(f"Linear operator {a} is densed for slogdet computation.")
-    return jnp.linalg.slogdet(a.todense())
+    return jnp.linalg.slogdet(a._todense())
 
 
 @plum.dispatch
@@ -368,13 +371,6 @@ def is_hermitian(
 
         # Compute Ax and A^H x (conjugate transpose)
         v1 = a @ x
-        v2 = a.T @ jnp.conj(x)
-
-        # For Hermitian: <Ax, x> = <x, Ax> = conj(<Ax, x>)
-        # Equivalently: Ax should equal conj(A^T conj(x))
-        # Or more directly: check if <v1, x> ≈ conj(<v2, x>)
-        # But simpler: check if v1 ≈ conj(v2) when x is real
-        # Actually, let's use the proper test: A x = conj(A^T conj(x))
         v2_hermitian = jnp.conj(a.T @ jnp.conj(x))
 
         if not jnp.allclose(v1, v2_hermitian, rtol=rtol, atol=atol):
@@ -435,8 +431,8 @@ class ScaledLinearOperator(LinearOperator):
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return (self.operator @ arr) * self.scalar
 
-    def todense(self) -> jax.Array:
-        return self.operator.todense() * self.scalar
+    def __todense(self) -> jax.Array:
+        return self.operator._todense() * self.scalar
 
     def transpose(self) -> LinearOperator:
         return self.scalar * self.operator.transpose()
@@ -558,8 +554,8 @@ class AddLinearOperator(LinearOperator):
             (op @ arr for op in reversed(self.operator_list)),
         )
 
-    def todense(self) -> jax.Array:
-        return reduce(operator.add, (op.todense() for op in self.operator_list))
+    def _todense(self) -> jax.Array:
+        return reduce(operator.add, (op._todense() for op in self.operator_list))
 
     def transpose(self) -> "AddLinearOperator":
         return AddLinearOperator(*(op.transpose() for op in self.operator_list))
@@ -617,7 +613,7 @@ def _(a: "ProductLinearOperator") -> jax.Array:
 
     # Fallback: compute dense diagonal for correctness
     _warn(f"Converting product of shape {a.shape} to dense array for diagonal.")
-    dense = a.todense()
+    dense = a._todense()
     if dense.ndim <= 2:
         return jnp.diag(dense)
     n = dense.shape[-1]
@@ -675,12 +671,12 @@ class ProductLinearOperator(LinearOperator):
             *(op.transpose() for op in reversed(self.operator_list))
         )
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         return reduce(
             lambda x, y: y @ x,
             [
-                self.operator_list[-1].todense(),
-                *reversed([op.todense() for op in self.operator_list[:-1]]),
+                self.operator_list[-1]._todense(),
+                *reversed([op._todense() for op in self.operator_list[:-1]]),
             ],
         )
 
@@ -741,8 +737,8 @@ def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator
 
 @diagonal.dispatch(precedence=5)
 def _(a: CongruenceTransform) -> jax.Array:
-    A = a._A.todense()
-    B = a._B.todense()
+    A = a._A._todense()
+    B = a._B._todense()
     return jnp.einsum("...ij,...jk,...ik->...i", A, B, A)
 
 
@@ -767,8 +763,8 @@ class TransposedLinearOperator(LinearOperator):
     def _matmul(self, arr: jnp.array) -> jax.Array:
         return self.operator.transpose() @ arr
 
-    def todense(self) -> jax.Array:
-        return self.operator.todense().swapaxes(-1, -2)
+    def _todense(self) -> jax.Array:
+        return self.operator._todense().swapaxes(-1, -2)
 
     def transpose(self) -> LinearOperator:
         return self.operator
@@ -812,11 +808,11 @@ class InverseLinearOperator(LinearOperator):
         super().__init__(shape=operator.shape, dtype=operator.dtype)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
-        return linverse(self.operator) @ arr
+        return lsolve(self.operator, arr)
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         _warn(f"Linear operator {self.operator} is densed for inverse computation.")
-        return jnp.linalg.inv(self.operator.todense())
+        return jnp.linalg.inv(self.operator._todense())
 
     def transpose(self) -> LinearOperator:
         return InverseLinearOperator(self.operator.transpose())
@@ -879,7 +875,7 @@ class PseudoInverseLinearOperator(LinearOperator):
     def transpose(self) -> LinearOperator:
         return PseudoInverseLinearOperator(self.operator).transpose()
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         r"""# TODO:
         Compute the dense pseudo-inverse using SVD.
         U, S, Vh = svd(self.operator)
@@ -888,7 +884,10 @@ class PseudoInverseLinearOperator(LinearOperator):
             -> U, S, Vh = svd(self.operator)
             return U @ jnp.diag(1 / S) @ Vh.
         """  # noqa: D205
-        return jnp.linalg.pinv(self.operator.todense(), rtol=self.tol)
+        return jnp.linalg.pinv(self.operator._todense(), rtol=self.tol)
+
+    def _matmul(self, arr: jax.Array) -> jax.Array:
+        return lpsolve(self.operator, arr, rtol=self.tol)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self.operator,)

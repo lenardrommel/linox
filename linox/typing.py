@@ -1,3 +1,5 @@
+# typing.py
+
 r"""Type definitions for linear operators in JAX.
 
 This module defines type aliases and type hints used throughout the package, including:
@@ -15,7 +17,7 @@ the package.
 # The following file follows the implementation of probnum.typing
 # see: https://github.com/probabilistic-numerics/probnum/blob/main/src/probnum/typing.py
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 import jax
 import jax.numpy as jnp
@@ -103,3 +105,6 @@ internal processing."""
 
 NotImplementedType = type(NotImplemented)
 """Type of the `NotImplemented` constant."""
+
+CallableType = Callable[..., Any]
+AnyType = Any

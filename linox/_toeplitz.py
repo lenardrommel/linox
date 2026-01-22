@@ -58,7 +58,7 @@ class Toeplitz(LinearOperator):
 
         return result
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         return jsp.linalg.toeplitz(self.v)
 
     def from_matrix(self, matrix: jax.Array) -> "Toeplitz":

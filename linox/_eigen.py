@@ -67,8 +67,8 @@ class EigenD(LinearOperator):
     def _matmul(self, vec: jax.Array) -> jax.Array:
         return self._Q @ (self._Lambda @ (self._Q.T @ vec))
 
-    def todense(self) -> jax.Array:
-        Q_dense = self._Q.todense()
+    def _todense(self) -> jax.Array:
+        Q_dense = self._Q._todense()
         lam = self.eigenvalues
         return Q_dense @ (lam[:, None] * Q_dense.T)
 
@@ -122,7 +122,7 @@ def _(a: EigenD) -> LinearOperator:
 
 @diagonal.dispatch
 def _(a: EigenD) -> jax.Array:
-    Q_dense = a.Q.todense()
+    Q_dense = a.Q._todense()
     lam = a.eigenvalues
     return jnp.sum(Q_dense**2 * lam[None, :], axis=1)
 

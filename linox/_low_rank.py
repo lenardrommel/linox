@@ -1,3 +1,5 @@
+# _low_rank.py
+
 r"""Low rank representations as linear operators.
 
 This module implements various low rank representations as linear operators, including:
@@ -67,7 +69,7 @@ class LowRank(LinearOperator):
     def _matmul(self, arr: jnp.array) -> jnp.array:
         return self.U @ (self.S[:, None] * (self.V.T @ arr))
 
-    def todense(self) -> jnp.array:
+    def _todense(self) -> jnp.array:
         return self.U @ jnp.diag(self.S) @ self.V.T
 
     def transpose(self) -> "LowRank":

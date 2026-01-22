@@ -58,7 +58,7 @@ class Matrix(LinearOperator):
     def _matmul(self, vector: jax.Array) -> jax.Array:
         return self.A @ vector
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         _warn(f"Converting Matrix of shape {self.shape} to dense array.")
         return self.A
 
@@ -186,7 +186,7 @@ class Identity(LinearOperator):
             ),
         )
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         return jnp.broadcast_to(jnp.eye(self.shape[-1], dtype=self.dtype), self.shape)
 
     def transpose(self) -> "Identity":
@@ -296,7 +296,7 @@ class Diagonal(LinearOperator):
     def _matmul(self, vector: jax.Array) -> jax.Array:
         return self.diag[..., None] * vector
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         return _batch_jnp_diag(self.diag)
 
     def transpose(self) -> "Diagonal":
@@ -448,7 +448,7 @@ class Scalar(LinearOperator):
     def _matmul(self, vector: jax.Array) -> jax.Array:
         return self.scalar * vector
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         return self
 
     def transpose(self) -> "Scalar":
@@ -535,7 +535,7 @@ class Zero(LinearOperator):
             dtype=self.dtype,
         )
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         return jnp.zeros(self.shape, dtype=self.dtype)
 
     def transpose(self) -> "Zero":
@@ -652,7 +652,7 @@ class Ones(LinearOperator):
             ),
         )
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         return jnp.ones(self.shape, dtype=self.dtype)
 
     def transpose(self) -> "Ones":

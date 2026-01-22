@@ -14,8 +14,25 @@ Usage:
 from __future__ import annotations
 
 import os
+import time
+from dataclasses import dataclass
+
+from linox.typing import AnyType, CallableType
 
 _DEBUG: bool = os.getenv("LINOX_DEBUG", "0") not in ("0", "false", "False", "")
+_DEBUG_HOOK: CallableType[["DebugEvent"], None] | None = None
+
+
+@dataclass(frozen=True)
+class DebugEvent:
+    kind: str  # e.g. "densify", "solve_fallback", "eigh_dense"
+    msg: str
+    op_type: str | None = None
+    op_id: int | None = None
+    shape: AnyType = None
+    dtype: AnyType = None
+    meta: dict[str, AnyType] | None = None
+    t: float = 0.0
 
 
 def set_debug(value: bool) -> None:
@@ -29,6 +46,21 @@ def is_debug() -> bool:
     return _DEBUG
 
 
+def set_debug_hook(hook: CallableType[[DebugEvent], None] | None) -> None:
+    """Register/unregister a debug hook that receives DebugEvent objects."""
+    global _DEBUG_HOOK
+    _DEBUG_HOOK = hook
+
+
+def emit(event: DebugEvent) -> None:
+    """Emit a structured debug event to the hook (if any)."""
+    if _DEBUG_HOOK is not None:
+        # set timestamp lazily
+        if event.t == 0.0:
+            object.__setattr__(event, "t", time.time())  # dataclass frozen workaround
+        _DEBUG_HOOK(event)
+
+
 def warn(msg: str, *, prefix: str = "Warning") -> None:
     """Conditionally print a warning message if debug is enabled.
 
@@ -38,3 +70,4 @@ def warn(msg: str, *, prefix: str = "Warning") -> None:
     """
     if _DEBUG:
         print(f"{prefix}: {msg}")
+        emit(DebugEvent(kind="warn", msg=f"{prefix}: {msg}"))

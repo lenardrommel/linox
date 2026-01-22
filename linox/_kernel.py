@@ -84,7 +84,7 @@ class ArrayKernel(KernelOperator):
             kernel=lambda x, y: self.kernel(y, x), x0=self.x1, x1=self.x0
         )
 
-    def todense(self):
+    def _todense(self):
         """Convert the kernel matrix to a dense format.
 
         Returns:
@@ -111,7 +111,7 @@ class ArrayKernel(KernelOperator):
 @lsqrt.dispatch
 def _(a: ArrayKernel) -> jax.Array:
     _jitter = 1e-6 if a.dtype == jnp.float32 else 1e-10
-    return jnp.linalg.cholesky(a.todense() + _jitter * jnp.eye(a.shape[0]))
+    return jnp.linalg.cholesky(a._todense() + _jitter * jnp.eye(a.shape[0]))
 
 
 # Register ArrayKernel as a PyTree
@@ -148,8 +148,8 @@ class ToeplitzKernel(KernelOperator):
             kernel=lambda x, y: self.kernel(y, x), x0=self.x0, x1=None
         )
 
-    def todense(self) -> jax.Array:
-        return self._toeplitz_operator.todense()
+    def _todense(self) -> jax.Array:
+        return self._toeplitz_operator._todense()
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self.kernel, self.x0, self.x1)

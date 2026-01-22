@@ -2,13 +2,14 @@
 
 import operator
 from functools import reduce
+from this import d
 from typing import Union
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 
-from linox import utils
+from linox import config, utils
 from linox.typing import DTypeLike, ScalarLike, ShapeLike
 
 BinaryOperandType = Union["LinearOperator", ScalarLike, jnp.ndarray]
@@ -116,20 +117,42 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
             f"<{self.__class__.__name__} with shape={self.shape}, dtype={self.dtype}>"
         )
 
+    def graph(self, **kwargs):
+        from linox._graph import linop_graph
+
+        return linop_graph(self, **kwargs)
+
+    def graph_str(self, **kwargs):
+        return self.graph(**kwargs).pretty()
+
     ########################################################################
     # Default Methods that should be overwritten
     ########################################################################
 
     def todense(self) -> jnp.ndarray:
+        config.emit(
+            config.DebugEvent(
+                kind="densify",
+                msg="todense() called",
+                op_type=type(self).__name__,
+                op_id=id(self),
+                shape=getattr(self, "shape", None),
+                dtype=getattr(self, "dtype", None),
+            )
+        )
         return self @ jnp.eye(self.shape[-1], dtype=self.dtype)
 
+    def _todense(self) -> jnp.ndarray:
+        msg = "Subclasses must implement _todense"
+        raise NotImplementedError(msg)
+
     def _matmul(self, other: jnp.ndarray) -> jnp.ndarray:
-        return self.todense() @ other
+        return self._todense() @ other
 
     #        return self.mv(other.swapaxes(-1, -2)).swapaxes(-1, -2)
 
     def transpose(self) -> "LinearOperator":
-        return self.todense().swapaxes(-1, -2)
+        return self._todense().swapaxes(-1, -2)
 
     @property
     def T(self) -> "LinearOperator":
@@ -230,7 +253,7 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
         return (
             res
             if isLazyEvaluation
-            else (res[0, :] if isinstance(res, jnp.ndarray) else res.todense()[0])
+            else (res[0, :] if isinstance(res, jnp.ndarray) else res._todense()[0])
         )
 
     def __call__(self, arr: BinaryOperandType) -> "LinearOperator":

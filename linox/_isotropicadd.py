@@ -188,8 +188,8 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
     def _matmul(self, arr: jax.Array):  # noqa: ANN202
         return self._s @ arr + self._A @ arr
 
-    def todense(self) -> jax.Array:
-        return self._s.todense() + self._A.todense()
+    def _todense(self) -> jax.Array:
+        return self._s._todense() + self._A._todense()
 
 
 @lcholesky.dispatch

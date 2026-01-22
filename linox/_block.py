@@ -1,3 +1,5 @@
+# _block.py
+
 r"""Block matrix operations for linear operators.
 
 This module implements various block matrix operations for linear operators, including:
@@ -80,7 +82,7 @@ class BlockMatrix(LinearOperator):
         results = []
         start_idx = 0
         for size in self._col_sizes:
-            results.append(x[..., start_idx:start_idx + size, :])
+            results.append(x[..., start_idx : start_idx + size, :])
             start_idx += size
         return results
 
@@ -104,14 +106,14 @@ class BlockMatrix(LinearOperator):
         # Concatenate the results to form the final matrix
         return jnp.concatenate(row_wise_results, axis=-2)
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         """Convert the block matrix to a dense matrix."""
         blocks = [
             [None for _ in range(self._block_shape[1])]
             for _ in range(self._block_shape[0])
         ]
         for i, j in np.ndindex(self._block_shape):
-            blocks[i][j] = self._blocks[i][j].todense()
+            blocks[i][j] = self._blocks[i][j]._todense()
         return jnp.block(blocks)
 
     def transpose(self) -> "BlockMatrix":
@@ -210,12 +212,12 @@ class BlockMatrix2x2(LinearOperator):
             axis=-2,
         )
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         """Convert the block matrix to a dense matrix."""
-        A = self.A.todense()
-        B = self.B.todense()
-        C = self.C.todense()
-        D = self.D.todense()
+        A = self.A._todense()
+        B = self.B._todense()
+        C = self.C._todense()
+        D = self.D._todense()
 
         return jnp.block([[A, B], [C, D]])
 
@@ -289,8 +291,8 @@ class BlockDiagonal(LinearOperator):
         )
         return res
 
-    def todense(self) -> jax.Array:
-        return jax.scipy.linalg.block_diag(*[block.todense() for block in self.blocks])
+    def _todense(self) -> jax.Array:
+        return jax.scipy.linalg.block_diag(*[block._todense() for block in self.blocks])
 
     def transpose(self) -> "BlockDiagonal":
         return BlockDiagonal(*[block.transpose() for block in self.blocks])

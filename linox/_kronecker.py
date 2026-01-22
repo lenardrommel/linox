@@ -27,7 +27,9 @@ from linox._arithmetic import (
     leigh,
     linverse,
     lpinverse,
+    lpsolve,
     lqr,
+    lsolve,
     lsqrt,
     slogdet,
     svd,
@@ -107,8 +109,8 @@ class Kronecker(LinearOperator):
 
         return y
 
-    def todense(self) -> jax.Array:
-        return jnp.kron(self.A.todense(), self.B.todense())
+    def _todense(self) -> jax.Array:
+        return jnp.kron(self.A._todense(), self.B._todense())
 
     def transpose(self) -> "Kronecker":
         return Kronecker(self.A.transpose(), self.B.transpose())
@@ -122,9 +124,127 @@ def _(op: Kronecker) -> Kronecker:
     return Kronecker(linverse(op.A), linverse(op.B))
 
 
+def _solve_left(A, M):
+    """
+    Solve A X = M for X, where A is (n,n) linop and
+    M is (..., n, k). Returns (..., n, k).
+    """
+    n = A.shape[0]
+    k = M.shape[-1]
+    batch = M.shape[:-2]
+    M2 = M.reshape((-1, n, k))  # (B, n, k)
+    X2 = jax.vmap(lambda rhs: lsolve(A, rhs))(M2)
+    return X2.reshape(batch + (n, k))
+
+
+@lsolve.dispatch
+def _(op: Kronecker, b: jax.Array) -> jax.Array:
+    squeeze_vec = False
+    if b.ndim == 1:
+        b = b[:, None]
+        squeeze_vec = True
+
+    mA, nA = op.A.shape
+    mB, nB = op.B.shape
+    if mA != nA or mB != nB:
+        msg = f"Square factors required, got {op.A.shape}, {op.B.shape}"
+        raise ValueError(msg)
+    if b.shape[-2] != mA * mB:
+        msg = f"Shape mismatch: op.shape={op.shape}, b.shape={b.shape}"
+        raise ValueError(msg)
+
+    # reshape b into (..., mA, mB, r) in a way consistent with your matmul
+    r = b.shape[-1]
+    y = jnp.swapaxes(b, -2, -1)  # (..., r, m)
+    y = y.reshape((*y.shape[:-1], mA, mB))  # (..., r, mA, mB)
+
+    # bring r to the end: (..., mA, mB, r)
+    y = jnp.swapaxes(y, -3, -1)  # (..., mB, mA, r)
+    y = jnp.swapaxes(y, -3, -2)  # (..., mA, mB, r)
+
+    # Undo A-step (A acted on the mA dimension in your matmul pipeline)
+    # We need solve A X = Y for each (mB, r) slice
+    Y = y.reshape(y.shape[:-3] + (mA, mB * r))  # (..., mA, mB*r)
+    X = _solve_left(op.A, Y)  # (..., mA, mB*r)
+    X = X.reshape(y.shape[:-3] + (mA, mB, r))  # (..., mA, mB, r)
+
+    # Undo B-step: solve B Z = (X swapped appropriately)
+    Xs = jnp.swapaxes(X, -3, -2)  # (..., mB, mA, r)
+    Y2 = Xs.reshape(Xs.shape[:-3] + (mB, mA * r))  # (..., mB, mA*r)
+    Z2 = _solve_left(op.B, Y2)  # (..., mB, mA*r)
+    Z = Z2.reshape(Xs.shape[:-3] + (mB, mA, r))  # (..., mB, mA, r)
+
+    # swap back and vectorize to (mA*mB, r)
+    Z = jnp.swapaxes(Z, -3, -2)  # (..., mA, mB, r)
+    out = Z.reshape(Z.shape[:-3] + (mA * mB, r))
+
+    if squeeze_vec:
+        out = out[:, 0]
+    return out
+
+
 @lpinverse.dispatch
 def _(op: Kronecker) -> Kronecker:
     return Kronecker(lpinverse(op.A), lpinverse(op.B))
+
+
+def _psolve_left(A, M):
+    """
+    Solve A X = M for X, where A is (n,n) linop and
+    M is (..., n, k). Returns (..., n, k).
+    """
+    n = A.shape[0]
+    k = M.shape[-1]
+    batch = M.shape[:-2]
+    M2 = M.reshape((-1, n, k))  # (B, n, k)
+    X2 = jax.vmap(lambda rhs: lpsolve(A, rhs))(M2)
+    return X2.reshape(batch + (n, k))
+
+
+@lpsolve.dispatch
+def _(op: Kronecker, b: jax.Array) -> jax.Array:
+    squeeze_vec = False
+    if b.ndim == 1:
+        b = b[:, None]
+        squeeze_vec = True
+
+    mA, nA = op.A.shape
+    mB, nB = op.B.shape
+    if mA != nA or mB != nB:
+        msg = f"Square factors required, got {op.A.shape}, {op.B.shape}"
+        raise ValueError(msg)
+    if b.shape[-2] != mA * mB:
+        msg = f"Shape mismatch: op.shape={op.shape}, b.shape={b.shape}"
+        raise ValueError(msg)
+
+    # reshape b into (..., mA, mB, r) in a way consistent with your matmul
+    r = b.shape[-1]
+    y = jnp.swapaxes(b, -2, -1)  # (..., r, m)
+    y = y.reshape((*y.shape[:-1], mA, mB))  # (..., r, mA, mB)
+
+    # bring r to the end: (..., mA, mB, r)
+    y = jnp.swapaxes(y, -3, -1)  # (..., mB, mA, r)
+    y = jnp.swapaxes(y, -3, -2)  # (..., mA, mB, r)
+
+    # Undo A-step (A acted on the mA dimension in your matmul pipeline)
+    # We need solve A X = Y for each (mB, r) slice
+    Y = y.reshape(y.shape[:-3] + (mA, mB * r))  # (..., mA, mB*r)
+    X = _psolve_left(op.A, Y)  # (..., mA, mB*r)
+    X = X.reshape(y.shape[:-3] + (mA, mB, r))  # (..., mA, mB, r)
+
+    # Undo B-step: solve B Z = (X swapped appropriately)
+    Xs = jnp.swapaxes(X, -3, -2)  # (..., mB, mA, r)
+    Y2 = Xs.reshape(Xs.shape[:-3] + (mB, mA * r))  # (..., mB, mA*r)
+    Z2 = _psolve_left(op.B, Y2)  # (..., mB, mA*r)
+    Z = Z2.reshape(Xs.shape[:-3] + (mB, mA, r))  # (..., mB, mA, r)
+
+    # swap back and vectorize to (mA*mB, r)
+    Z = jnp.swapaxes(Z, -3, -2)  # (..., mA, mB, r)
+    out = Z.reshape(Z.shape[:-3] + (mA * mB, r))
+
+    if squeeze_vec:
+        out = out[:, 0]
+    return out
 
 
 @lsqrt.dispatch
@@ -429,7 +549,7 @@ class KroneckerSelectedEigenvectors(LinearOperator):
     def transpose(self) -> "KroneckerSelectedEigenvectorsTranspose":
         return KroneckerSelectedEigenvectorsTranspose(self)
 
-    def todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         cols = []
         for l in range(self._k):
             vec_l = self._gathered[0][:, l]
@@ -461,8 +581,8 @@ class KroneckerSelectedEigenvectorsTranspose(LinearOperator):
     def transpose(self) -> KroneckerSelectedEigenvectors:
         return self._parent
 
-    def todense(self) -> jax.Array:
-        return self._parent.todense().T
+    def _todense(self) -> jax.Array:
+        return self._parent._todense().T
 
 
 jax.tree_util.register_pytree_node_class(KroneckerSelectedEigenvectors)
@@ -516,7 +636,7 @@ def topk_eigh(
         order = jnp.argsort(-w) if largest else jnp.argsort(w)
         factor_eigs.append(w[order])
         sort_indices.append(order)
-        factor_vecs.append(Q.todense() if hasattr(Q, "todense") else jnp.asarray(Q))
+        factor_vecs.append(Q._todense() if hasattr(Q, "_todense") else jnp.asarray(Q))
 
     sizes = [len(w) for w in factor_eigs]
 
