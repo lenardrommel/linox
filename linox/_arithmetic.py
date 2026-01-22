@@ -65,6 +65,13 @@ def _rhs_rows(b: jax.Array) -> int:
     raise ValueError(msg)
 
 
+def _as_2d_rhs(b: jax.Array) -> tuple[jax.Array, bool]:
+    """Return (b2d, squeeze) where b2d has shape (..., m, k)."""
+    if b.ndim == 1:
+        return b[:, None], True
+    return b, False
+
+
 # all arithmetic functions
 @plum.dispatch
 def ladd(a: LinearOperator, b: LinearOperator) -> LinearOperator:
@@ -229,11 +236,20 @@ def lu_solve(a: LinearOperator, b: jax.Array) -> jax.Array:
 @plum.dispatch
 def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001
     """Solve the linear system Ax = b."""
-    if a.shape[-1] != _rhs_rows(b):
-        msg = f"Shape mismatch: {a.shape} and {b.shape}"
+    # if a.shape[-1] != _rhs_rows(b):
+    #     msg = f"Shape mismatch: {a.shape} and {b.shape}"
+    #     raise ValueError(msg)
+
+    # return jnp.linalg.pinv(a._todense(), rtol) @ b
+    b2d, squeeze = _as_2d_rhs(jnp.asarray(b))
+
+    # IMPORTANT: b lives in the *row space* of A, so rows(b) must match m = shape[-2]
+    if _rhs_rows(b2d) != a.shape[-2]:
+        msg = f"Shape mismatch: {a.shape} and {b2d.shape}"
         raise ValueError(msg)
 
-    return jnp.linalg.pinv(a._todense(), rtol) @ b
+    x = jnp.linalg.pinv(a._todense(), rtol=rtol) @ b2d
+    return x[..., 0] if squeeze else x
 
 
 @plum.dispatch

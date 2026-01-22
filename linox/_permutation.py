@@ -1,3 +1,5 @@
+# _permutation.py
+
 r"""Permutation operations for linear operators.
 
 This module implements permutation operations for linear operators, including:
@@ -20,6 +22,19 @@ DTYPE = jnp.float32
 @partial(jnp.vectorize, signature="(n,k),(n)->(n,k)")
 def _perm_op(_arr: jnp.ndarray, _indices: jnp.ndarray) -> jnp.ndarray:
     return jnp.take(_arr, _indices, axis=-2)
+
+
+def _permute_rows(x: jax.Array, perm: jax.Array) -> jax.Array:
+    squeeze = False
+    if x.ndim == perm.ndim:  # (..., n)
+        x = x[..., :, None]
+        squeeze = True
+
+    idx = perm[..., :, None]
+    idx = jnp.broadcast_to(idx, x.shape[:-2] + (x.shape[-2], x.shape[-1]))
+    y = jnp.take_along_axis(x, idx, axis=-2)
+
+    return y[..., 0] if squeeze else y
 
 
 class Permutation(LinearOperator):
@@ -48,8 +63,15 @@ class Permutation(LinearOperator):
             dtype=DTYPE,  # Otherwise operation not allowed
         )
 
-    def _matmul(self, x: jnp.ndarray) -> jnp.ndarray:
-        return _perm_op(x, self._perm)
+    # def _matmul(self, x: jnp.ndarray) -> jnp.ndarray:
+    #     return _perm_op(x, self._perm)
+    def _matmul(self, x: jax.Array) -> jax.Array:
+        return _permute_rows(x, self._perm)
+
+    def _todense(self) -> jax.Array:
+        n = self.shape[-1]
+        I = jnp.eye(n, dtype=self.dtype)
+        return _permute_rows(I, self._perm)
 
     def transpose(self) -> "Permutation":
         return Permutation(self._perm_inv, self._perm)
