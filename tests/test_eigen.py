@@ -75,9 +75,9 @@ def test_eigend_leigh(square_spd_eigend: tuple[EigenD, jax.Array]) -> None:
     eigend, _ = square_spd_eigend
     eigenvalues, eigenvectors = linox.leigh(eigend)
     assert jnp.allclose(eigend.eigenvalues, eigenvalues), "Eigenvalues do not match"
-    assert jnp.allclose(
-        eigenvectors.todense(), eigend.Q.todense()
-    ), "Eigenvectors do not match"
+    assert jnp.allclose(eigenvectors.todense(), eigend.Q.todense()), (
+        "Eigenvectors do not match"
+    )
 
 
 def test_eigend_diagonal(square_spd_eigend: tuple[EigenD, jax.Array]) -> None:

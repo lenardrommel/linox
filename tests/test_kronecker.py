@@ -185,6 +185,16 @@ def test_inverse(square_spd_nested_kronecker: tuple[Kronecker, jax.Array]) -> No
     )
 
 
+def test_solve(square_spd_nested_kronecker: tuple[Kronecker, jax.Array]) -> None:
+    linop, matrix = square_spd_nested_kronecker
+    key = jax.random.PRNGKey(10)
+    vec = jax.random.normal(key, (matrix.shape[-1],))
+
+    linop_result = linox.lsolve(linop, vec)
+    matrix_result = jnp.linalg.solve(matrix, vec)
+    assert jnp.allclose(linop_result, matrix_result, atol=1e-6), "Solve does not match"
+
+
 def test_pinverse(
     square_spd_nested_kronecker: tuple[Kronecker, jax.Array],
 ) -> None:
@@ -198,6 +208,17 @@ def test_pinverse(
     vec = jax.random.normal(key, (matrix.shape[-1],))
     assert jnp.allclose(linop_pinv @ vec, matrix_pinv @ vec, atol=1e-6), (
         "Pseudo-inverse matvec does not match"
+    )
+
+
+def test_psolve(square_spd_nested_kronecker: tuple[Kronecker, jax.Array]) -> None:
+    linop, matrix = square_spd_nested_kronecker
+    key = jax.random.PRNGKey(10)
+    vec = jax.random.normal(key, (matrix.shape[-1],))
+    linop_result = linox.lpsolve(linop, vec)
+    matrix_result = jnp.linalg.pinv(matrix) @ vec
+    assert jnp.allclose(linop_result, matrix_result, atol=1e-6), (
+        "Pseudo-solve does not match"
     )
 
 

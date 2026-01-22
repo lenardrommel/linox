@@ -155,7 +155,7 @@ def todense(x: LinearOperatorLike) -> jnp.ndarray:
     Returns:
         Dense matrix.
     """
-    return x.todense() if isinstance(x, LinearOperator) else x
+    return x._todense() if isinstance(x, LinearOperator) else x
 
 
 def allclose(
@@ -189,5 +189,5 @@ def as_dense(a: LinearOperatorLike) -> jnp.ndarray:
         Dense matrix.
     """
     if isinstance(a, LinearOperator):
-        return a.todense()
+        return a._todense()
     return a

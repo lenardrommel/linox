@@ -56,6 +56,15 @@ def _deprecated_l_prefix(func_name: str):
     return decorator
 
 
+def _rhs_rows(b: jax.Array) -> int:
+    if b.ndim == 1:
+        return b.shape[0]
+    if b.ndim >= 2:
+        return b.shape[-2]
+    msg = f"Unsupported rhs ndim: {b.ndim}"
+    raise ValueError(msg)
+
+
 # all arithmetic functions
 @plum.dispatch
 def ladd(a: LinearOperator, b: LinearOperator) -> LinearOperator:
@@ -189,13 +198,11 @@ def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
 
 @plum.dispatch
 def lsolve(a: LinearOperator, b: jax.Array) -> jax.Array:
-    """Solve the linear system Ax = b."""
-    if a.shape[-1] != b.shape[0]:
-        msg = f"Shape mismatch: {a.shape} and {b.shape}"
-        raise ValueError(msg)
-    # print(f"Warning: Linear operator {a} is densed for lsolve computation.")  # noqa: T201
-    # return jax.scipy.linalg.solve(a._todense(), b, assume_a="sym")
-    return linverse(a) @ b
+    if a.shape[-1] != _rhs_rows(b):
+        raise ValueError(f"Shape mismatch: {a.shape} and {b.shape}")
+
+    _warn(f"Linear operator {a} is densed for lsolve computation.")
+    return jax.scipy.linalg.solve(a._todense(), b, assume_a="sym")
 
 
 @plum.dispatch
@@ -211,7 +218,7 @@ def lu_factor(
 @plum.dispatch
 def lu_solve(a: LinearOperator, b: jax.Array) -> jax.Array:
     """Solve the linear system Ax = b given the LU factorization of A."""
-    if a.shape[-1] != b.shape[0]:
+    if a.shape[-1] != _rhs_rows(b):
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
     lu, piv = lu_factor(a)
@@ -222,12 +229,11 @@ def lu_solve(a: LinearOperator, b: jax.Array) -> jax.Array:
 @plum.dispatch
 def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001
     """Solve the linear system Ax = b."""
-    if a.shape[-1] != b.shape[0]:
+    if a.shape[-1] != _rhs_rows(b):
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
 
     return jnp.linalg.pinv(a._todense(), rtol) @ b
-    # return lpinverse(a) @ b
 
 
 @plum.dispatch
@@ -431,7 +437,7 @@ class ScaledLinearOperator(LinearOperator):
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return (self.operator @ arr) * self.scalar
 
-    def __todense(self) -> jax.Array:
+    def _todense(self) -> jax.Array:
         return self.operator._todense() * self.scalar
 
     def transpose(self) -> LinearOperator:

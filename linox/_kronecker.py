@@ -27,10 +27,10 @@ from linox._arithmetic import (
     leigh,
     linverse,
     lpinverse,
-    lpsolve,
     lqr,
     lsolve,
     lsqrt,
+    psolve,
     slogdet,
     svd,
 )
@@ -197,11 +197,11 @@ def _psolve_left(A, M):
     k = M.shape[-1]
     batch = M.shape[:-2]
     M2 = M.reshape((-1, n, k))  # (B, n, k)
-    X2 = jax.vmap(lambda rhs: lpsolve(A, rhs))(M2)
+    X2 = jax.vmap(lambda rhs: psolve(A, rhs))(M2)
     return X2.reshape(batch + (n, k))
 
 
-@lpsolve.dispatch
+@psolve.dispatch
 def _(op: Kronecker, b: jax.Array) -> jax.Array:
     squeeze_vec = False
     if b.ndim == 1:
