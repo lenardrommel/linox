@@ -29,9 +29,8 @@ import jax.numpy as jnp
 import plum  # type: ignore  # noqa: PGH003
 
 import linox
-from linox import utils
+from linox import config, utils
 from linox._linear_operator import LinearOperator
-from linox import config
 from linox.config import warn as _warn
 from linox.typing import ArrayLike, ScalarLike, ShapeLike
 
@@ -211,6 +210,13 @@ def lsolve(a: LinearOperator, b: jax.Array) -> jax.Array:
 
     _warn(f"Linear operator {a} is densed for lsolve computation.")
     return jax.scipy.linalg.solve(a._todense(), b, assume_a="sym")
+
+
+@lsolve.dispatch
+def _(a: LinearOperator, b: LinearOperator) -> jax.Array:
+    """Solve Ax = B where B is a LinearOperator by converting B to dense."""
+    _warn(f"Linear operator {b} is densed for lsolve computation.")
+    return lsolve(a, b._todense())
 
 
 @plum.dispatch

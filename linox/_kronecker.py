@@ -268,13 +268,26 @@ def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
     - Eigenvectors as :math:`Q_A \otimes Q_B` (Kronecker of orthogonal matrices)
 
     Both are LinearOperators, avoiding dense eigenvalue arrays for large products.
+    Handles nested Kronecker structures by checking if eigenvalues are already
+    LinearOperators.
     """
     from linox._matrix import Diagonal
 
     wA, QA = leigh(op.A)
     wB, QB = leigh(op.B)
 
-    Lambda = Kronecker(Diagonal(wA), Diagonal(wB))
+    # Handle nested Kronecker: eigenvalues may already be LinearOperators
+    if isinstance(wA, LinearOperator):
+        LamA = wA
+    else:
+        LamA = Diagonal(wA)
+
+    if isinstance(wB, LinearOperator):
+        LamB = wB
+    else:
+        LamB = Diagonal(wB)
+
+    Lambda = Kronecker(LamA, LamB)
     Q = Kronecker(QA, QB)
 
     return Lambda, Q
@@ -589,8 +602,53 @@ jax.tree_util.register_pytree_node_class(KroneckerSelectedEigenvectors)
 jax.tree_util.register_pytree_node_class(KroneckerSelectedEigenvectorsTranspose)
 
 
+def extract_kronecker_factors(
+    op: LinearOperator,
+) -> tuple[list[LinearOperator], jax.Array | None]:
+    r"""Extract leaf factors from a (possibly nested) Kronecker structure.
+
+    Handles complex nested structures like:
+    - ``Kronecker(A, Kronecker(B, C))`` → ``[A, B, C]``
+    - ``ScaledLinearOperator(Kronecker(...), scalar)`` → ``([factors], scalar)``
+
+    Args:
+        op: A LinearOperator that may be a Kronecker product, possibly nested
+            or wrapped in a ScaledLinearOperator.
+
+    Returns:
+        factors: List of leaf LinearOperators (non-Kronecker factors).
+        scalar: The scalar multiplier if op was wrapped in ScaledLinearOperator,
+            otherwise None.
+
+    Example:
+        >>> A = Matrix(jnp.eye(3))
+        >>> B = Matrix(jnp.eye(4))
+        >>> C = Matrix(jnp.eye(5))
+        >>> kron = Kronecker(A, Kronecker(B, C))
+        >>> factors, scalar = extract_kronecker_factors(kron)
+        >>> len(factors)  # 3
+    """
+    from linox._arithmetic import ScaledLinearOperator
+
+    scalar = None
+
+    # Unwrap ScaledLinearOperator if present
+    if isinstance(op, ScaledLinearOperator):
+        scalar = op.scalar
+        op = op.operator
+
+    def _collect_factors(node: LinearOperator) -> list[LinearOperator]:
+        """Recursively collect leaf factors from Kronecker tree."""
+        if isinstance(node, Kronecker):
+            return _collect_factors(node.A) + _collect_factors(node.B)
+        return [node]
+
+    factors = _collect_factors(op)
+    return factors, scalar
+
+
 def topk_eigh(
-    factors: Sequence[LinearOperator | jax.Array],
+    op_or_factors: LinearOperator | Sequence[LinearOperator | jax.Array],
     k: int,
     *,
     largest: bool = True,
@@ -606,7 +664,9 @@ def topk_eigh(
         eigenvalues are non-negative and the monotone grid property holds.
 
     Args:
-        factors: Sequence of symmetric PSD LinearOperators or arrays.
+        op_or_factors: Either a single LinearOperator (which may be a nested
+            Kronecker structure, optionally wrapped in ScaledLinearOperator),
+            or a sequence of symmetric PSD LinearOperators/arrays as factors.
         k: Number of eigenvalues to return.
         largest: If True, return largest k eigenvalues; else smallest k.
 
@@ -616,13 +676,21 @@ def topk_eigh(
             k eigenvectors without forming the full Kronecker product.
 
     Example:
-        >>> from linox import Matrix, topk_eigh
+        >>> from linox import Matrix, topk_eigh, Kronecker
         >>> A = Matrix(jnp.eye(3) * 2)
         >>> B = Matrix(jnp.eye(4) * 3)
+        >>> # Pass factors directly
         >>> eigs, Q = topk_eigh([A, B], k=5, largest=True)
-        >>> v = Q @ jnp.ones(5)
+        >>> # Or pass a Kronecker operator
+        >>> kron = Kronecker(A, B)
+        >>> eigs2, Q2 = topk_eigh(kron, k=5, largest=True)
     """
-    factors = [utils.as_linop(f) for f in factors]
+    # Handle single LinearOperator input (possibly nested Kronecker)
+    scalar = None
+    if isinstance(op_or_factors, LinearOperator):
+        factors, scalar = extract_kronecker_factors(op_or_factors)
+    else:
+        factors = [utils.as_linop(f) for f in op_or_factors]
     d = len(factors)
 
     factor_eigs = []
@@ -682,4 +750,10 @@ def topk_eigh(
         factor_vecs, selected_indices, sort_indices
     )
 
-    return jnp.array(eigenvalues), eigenvectors
+    eig_array = jnp.array(eigenvalues)
+
+    # If input was ScaledLinearOperator, multiply eigenvalues by scalar
+    if scalar is not None:
+        eig_array = scalar * eig_array
+
+    return eig_array, eigenvectors

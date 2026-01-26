@@ -2,7 +2,6 @@
 
 import operator
 from functools import reduce
-from this import d
 from typing import Union
 
 import jax

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Callable, Union
 
 import jax
 import jax.numpy as jnp
+from jaxtyping import PRNGKeyArray
 
 if TYPE_CHECKING:
     import linox
@@ -108,3 +109,4 @@ NotImplementedType = type(NotImplemented)
 
 CallableType = Callable[..., Any]
 AnyType = Any
+Key = PRNGKeyArray

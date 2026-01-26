@@ -12,6 +12,7 @@ from linox._arithmetic import (
     leigh,
     linverse,
     lpinverse,
+    lsolve,
     lsqrt,
 )
 from linox._linear_operator import LinearOperator
@@ -212,8 +213,36 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
 
 
 # we need a log-determinant function here
-# TODO: Implement lsolve for IsotropicAdditiveLinearOperator via eigendecomposition
-# A \kron B + s I = (Q_A \kron Q_B) (Lambda_A \kron Lambda_B + s I) (Q_A \kron Q_B)^T
+
+
+@lsolve.dispatch
+def _(a: IsotropicAdditiveLinearOperator, b: jax.Array) -> jax.Array:
+    r"""Solve (sI + A)x = b using eigendecomposition.
+
+    For A = Q Λ Q^T, we have (sI + A) = Q(sI + Λ)Q^T, so:
+        x = Q diag(1/(s + λ)) Q^T b
+    """
+    a._ensure_eigh()  # noqa: SLF001
+    Q, S = a.Q, a.S  # cached
+    s = a.s.scalar
+
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+
+    # Q^T b
+    Qt_b = Q.T @ b
+
+    # diag(1/(s + λ)) @ Q^T b
+    inv_eigs = 1.0 / (s + eigs)
+    if Qt_b.ndim == 1:
+        scaled = inv_eigs * Qt_b
+    else:
+        scaled = inv_eigs[:, None] * Qt_b
+
+    # Q @ scaled
+    return Q @ scaled
 
 
 @linverse.dispatch
