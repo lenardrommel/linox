@@ -6,7 +6,12 @@ import pytest
 import pytest_cases
 
 import linox
-from linox._kronecker import Kronecker
+from linox._kronecker import (
+    Kronecker,
+    KroneckerSelectedEigenvectors,
+    extract_kronecker_factors,
+    topk_eigh,
+)
 from tests.test_linox_cases._kronecker_cases import (
     case_add,
     case_kronecker,
@@ -318,3 +323,203 @@ def test_pytree_registration() -> None:
     reconstructed_result = reconstructed @ test_vector
 
     assert jnp.allclose(original_result, reconstructed_result)
+
+
+# ============================================================================
+# Nested Kronecker and topk_eigh Tests
+# ============================================================================
+
+
+def test_leigh_nested_kronecker() -> None:
+    """Test leigh works correctly for nested Kronecker products."""
+    key = jax.random.PRNGKey(42)
+    k1, k2, k3, k4 = jax.random.split(key, 4)
+
+    # Create nested Kronecker: (A ⊗ B) ⊗ (C ⊗ D)
+    A = jax.random.normal(k1, (3, 3))
+    A = A @ A.T + jnp.eye(3) * 0.1
+    B = jax.random.normal(k2, (2, 2))
+    B = B @ B.T + jnp.eye(2) * 0.1
+    C = jax.random.normal(k3, (2, 2))
+    C = C @ C.T + jnp.eye(2) * 0.1
+    D = jax.random.normal(k4, (2, 2))
+    D = D @ D.T + jnp.eye(2) * 0.1
+
+    nested_kron = Kronecker(Kronecker(A, B), Kronecker(C, D))
+    dense_kron = jnp.kron(jnp.kron(A, B), jnp.kron(C, D))
+
+    # Get eigendecomposition
+    Lambda, Q = linox.leigh(nested_kron)
+
+    # Verify reconstruction: Q @ Lambda @ Q.T should equal original
+    reconstructed = (Q @ Lambda @ Q.T).todense()
+    assert jnp.allclose(reconstructed, dense_kron, atol=1e-5), (
+        f"Reconstruction error: {jnp.max(jnp.abs(reconstructed - dense_kron))}"
+    )
+
+
+def test_extract_kronecker_factors_simple() -> None:
+    """Test extract_kronecker_factors with simple Kronecker product."""
+    A = linox.Matrix(jnp.eye(3))
+    B = linox.Matrix(jnp.eye(4))
+    kron = Kronecker(A, B)
+
+    factors, scalar = extract_kronecker_factors(kron)
+
+    assert len(factors) == 2
+    assert scalar is None
+    assert factors[0].shape == (3, 3)
+    assert factors[1].shape == (4, 4)
+
+
+def test_extract_kronecker_factors_nested() -> None:
+    """Test extract_kronecker_factors with nested Kronecker products."""
+    A = linox.Matrix(jnp.eye(2))
+    B = linox.Matrix(jnp.eye(3))
+    C = linox.Matrix(jnp.eye(4))
+
+    nested_kron = Kronecker(A, Kronecker(B, C))
+
+    factors, scalar = extract_kronecker_factors(nested_kron)
+
+    assert len(factors) == 3
+    assert scalar is None
+    assert factors[0].shape == (2, 2)
+    assert factors[1].shape == (3, 3)
+    assert factors[2].shape == (4, 4)
+
+
+def test_extract_kronecker_factors_with_scalar() -> None:
+    """Test extract_kronecker_factors with ScaledLinearOperator wrapper."""
+    A = linox.Matrix(jnp.eye(3))
+    B = linox.Matrix(jnp.eye(4))
+    kron = Kronecker(A, B)
+    scaled_kron = 2.5 * kron
+
+    factors, scalar = extract_kronecker_factors(scaled_kron)
+
+    assert len(factors) == 2
+    assert jnp.isclose(scalar, 2.5)
+
+
+def test_topk_eigh_with_factors() -> None:
+    """Test topk_eigh with list of factors."""
+    key = jax.random.PRNGKey(42)
+    k1, k2 = jax.random.split(key)
+
+    A = jax.random.normal(k1, (3, 3))
+    A = A @ A.T + jnp.eye(3) * 0.1
+    B = jax.random.normal(k2, (4, 4))
+    B = B @ B.T + jnp.eye(4) * 0.1
+
+    k = 5
+    eigs, vecs = topk_eigh([linox.Matrix(A), linox.Matrix(B)], k=k, largest=True)
+
+    # Verify with dense computation
+    dense_kron = jnp.kron(A, B)
+    dense_eigs, _ = jnp.linalg.eigh(dense_kron)
+    dense_topk = jnp.sort(dense_eigs)[::-1][:k]
+
+    assert jnp.allclose(eigs, dense_topk, atol=1e-5)
+    assert isinstance(vecs, KroneckerSelectedEigenvectors)
+    assert vecs.shape == (12, k)
+
+
+def test_topk_eigh_with_kronecker_operator() -> None:
+    """Test topk_eigh with single Kronecker LinearOperator."""
+    key = jax.random.PRNGKey(42)
+    k1, k2 = jax.random.split(key)
+
+    A = jax.random.normal(k1, (3, 3))
+    A = A @ A.T + jnp.eye(3) * 0.1
+    B = jax.random.normal(k2, (4, 4))
+    B = B @ B.T + jnp.eye(4) * 0.1
+
+    kron = Kronecker(linox.Matrix(A), linox.Matrix(B))
+
+    k = 5
+    eigs, vecs = topk_eigh(kron, k=k, largest=True)
+
+    # Verify with dense computation
+    dense_kron = jnp.kron(A, B)
+    dense_eigs, _ = jnp.linalg.eigh(dense_kron)
+    dense_topk = jnp.sort(dense_eigs)[::-1][:k]
+
+    assert jnp.allclose(eigs, dense_topk, atol=1e-5)
+
+
+def test_topk_eigh_with_scaled_kronecker() -> None:
+    """Test topk_eigh with ScaledLinearOperator(Kronecker(...))."""
+    key = jax.random.PRNGKey(42)
+    k1, k2 = jax.random.split(key)
+
+    A = jax.random.normal(k1, (3, 3))
+    A = A @ A.T + jnp.eye(3) * 0.1
+    B = jax.random.normal(k2, (4, 4))
+    B = B @ B.T + jnp.eye(4) * 0.1
+
+    scale = 2.0
+    kron = Kronecker(linox.Matrix(A), linox.Matrix(B))
+    scaled_kron = scale * kron
+
+    k = 5
+    eigs, vecs = topk_eigh(scaled_kron, k=k, largest=True)
+
+    # Verify with dense computation
+    dense_kron = scale * jnp.kron(A, B)
+    dense_eigs, _ = jnp.linalg.eigh(dense_kron)
+    dense_topk = jnp.sort(dense_eigs)[::-1][:k]
+
+    assert jnp.allclose(eigs, dense_topk, atol=1e-5)
+
+
+def test_topk_eigh_with_nested_kronecker() -> None:
+    """Test topk_eigh with nested Kronecker structure."""
+    key = jax.random.PRNGKey(42)
+    k1, k2, k3 = jax.random.split(key, 3)
+
+    A = jax.random.normal(k1, (2, 2))
+    A = A @ A.T + jnp.eye(2) * 0.1
+    B = jax.random.normal(k2, (3, 3))
+    B = B @ B.T + jnp.eye(3) * 0.1
+    C = jax.random.normal(k3, (2, 2))
+    C = C @ C.T + jnp.eye(2) * 0.1
+
+    # Nested: A ⊗ (B ⊗ C)
+    nested_kron = Kronecker(linox.Matrix(A), Kronecker(linox.Matrix(B), linox.Matrix(C)))
+
+    k = 5
+    eigs, vecs = topk_eigh(nested_kron, k=k, largest=True)
+
+    # Verify with dense computation
+    dense_kron = jnp.kron(A, jnp.kron(B, C))
+    dense_eigs, _ = jnp.linalg.eigh(dense_kron)
+    dense_topk = jnp.sort(dense_eigs)[::-1][:k]
+
+    assert jnp.allclose(eigs, dense_topk, atol=1e-5)
+
+
+def test_topk_eigh_eigenvector_correctness() -> None:
+    """Test that topk_eigh eigenvectors satisfy the eigenvalue equation."""
+    key = jax.random.PRNGKey(42)
+    k1, k2 = jax.random.split(key)
+
+    A = jax.random.normal(k1, (3, 3))
+    A = A @ A.T + jnp.eye(3) * 0.1
+    B = jax.random.normal(k2, (4, 4))
+    B = B @ B.T + jnp.eye(4) * 0.1
+
+    kron = Kronecker(linox.Matrix(A), linox.Matrix(B))
+    dense_kron = jnp.kron(A, B)
+
+    k = 3
+    eigs, vecs = topk_eigh(kron, k=k, largest=True)
+
+    # Verify Av = λv for each eigenpair
+    for i in range(k):
+        lam = eigs[i]
+        e_i = jnp.zeros(k).at[i].set(1.0)
+        v = vecs @ e_i  # Get i-th eigenvector
+        Av = dense_kron @ v
+        residual = jnp.linalg.norm(Av - lam * v)
+        assert residual < 1e-5, f"Eigenpair {i}: λ={lam:.6f}, ||Av - λv|| = {residual:.2e}"

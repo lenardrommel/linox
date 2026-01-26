@@ -6,6 +6,7 @@ import pytest
 import pytest_cases
 
 import linox
+from linox._arithmetic import lsolve
 from linox._isotropicadd import IsotropicAdditiveLinearOperator, linverse, lpinverse
 from linox.typing import ShapeLike, ShapeType
 from linox.utils import as_dense
@@ -267,4 +268,72 @@ def test_cholesky():
     reconstructed = (lin_chol @ lin_chol.T).todense()
     assert jnp.allclose(reconstructed, matrix, atol=1e-5), (
         f"L @ L.T:\n{reconstructed}\nOriginal matrix:\n{matrix}"
+    )
+
+
+# ============================================================================
+# lsolve Tests
+# ============================================================================
+
+
+def test_lsolve_isotropic_additive_vector():
+    """Test lsolve for IsotropicAdditiveLinearOperator with vector RHS."""
+    shape = (4, 4)
+    linop, matrix = sample_spd_isotropic_additive(shape)
+    key = jax.random.PRNGKey(42)
+    vec = jax.random.normal(key, (shape[-1],))
+
+    linop_result = lsolve(linop, vec)
+    matrix_result = jnp.linalg.solve(matrix, vec)
+
+    assert jnp.allclose(linop_result, matrix_result, atol=1e-5), (
+        f"Linop solve:\n{linop_result}\nMatrix solve:\n{matrix_result}"
+    )
+
+
+def test_lsolve_isotropic_additive_matrix():
+    """Test lsolve for IsotropicAdditiveLinearOperator with matrix RHS."""
+    shape = (4, 4)
+    linop, matrix = sample_spd_isotropic_additive(shape)
+    key = jax.random.PRNGKey(42)
+    rhs = jax.random.normal(key, (shape[-1], 3))
+
+    linop_result = lsolve(linop, rhs)
+    matrix_result = jnp.linalg.solve(matrix, rhs)
+
+    assert jnp.allclose(linop_result, matrix_result, atol=1e-5), (
+        f"Linop solve:\n{linop_result}\nMatrix solve:\n{matrix_result}"
+    )
+
+
+def test_lsolve_isotropic_additive_kron():
+    """Test lsolve for IsotropicAdditiveLinearOperator with Kronecker structure."""
+    shape = (3, 3)
+    linop, matrix = sample_spd_isotropic_additive_kron(shape)
+    key = jax.random.PRNGKey(42)
+    vec = jax.random.normal(key, (matrix.shape[-1],))
+
+    linop_result = lsolve(linop, vec)
+    matrix_result = jnp.linalg.solve(matrix, vec)
+
+    assert jnp.allclose(linop_result, matrix_result, atol=1e-5), (
+        f"Linop solve:\n{linop_result}\nMatrix solve:\n{matrix_result}"
+    )
+
+
+def test_lsolve_with_linop_rhs():
+    """Test lsolve when RHS is a LinearOperator (should convert to dense)."""
+    shape = (4, 4)
+    linop, matrix = sample_spd_isotropic_additive(shape)
+
+    # Create a LinearOperator as RHS
+    key = jax.random.PRNGKey(42)
+    rhs_arr = jax.random.normal(key, (shape[-1], 2))
+    rhs_linop = linox.Matrix(rhs_arr)
+
+    linop_result = lsolve(linop, rhs_linop)
+    matrix_result = jnp.linalg.solve(matrix, rhs_arr)
+
+    assert jnp.allclose(linop_result, matrix_result, atol=1e-5), (
+        f"Linop solve:\n{linop_result}\nMatrix solve:\n{matrix_result}"
     )

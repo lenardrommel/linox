@@ -11,6 +11,8 @@ __pycache__/
 .venv/
 compare/
 
+geometric_bayesian/
+
 # IDEs and editors
 .vscode/
 .DS_Store
