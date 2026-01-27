@@ -17,6 +17,7 @@ from collections.abc import Sequence
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 from linox import utils
 from linox._arithmetic import (
@@ -334,10 +335,12 @@ def _(op: Kronecker) -> Kronecker:
 
 @ldet.dispatch
 def _(op: Kronecker) -> ProductLinearOperator:
-    return ProductLinearOperator([
-        ldet(op.A) ** op.B.shape[0],
-        ldet(op.B) ** op.A.shape[0],
-    ])
+    return ProductLinearOperator(
+        [
+            ldet(op.A) ** op.B.shape[0],
+            ldet(op.B) ** op.A.shape[0],
+        ]
+    )
 
 
 @slogdet.dispatch
@@ -431,12 +434,28 @@ class KroneckerSelectedEigenvectors(LinearOperator):
         self._factor_dims = [Q.shape[0] for Q in factor_vecs]
         self._n_total = int(jnp.prod(jnp.array(self._factor_dims)))
 
+        # TRIAL
+        sel_np = np.asarray(selected_indices, dtype=np.int32)  # (k, d)
+
+        # self._gathered = []
+        # for i in range(self._d):
+        #     idx_for_factor = jnp.array(
+        #         [self._sort_indices[i][sel[i]] for sel in selected_indices]
+        #     )
+        #     self._gathered.append(self._factor_vecs[i][:, idx_for_factor])
+
+        # dtype = factor_vecs[0].dtype
+        # super().__init__((self._n_total, self._k), dtype)
         self._gathered = []
         for i in range(self._d):
-            idx_for_factor = jnp.array([
-                self._sort_indices[i][sel[i]] for sel in selected_indices
-            ])
-            self._gathered.append(self._factor_vecs[i][:, idx_for_factor])
+            # idx_sorted: (k,)
+            idx_sorted = jnp.asarray(sel_np[:, i])
+
+            # idx_orig = order[idx_sorted] in one shot (no Python loop!)
+            idx_orig = jnp.take(self._sort_indices[i], idx_sorted, mode="clip")
+
+            # gather columns
+            self._gathered.append(self._factor_vecs[i][:, idx_orig])
 
         dtype = factor_vecs[0].dtype
         super().__init__((self._n_total, self._k), dtype)
