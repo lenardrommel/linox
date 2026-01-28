@@ -86,11 +86,12 @@ from ._arithmetic import (
 from ._block import BlockDiagonal, BlockMatrix, BlockMatrix2x2
 from ._eigen import EigenD
 from ._isotropicadd import IsotropicAdditiveLinearOperator
-from ._kernel import ArrayKernel
+from ._kernel import ArrayKernel, LazyArrayKernel
 from ._kronecker import (
     Kronecker,
     KroneckerSelectedEigenvectors,
     KroneckerSelectedEigenvectorsTranspose,
+    extract_kronecker_factors,
     topk_eigh,
 )
 from ._linear_operator import LinearOperator
@@ -112,6 +113,7 @@ __all__ = [
     # Linear Operator Classes
     "AddLinearOperator",
     "ArrayKernel",
+    "LazyArrayKernel",
     "BlockDiagonal",
     "BlockMatrix",
     "BlockMatrix2x2",
@@ -176,6 +178,7 @@ __all__ = [
     "symmetrize",
     "todense",
     "topk_eigh",
+    "extract_kronecker_factors",
     "transpose",
     # Configuration
     "is_debug",

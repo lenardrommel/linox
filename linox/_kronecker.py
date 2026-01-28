@@ -21,6 +21,7 @@ import numpy as np
 
 from linox import utils
 from linox._arithmetic import (
+    AddLinearOperator,
     ProductLinearOperator,
     diagonal,
     lcholesky,
@@ -36,6 +37,7 @@ from linox._arithmetic import (
     svd,
 )
 from linox._linear_operator import LinearOperator
+from linox._matrix import Identity
 from linox._registry import get, register
 
 
@@ -776,3 +778,36 @@ def topk_eigh(
         eig_array = scalar * eig_array
 
     return eig_array, eigenvectors
+
+
+class KroneckerAdditiveIsotropicAdditiveLinearOperator(AddLinearOperator):
+    def __init__(self, kronecker: Kronecker, s: jax.Array):
+        self._kronecker = kronecker
+        self._s = s
+        super().__init__(kronecker.shape, kronecker.dtype)
+
+    def _matmul(self, vec: jax.Array) -> jax.Array:
+        return self._kronecker._matmul(vec) + self._s * vec
+
+    def _todense(self) -> jax.Array:
+        return (
+            self._kronecker._todense()
+            + self._s * Identity(self._kronecker.shape[0])._todense()
+        )
+
+    def transpose(self) -> "KroneckerAdditiveIsotropicAdditiveLinearOperator":
+        return KroneckerAdditiveIsotropicAdditiveLinearOperator(
+            self._kronecker.transpose(), self._s
+        )
+
+    def tree_flatten(self) -> tuple[tuple, dict]:
+        return (self._kronecker, self._s), {}
+
+    @classmethod
+    def tree_unflatten(
+        cls, aux_data: dict, children: tuple
+    ) -> "KroneckerAdditiveIsotropicAdditiveLinearOperator":
+        return cls(children[0], children[1])
+
+
+# @linverse.dispatch
