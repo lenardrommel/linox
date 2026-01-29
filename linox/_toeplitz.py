@@ -18,15 +18,17 @@ jax.config.update("jax_enable_x64", True)
 
 
 class Toeplitz(LinearOperator):
-    """A Toeplitz matrix which is constructed from a 1D array."""
+    """Symmetric Toeplitz matrix represented by its first column/row v."""
 
     def __init__(self, v: ArrayLike) -> None:
         self.v = jnp.asarray(v)
-        super().__init__(self.v.shape, self.v.dtype)
+        n = int(self.v.shape[0])
+        super().__init__((n, n), self.v.dtype)
 
     @property
-    def shape(self) -> jax.Array:
-        return *self.v.shape, *self.v.shape
+    def shape(self) -> tuple[int, int]:
+        n = int(self.v.shape[0])
+        return (n, n)
 
     def _matmul(self, vector: jax.Array) -> jax.Array:
         n = self.v.shape[0]

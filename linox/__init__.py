@@ -86,7 +86,7 @@ from ._arithmetic import (
 from ._block import BlockDiagonal, BlockMatrix, BlockMatrix2x2
 from ._eigen import EigenD
 from ._isotropicadd import IsotropicAdditiveLinearOperator
-from ._kernel import ArrayKernel, LazyArrayKernel
+from ._kernel import ArrayKernel, ToeplitzKernel, kernel_operator
 from ._kronecker import (
     Kronecker,
     KroneckerSelectedEigenvectors,
@@ -113,7 +113,8 @@ __all__ = [
     # Linear Operator Classes
     "AddLinearOperator",
     "ArrayKernel",
-    "LazyArrayKernel",
+    "ToeplitzKernel",
+    "kernel_operator",
     "BlockDiagonal",
     "BlockMatrix",
     "BlockMatrix2x2",

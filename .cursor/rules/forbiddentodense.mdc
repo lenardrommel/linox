@@ -1,0 +1,6 @@
+---
+alwaysApply: true
+---
+# Overview
+
+_todense() should never be called in an implementation unless really necessary. We always work with large matrices, todense will cause Out Of Memory Error in most cases.
