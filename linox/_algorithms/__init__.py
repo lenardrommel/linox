@@ -13,8 +13,6 @@ _lanczos_arnoldi
     Lanczos tridiagonalization and Arnoldi iteration for eigenvalue problems
 _trace
     Stochastic trace estimation using Hutchinson's method
-_lsmr
-    LSMR iterative solver for least-squares problems
 _matrix_functions
     Matrix function approximations using Krylov methods
 _toeplitz
@@ -39,14 +37,12 @@ hutchinson_trace_and_diagonal : Joint trace and diagonal estimation
 
 Linear Solvers
 ~~~~~~~~~~~~~~
-lsmr_solve : LSMR solver for least-squares problems
 lanczos_solve_sqrt : Low-rank inverse factors (existing)
 
 Matrix Functions
 ~~~~~~~~~~~~~~~~
 lanczos_matrix_function : f(A)v using Lanczos for symmetric A
 arnoldi_matrix_function : f(A)v using Arnoldi for general A
-chebyshev_matrix_function : f(A)v using Chebyshev polynomials
 stochastic_lanczos_quadrature : Estimate trace(f(A)) using SLQ
 
 Toeplitz Solvers
@@ -54,7 +50,7 @@ Toeplitz Solvers
 solve_toeplitz_jax : JAX-compatible Toeplitz solver (existing)
 levinson : Levinson recursion for Toeplitz systems (existing)
 
-References
+References:
 ----------
 .. [1] N. Kraemer, M. Schober, and P. Hennig, "Gradients of functions of large matrices,"
        arXiv preprint arXiv:2405.17277, 2024.
@@ -67,7 +63,7 @@ References
        Citation: Please cite the matfree library and relevant papers when using
        algorithms inspired by their work.
 
-Examples
+Examples:
 --------
 Eigenvalue computation with Lanczos:
 
@@ -106,6 +102,17 @@ from linox._algorithms._lanczos_arnoldi import (
     lanczos_tridiag,
 )
 
+# Existing algorithms
+from linox._algorithms._lanzcos import lanczos_solve_sqrt
+
+# Matrix functions
+from linox._algorithms._matrix_functions import (
+    arnoldi_matrix_function,
+    lanczos_matrix_function,
+    stochastic_lanczos_quadrature,
+)
+from linox._algorithms._toeplitz import levinson, solve_toeplitz_jax
+
 # Trace estimation
 from linox._algorithms._trace import (
     hutchinson_diagonal,
@@ -113,39 +120,22 @@ from linox._algorithms._trace import (
     hutchinson_trace_and_diagonal,
 )
 
-# LSMR solver
-from linox._algorithms._lsmr import lsmr_solve
-
-# Matrix functions
-from linox._algorithms._matrix_functions import (
-    arnoldi_matrix_function,
-    chebyshev_matrix_function,
-    lanczos_matrix_function,
-    stochastic_lanczos_quadrature,
-)
-
-# Existing algorithms
-from linox._algorithms._lanzcos import lanczos_solve_sqrt
-from linox._algorithms._toeplitz import levinson, solve_toeplitz_jax
-
 __all__ = [
-    # Eigenvalue & decomposition
-    "lanczos_tridiag",
     "arnoldi_iteration",
-    "lanczos_eigh",
+    "arnoldi_matrix_function",
+    "hutchinson_diagonal",
     # Trace estimation
     "hutchinson_trace",
-    "hutchinson_diagonal",
     "hutchinson_trace_and_diagonal",
-    # Linear solvers
-    "lsmr_solve",
-    "lanczos_solve_sqrt",
+    "lanczos_eigh",
     # Matrix functions
     "lanczos_matrix_function",
-    "arnoldi_matrix_function",
-    "chebyshev_matrix_function",
-    "stochastic_lanczos_quadrature",
+    # Linear solvers
+    "lanczos_solve_sqrt",
+    # Eigenvalue & decomposition
+    "lanczos_tridiag",
+    "levinson",
     # Toeplitz
     "solve_toeplitz_jax",
-    "levinson",
+    "stochastic_lanczos_quadrature",
 ]

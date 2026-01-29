@@ -8,18 +8,18 @@ import linox
 class TestPublicAPI:
     """Test that all items in __all__ are importable from linox."""
 
-    def test_all_items_exist(self):
+    def test_all_items_exist(self) -> None:
         """Test that all items declared in __all__ exist in the module."""
         for name in linox.__all__:
             assert hasattr(linox, name), f"{name} not found in linox module"
 
-    def test_all_items_importable(self):
+    def test_all_items_importable(self) -> None:
         """Test that all items can be imported from linox."""
         for name in linox.__all__:
             obj = getattr(linox, name)
             assert obj is not None, f"{name} is None"
 
-    def test_classes_importable(self):
+    def test_classes_importable(self) -> None:
         """Test that all linear operator classes are importable."""
         from linox import (
             AddLinearOperator,
@@ -78,7 +78,7 @@ class TestPublicAPI:
         assert isinstance(Toeplitz, type)
         assert isinstance(IsotropicAdditiveLinearOperator, type)
 
-    def test_functions_importable(self):
+    def test_functions_importable(self) -> None:
         """Test that all linear operator functions are importable."""
         from linox import (
             congruence_transform,
@@ -119,14 +119,14 @@ class TestPublicAPI:
         assert callable(slogdet)
         assert callable(svd)
 
-    def test_utility_functions_importable(self):
+    def test_utility_functions_importable(self) -> None:
         """Test that utility functions are importable."""
         from linox import allclose, todense
 
         assert callable(allclose)
         assert callable(todense)
 
-    def test_config_functions_importable(self):
+    def test_config_functions_importable(self) -> None:
         """Test that config functions are importable."""
         from linox import is_debug, set_debug
 
@@ -137,7 +137,7 @@ class TestPublicAPI:
 class TestConfig:
     """Test that config module works correctly."""
 
-    def test_config_import(self):
+    def test_config_import(self) -> None:
         """Test that config module is importable."""
         from linox import config
 
@@ -145,14 +145,14 @@ class TestConfig:
         assert hasattr(config, "set_debug")
         assert hasattr(config, "warn")
 
-    def test_is_debug_returns_bool(self):
+    def test_is_debug_returns_bool(self) -> None:
         """Test that is_debug returns a boolean."""
         from linox import is_debug
 
         result = is_debug()
         assert isinstance(result, bool)
 
-    def test_set_debug_toggle(self):
+    def test_set_debug_toggle(self) -> None:
         """Test that set_debug can toggle debug mode."""
         from linox import is_debug, set_debug
 
@@ -174,7 +174,7 @@ class TestConfig:
             # Restore original state
             set_debug(original_state)
 
-    def test_config_direct_import(self):
+    def test_config_direct_import(self) -> None:
         """Test that config functions work when imported directly."""
         from linox.config import is_debug, set_debug
 
@@ -186,7 +186,7 @@ class TestConfig:
         finally:
             set_debug(original_state)
 
-    def test_warn_function_exists(self):
+    def test_warn_function_exists(self) -> None:
         """Test that warn function exists in config."""
         from linox.config import warn
 
@@ -198,18 +198,18 @@ class TestConfig:
 class TestModuleMetadata:
     """Test module metadata."""
 
-    def test_version_exists(self):
+    def test_version_exists(self) -> None:
         """Test that __version__ is defined."""
         assert hasattr(linox, "__version__")
         assert isinstance(linox.__version__, str)
 
-    def test_all_exists(self):
+    def test_all_exists(self) -> None:
         """Test that __all__ is defined."""
         assert hasattr(linox, "__all__")
         assert isinstance(linox.__all__, list)
         assert len(linox.__all__) > 0
 
-    def test_docstring_exists(self):
+    def test_docstring_exists(self) -> None:
         """Test that module has a docstring."""
         assert linox.__doc__ is not None
         assert len(linox.__doc__) > 0

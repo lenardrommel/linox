@@ -3,7 +3,6 @@
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
-import tueplots
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from tueplots import bundles
 from tueplots.constants.color import rgb
@@ -35,9 +34,10 @@ def make_tueplots_rc(
     """
     # Get base bundle
     if not hasattr(bundles, base):
-        raise ValueError(f"Unknown tueplots bundle: {base}")
+        msg = f"Unknown tueplots bundle: {base}"
+        raise ValueError(msg)
     bundle_fn = getattr(bundles, base)
-    kwargs = dict(family=family, usetex=usetex, column=column)
+    kwargs = {"family": family, "usetex": usetex, "column": column}
     if nrows is not None:
         kwargs["nrows"] = nrows
     if ncols is not None:
@@ -60,7 +60,7 @@ def make_tueplots_rc(
     return rc
 
 
-def apply_tueplots_rc(**kwargs):
+def apply_tueplots_rc(**kwargs) -> None:
     """Apply tueplots rcParams globally via plt.rcParams.update(...)."""
     plt.rcParams.update(make_tueplots_rc(**kwargs))
 
@@ -78,7 +78,6 @@ def generate_preprocess_data_1d(
     nx_plot=50,
 ):
     """Generate and preprocess 1D heat equation data."""
-    print("Generating 1D training data...")
     heat_gen = Heat1dDataGenerator(
         x_range=x_range,
         nx=nx,
@@ -89,7 +88,6 @@ def generate_preprocess_data_1d(
     heat_gen.generate_initial_conditions(n_modes=3, seed=42)
     heat_gen.solve_pde()
 
-    print("Solving 1D training data PDE...")
     test_heat_gen = Heat1dDataGenerator(
         x_range=x_range,
         nx=nx,
@@ -143,9 +141,7 @@ def generate_preprocess_data_2d(
     ny_plot=50,
 ):
     """Generate and preprocess 2D heat equation data."""
-
     # Generate training data
-    print("Generating 2D training data...")
     heat_gen = Heat2dDataGenerator(
         x_range=x_range,
         y_range=y_range,
@@ -159,7 +155,6 @@ def generate_preprocess_data_2d(
     heat_gen.solve_pde()
 
     # Generate test data
-    print("Generating 2D test data...")
     test_heat_gen = Heat2dDataGenerator(
         x_range=x_range,
         y_range=y_range,
@@ -221,8 +216,7 @@ def plot_kernel_predictions_2d(
     N_test,
     figsize=(15, 10),
 ):
-    """
-    Plot 2D heat equation kernel predictions vs true solutions.
+    """Plot 2D heat equation kernel predictions vs true solutions.
 
     Args:
         pred_mean_flat: Predictions (N_test, nx_plot*ny_plot)
@@ -234,7 +228,6 @@ def plot_kernel_predictions_2d(
         nx_plot, ny_plot: Prediction grid dimensions
         N_test: Number of test samples
     """
-
     # Reshape data for plotting
     pred_2d = pred_mean_flat.reshape(N_test, ny_plot, nx_plot)
     true_2d = outputs_test.reshape(N_test, ny, nx)
@@ -261,7 +254,7 @@ def plot_kernel_predictions_2d(
 
     for i in range(N_test):
         # Plot initial condition
-        im1 = axes[0, i].contourf(
+        axes[0, i].contourf(
             X_test,
             Y_test,
             initial_2d[i],
@@ -276,7 +269,7 @@ def plot_kernel_predictions_2d(
             axes[0, i].set_ylabel("y")
 
         # Plot true solution
-        im2 = axes[1, i].contourf(
+        axes[1, i].contourf(
             X_test, Y_test, true_2d[i], levels=20, cmap="RdBu_r", vmin=vmin, vmax=vmax
         )
         axes[1, i].set_title(f"True Solution\nSample {i}")
@@ -315,7 +308,7 @@ def plot_kernel_predictions_1d_thesis(
     N_test,
     figsize=(15, 10),
     plot_true_output: bool = True,
-    title: str = None,
+    title: str | None = None,
 ):
     # Reshape
     pred_mean_flat = pred_mean_flat.reshape(N_test, nx_plot)
@@ -428,7 +421,7 @@ def plot_kernel_predictions_1d(
         plt.figure(figsize=(10, 4))
         ax1 = plt.subplot(1, 2, 1)
         plt.plot(grid_test, inputs_test[i], "r")
-        plt.title(f"Initial Condition (t=0)")
+        plt.title("Initial Condition (t=0)")
         plt.xlabel("x")
         plt.ylabel("u(x, 0)")
         ax1.grid(show_axis_grid)
@@ -509,7 +502,7 @@ def plot_samples_2d(
     vmax = max(operator_inputs_test_2d.max(), outputs_test_2d.max(), samples.max())
 
     for i in range(num_samples):
-        im1 = axes[0, i].contourf(
+        axes[0, i].contourf(
             X_test,
             Y_test,
             operator_inputs_test_2d[test_idx],
@@ -523,7 +516,7 @@ def plot_samples_2d(
         if i == 0:
             axes[0, i].set_ylabel("y")
 
-        im2 = axes[1, i].contourf(
+        axes[1, i].contourf(
             X_test,
             Y_test,
             outputs_test_2d[test_idx],
@@ -627,12 +620,6 @@ def plot_error_analysis_2d(
             plt.colorbar(im2, cax=cax2)
 
     plt.tight_layout()
-
-    print("\n=== Error Statistics ===")
-    print(f"Mean absolute error: {np.mean(np.abs(errors)):.6f}")
-    print(f"Max absolute error: {np.max(np.abs(errors)):.6f}")
-    print(f"Mean relative error: {np.mean(relative_errors):.6f}")
-    print(f"Max relative error: {np.max(relative_errors):.6f}")
 
     return fig, axes
 
@@ -791,7 +778,7 @@ def plot_marginal_analysis_2d(
             f"R² = {r2:.4f}",
             transform=axes[1, 0].transAxes,
             verticalalignment="top",
-            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
+            bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.8},
         )
     else:
         r2 = np.nan
@@ -823,13 +810,10 @@ def plot_marginal_analysis_2d(
 
     plt.tight_layout()
 
-    print("\n=== Marginal Analysis Statistics ===")
-    mae = np.mean(np.abs(all_pred_clean - all_true_clean))
-    rmse = np.sqrt(np.mean((all_pred_clean - all_true_clean) ** 2))
-    print(f"Overall MAE: {mae:.6f}")
-    print(f"Overall RMSE: {rmse:.6f}")
+    np.mean(np.abs(all_pred_clean - all_true_clean))
+    np.sqrt(np.mean((all_pred_clean - all_true_clean) ** 2))
     if len(all_pred_clean) > 0:
-        print(f"Overall R²: {r2:.6f}")
+        pass
 
     return fig, axes
 
@@ -874,7 +858,7 @@ def plot_profile_comparison_2d(
     y_positions = [ny_plot // 4, ny_plot // 2, 3 * ny_plot // 4]
     y_labels = ["Bottom", "Middle", "Top"]
 
-    for i, (y_idx, label) in enumerate(zip(y_positions, y_labels)):
+    for i, (y_idx, label) in enumerate(zip(y_positions, y_labels, strict=False)):
         axes[0, i].set_title(f"{label} (y = {y_plot[y_idx]:.3f})")
         axes[0, i].plot(
             x_plot, pred_2d[sample_idx, y_idx, :], "b-", linewidth=2, label="Predicted"
@@ -890,7 +874,7 @@ def plot_profile_comparison_2d(
     x_positions = [nx_plot // 4, nx_plot // 2, 3 * nx_plot // 4]
     x_labels = ["Left", "Middle", "Right"]
 
-    for i, (x_idx, label) in enumerate(zip(x_positions, x_labels)):
+    for i, (x_idx, label) in enumerate(zip(x_positions, x_labels, strict=False)):
         axes[1, i].set_title(f"{label} (x = {x_plot[x_idx]:.3f})")
         axes[1, i].plot(
             y_plot, pred_2d[sample_idx, :, x_idx], "b-", linewidth=2, label="Predicted"

@@ -81,4 +81,4 @@ def _(A: Toeplitz, b: jax.Array) -> jax.Array:
     return solve_toeplitz_jax(A.v, b, check_finite=False)
 
 
-## Solver and related algorithms moved to linox/_algorithms/_toeplitz.py
+# Solver and related algorithms moved to linox/_algorithms/_toeplitz.py

@@ -20,20 +20,39 @@ efficient computation through lazy evaluation.
 """
 
 import operator
+import warnings
 from collections.abc import Iterable
-from functools import reduce
+from functools import reduce, wraps
 
 import jax
 import jax.numpy as jnp
 import plum  # type: ignore  # noqa: PGH003
 
-import linox
 from linox import utils
 from linox._linear_operator import LinearOperator
 from linox.config import warn as _warn
-from linox.typing import ArrayLike, ScalarLike, ShapeLike
+from linox.typing import ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
+
+
+def _deprecated_l_prefix(func_name: str):
+    """Create deprecation warning for functions with 'l' prefix."""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            warnings.warn(
+                f"'{func_name}' is deprecated and will be removed in linox 0.0.3. "
+                f"Use '{func_name[1:]}' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 # all arithmetic functions
@@ -133,20 +152,55 @@ def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
 @plum.dispatch
 def svd(
     a: LinearOperator,
+    *,
     full_matrices: bool = True,
     compute_uv: bool = True,
+    k: int | None = None,
+    num_iters: int | None = None,
+    u0: jax.Array | None = None,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Singular Value Decomposition of a linear operator.
+
+    When k is None, computes full SVD (may densify the operator).
+    When k is provided, uses matrix-free Lanczos bidiagonalization to compute
+    the k largest singular values/vectors efficiently.
+
     Args:
-        a: Linear operator
-        full_matrices: If True, return full-sized U and Vh matrices
-        compute_uv: If True, compute U and Vh in addition to S.
+        a: Linear operator of shape (m, n)
+        full_matrices: If True, return full-sized U and Vh matrices (only for full SVD)
+        compute_uv: If True, compute U and Vh in addition to S (only for full SVD)
+        k: If provided, compute only the k largest singular values/vectors using
+            matrix-free methods. This is efficient for large matrices. If None,
+            compute full SVD (default: None)
+        num_iters: Number of Lanczos iterations for partial SVD. Should be larger
+            than k. If None, uses min(2*k, min(m, n)). Only used when k is provided.
+        u0: Initial vector for Lanczos bidiagonalization. Only used when k is provided.
 
     Returns:
-        U: Left singular vectors
-        S: Singular values
-        Vh: Right singular vectors (Hermitian)
-    """  # noqa: D205
+        U: Left singular vectors - shape (m, m) for full SVD or (m, k) for partial
+        S: Singular values in descending order - shape (min(m,n),) or (k,)
+        Vt: Right singular vectors (transposed) - shape (n, n) for full or (k, n)
+
+    Examples:
+        Full SVD (may densify):
+        >>> U, S, Vt = svd(operator)
+
+        Partial SVD (matrix-free, recommended for large matrices):
+        >>> U, S, Vt = svd(operator, k=10)
+        >>> # Only top 10 singular values/vectors computed efficiently
+
+    Notes:
+        - For large matrices, use k parameter to avoid densification
+        - Structure-exploiting dispatches exist for Kronecker and other special operators
+        - Partial SVD uses Lanczos bidiagonalization (Golub-Kahan process)
+    """
+    if k is not None:
+        # Use matrix-free partial SVD
+        from linox._algorithms._svd import svd_partial  # noqa: PLC0415
+
+        return svd_partial(a, k, num_iters, u0)
+
+    # Full SVD - may densify
     _warn(f"Linear operator {a} is densed for svd computation.")
     return jax.scipy.linalg.svd(
         a.todense(),
@@ -163,6 +217,10 @@ def lsvd(
     u0: jax.Array | None = None,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Compute partial SVD using matrix-free Lanczos bidiagonalization.
+
+    .. deprecated::
+        Use :func:`svd` with ``k`` parameter instead: ``svd(a, k=k)``.
+        This function will be removed in a future version.
 
     Computes the k largest singular values and corresponding singular vectors
     without forming the full matrix explicitly. This is efficient for large
@@ -185,18 +243,28 @@ def lsvd(
         >>> import jax.numpy as jnp
         >>> from linox import Matrix
         >>> A = Matrix(jnp.random.randn(1000, 500))
+        >>> # Deprecated:
         >>> U, S, Vt = linox.lsvd(A, k=10)
-        >>> # Verify: A ≈ U @ diag(S) @ Vt
+        >>> # Use instead:
+        >>> U, S, Vt = linox.svd(A, k=10)
 
     Notes:
+        **Deprecated:** Use ``svd(a, k=k)`` instead.
+
         This is the matrix-free alternative to jnp.linalg.svd for computing
-        a few singular values. For full SVD, use linox.svd() instead.
+        a few singular values.
 
         Inspired by matfree library (https://github.com/pnkraemer/matfree).
     """
-    from linox._algorithms._svd import svd_partial  # noqa: PLC0415
+    import warnings  # noqa: PLC0415
 
-    return svd_partial(a, k, num_iters, u0)
+    warnings.warn(
+        "lsvd is deprecated and will be removed in a future version. "
+        "Use svd(a, k=k) instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return svd(a, k=k, num_iters=num_iters, u0=u0)
 
 
 @plum.dispatch
@@ -217,7 +285,7 @@ def lsolve(a: LinearOperator, b: jax.Array) -> jax.Array:
     if a.shape[-1] != b.shape[0]:
         msg = f"Shape mismatch: {a.shape} and {b.shape}"
         raise ValueError(msg)
-    # print(f"Warning: Linear operator {a} is densed for lsolve computation.")  # noqa: T201
+    # print(f"Warning: Linear operator {a} is densed for lsolve computation.")
     # return jax.scipy.linalg.solve(a.todense(), b, assume_a="sym")
     return linverse(a) @ b
 
@@ -365,11 +433,10 @@ def lexp(
     # Compute exp(A)v using Krylov methods
     if method == "lanczos":
         return lanczos_matrix_function(a, v, jnp.exp, num_iters, reortho=True)
-    elif method == "arnoldi":
+    if method == "arnoldi":
         return arnoldi_matrix_function(a, v, jnp.exp, num_iters)
-    else:
-        msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
-        raise ValueError(msg)
+    msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
+    raise ValueError(msg)
 
 
 @plum.dispatch
@@ -410,11 +477,10 @@ def llog(
     # Compute log(A)v using Krylov methods
     if method == "lanczos":
         return lanczos_matrix_function(a, v, jnp.log, num_iters, reortho=True)
-    elif method == "arnoldi":
+    if method == "arnoldi":
         return arnoldi_matrix_function(a, v, jnp.log, num_iters)
-    else:
-        msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
-        raise ValueError(msg)
+    msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
+    raise ValueError(msg)
 
 
 @plum.dispatch
@@ -462,11 +528,10 @@ def lpow(
     # Compute A^p @ v using Krylov methods
     if method == "lanczos":
         return lanczos_matrix_function(a, v, power_func, num_iters, reortho=True)
-    elif method == "arnoldi":
+    if method == "arnoldi":
         return arnoldi_matrix_function(a, v, power_func, num_iters)
-    else:
-        msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
-        raise ValueError(msg)
+    msg = f"Unknown method: {method}. Use 'lanczos' or 'arnoldi'."
+    raise ValueError(msg)
 
 
 # --------------------------------------------------------------------------- #
@@ -476,6 +541,114 @@ def lpow(
 
 def is_square(a: LinearOperator) -> bool:
     return a.shape[-1] == a.shape[-2]
+
+
+def is_symmetric(
+    a: LinearOperator,
+    *,
+    rtol: float = 1e-5,
+    atol: float = 1e-8,
+    key: jax.Array | None = None,
+    num_probes: int = 1,
+) -> bool:
+    """Check if a linear operator is symmetric without densifying.
+
+    Uses randomized probing: generates random vectors x and checks if Ax ≈ A^T x.
+    This avoids densifying the full matrix.
+
+    Args:
+        a: Linear operator to check
+        rtol: Relative tolerance for comparison
+        atol: Absolute tolerance for comparison
+        key: Random key for generating test vectors (default: uses key 0)
+        num_probes: Number of random vectors to test (default: 1)
+
+    Returns:
+        True if the operator appears symmetric within tolerance
+    """
+    if not is_square(a):
+        return False
+
+    if key is None:
+        key = jax.random.PRNGKey(0)
+
+    n = a.shape[-1]
+
+    for i in range(num_probes):
+        # Generate random normalized vector
+        probe_key = jax.random.fold_in(key, i)
+        x = jax.random.normal(probe_key, (n,), dtype=a.dtype)
+        x /= jnp.linalg.norm(x)
+
+        # Compute Ax and A^T x
+        v1 = a @ x
+        v2 = a.T @ x
+
+        # Check if v1 ≈ v2
+        if not jnp.allclose(v1, v2, rtol=rtol, atol=atol):
+            return False
+
+    return True
+
+
+def is_hermitian(
+    a: LinearOperator,
+    *,
+    rtol: float = 1e-5,
+    atol: float = 1e-8,
+    key: jax.Array | None = None,
+    num_probes: int = 1,
+) -> bool:
+    """Check if a linear operator is Hermitian without densifying.
+
+    Uses randomized probing: generates random vectors x and checks if Ax ≈ (A^H x)
+    where A^H is the conjugate transpose. This avoids densifying the full matrix.
+
+    For real matrices, this is equivalent to checking symmetry.
+
+    Args:
+        a: Linear operator to check
+        rtol: Relative tolerance for comparison
+        atol: Absolute tolerance for comparison
+        key: Random key for generating test vectors (default: uses key 0)
+        num_probes: Number of random vectors to test (default: 1)
+
+    Returns:
+        True if the operator appears Hermitian within tolerance
+    """
+    if not is_square(a):
+        return False
+
+    if key is None:
+        key = jax.random.PRNGKey(0)
+
+    n = a.shape[-1]
+
+    for i in range(num_probes):
+        # Generate random normalized vector
+        probe_key = jax.random.fold_in(key, i)
+        x = jax.random.normal(probe_key, (n,), dtype=a.dtype)
+        if jnp.issubdtype(a.dtype, jnp.complexfloating):
+            # For complex operators, add imaginary part
+            x_imag = jax.random.normal(probe_key, (n,), dtype=a.dtype)
+            x += 1j * x_imag
+        x /= jnp.linalg.norm(x)
+
+        # Compute Ax and A^H x (conjugate transpose)
+        v1 = a @ x
+        a.T @ jnp.conj(x)
+
+        # For Hermitian: <Ax, x> = <x, Ax> = conj(<Ax, x>)
+        # Equivalently: Ax should equal conj(A^T conj(x))
+        # Or more directly: check if <v1, x> ≈ conj(<v2, x>)
+        # But simpler: check if v1 ≈ conj(v2) when x is real
+        # Actually, let's use the proper test: A x = conj(A^T conj(x))
+        v2_hermitian = jnp.conj(a.T @ jnp.conj(x))
+
+        if not jnp.allclose(v1, v2_hermitian, rtol=rtol, atol=atol):
+            return False
+
+    return True
 
 
 # --------------------------------------------------------------------------- #
@@ -947,7 +1120,7 @@ def ldet(a: InverseLinearOperator) -> jax.Array:
     return 1 / ldet(a.operator)
 
 
-class CongruenceTransform(ProductLinearOperator):  # noqa: F811
+class CongruenceTransform(ProductLinearOperator):
     r""":math:`A B A^\top`."""
 
     def __init__(self, A: ArithmeticType, B: ArithmeticType) -> None:
@@ -958,6 +1131,21 @@ class CongruenceTransform(ProductLinearOperator):  # noqa: F811
 
     def transpose(self) -> LinearOperator:
         return CongruenceTransform(self._A, self._B.T)
+
+    def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        children = (self._A, self._B)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(
+        cls,
+        aux_data: dict[str, any],
+        children: tuple[any, ...],
+    ) -> "CongruenceTransform":
+        del aux_data
+        A, B = children
+        return cls(A=A, B=B)
 
 
 @plum.dispatch
@@ -977,7 +1165,8 @@ class PseudoInverseLinearOperator(LinearOperator):
     def todense(self) -> jax.Array:
         r"""# TODO:
         Compute the dense pseudo-inverse using SVD.
-        U, S, Vh = svd(self.operator)
+        U, S, Vh = svd(self.operator).
+
         Returns:
             x_LS = \sum_i (u_i^T b) / s_i v_i
             -> U, S, Vh = svd(self.operator)
@@ -1009,15 +1198,156 @@ def _(a: PseudoInverseLinearOperator) -> LinearOperator:
 @svd.dispatch
 def _(
     a: PseudoInverseLinearOperator,
-    full_matrices: bool = True,
-    compute_uv: bool = True,
-    hermitian: bool = False,
+    **kwargs,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
-    U, S, Vh = svd(a.operator, full_matrices, compute_uv, hermitian)
-    S_inv = jnp.where(S > a.tol, 1 / S, 0)
-    U = jnp.where(S > a.tol, U, 0)
-    Vh = jnp.where(S > a.tol, Vh, 0)
-    return U, S_inv, Vh
+    """SVD of pseudo-inverse operator: inverts singular values above tolerance.
+
+    Notes:
+        Passes through all kwargs (k, full_matrices, compute_uv, etc.) to the
+        underlying operator's SVD, then inverts singular values.
+    """
+    U, S, Vh = svd(a.operator, **kwargs)
+
+    # Invert singular values (zero out those below tolerance)
+    S_inv = jnp.where(a.tol < S, 1 / S, 0)
+
+    # Create a mask for each singular value
+    mask = (a.tol < S).astype(U.dtype)
+
+    # Apply mask to relevant columns/rows
+    # Note: With full_matrices=True, U can be (m, m) but S is (min(m,n),)
+    # We only mask the first S.shape[0] columns of U and rows of Vh
+    k = S.shape[0]
+    if U.shape[1] == k:
+        # Partial SVD or full_matrices=False: all columns correspond to singular values
+        U_masked = U * mask[None, :]
+    else:
+        # full_matrices=True: only first k columns correspond to singular values
+        U_masked = U.at[:, :k].multiply(mask[None, :])
+
+    if Vh.shape[0] == k:
+        # All rows correspond to singular values
+        Vh_masked = Vh * mask[:, None]
+    else:
+        # Only first k rows correspond to singular values
+        Vh_masked = Vh.at[:k, :].multiply(mask[:, None])
+
+    return U_masked, S_inv, Vh_masked
+
+
+# --------------------------------------------------------------------------- #
+# Non-"l" prefixed functions (New API for linox 0.0.2+)
+# Functions with "l" prefix are deprecated and will be removed in 0.0.3
+# --------------------------------------------------------------------------- #
+
+
+@plum.dispatch
+def add(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Add two linear operators. See ladd for implementation details."""
+    return ladd(a, b)
+
+
+@add.dispatch
+def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
+    return ladd(a, b)
+
+
+@plum.dispatch
+def sub(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Subtract two linear operators. See lsub for implementation details."""
+    return lsub(a, b)
+
+
+@sub.dispatch
+def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
+    return lsub(a, b)
+
+
+@plum.dispatch
+def mul(a: ScalarLike | jax.Array, b: LinearOperator) -> LinearOperator:
+    """Multiply a linear operator by a scalar. See lmul for implementation details."""
+    return lmul(a, b)
+
+
+@plum.dispatch
+def div(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Divide linear operators. See ldiv for implementation details."""
+    return ldiv(a, b)
+
+
+@plum.dispatch
+def matmul(a: LinearOperator, b: LinearOperator) -> ArithmeticType:
+    """Matrix multiply linear operators. See lmatmul for implementation details."""
+    return lmatmul(a, b)
+
+
+@matmul.dispatch
+def _(a: LinearOperator, b: jax.Array) -> jax.Array:
+    return lmatmul(a, b)
+
+
+@matmul.dispatch
+def _(a: jax.Array, b: LinearOperator) -> LinearOperator:
+    return lmatmul(a, b)
+
+
+def neg(a: LinearOperator) -> LinearOperator:
+    """Negate a linear operator. See lneg for implementation details."""
+    return lneg(a)
+
+
+@plum.dispatch
+def sqrt(a: LinearOperator) -> LinearOperator:
+    """Compute square root of a linear operator. See lsqrt for implementation details."""
+    return lsqrt(a)
+
+
+@plum.dispatch
+def inverse(a: LinearOperator) -> ArithmeticType:
+    """Compute inverse of a linear operator. See linverse for implementation details."""
+    return linverse(a)
+
+
+@plum.dispatch
+def pinverse(a: LinearOperator) -> ArithmeticType:
+    """Compute pseudo-inverse of a linear operator. See lpinverse for implementation details."""
+    return lpinverse(a)
+
+
+@plum.dispatch
+def eigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
+    """Compute eigendecomposition of a Hermitian operator. See leigh for implementation details."""
+    return leigh(a)
+
+
+@plum.dispatch
+def qr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
+    """QR decomposition of a linear operator. See lqr for implementation details."""
+    return lqr(a)
+
+
+@plum.dispatch
+def solve(a: LinearOperator, b: jax.Array) -> jax.Array:
+    """Solve the linear system Ax = b. See lsolve for implementation details."""
+    return lsolve(a, b)
+
+
+@plum.dispatch
+def psolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001
+    """Solve Ax = b using pseudo-inverse. See lpsolve for implementation details."""
+    return lpsolve(a, b, rtol)
+
+
+@plum.dispatch
+def cholesky(a: LinearOperator) -> jax.Array:
+    """Cholesky decomposition of a linear operator. See lcholesky for implementation details."""
+    return lcholesky(a)
+
+
+@plum.dispatch
+def det(a: LinearOperator) -> jax.Array:
+    """Compute determinant of a linear operator. See ldet for implementation details."""
+    return ldet(a)
 
 
 # Register all linear operators as PyTrees

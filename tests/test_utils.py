@@ -2,7 +2,8 @@
 
 """Tests for :mod:`linox.utils`."""
 
-from collections.abc import Iterable
+
+from typing import TYPE_CHECKING
 
 import jax.numpy as jnp
 import pytest
@@ -23,6 +24,9 @@ from tests.test_linox_cases._matrix_cases import (
     case_transposed_operator,
     case_zero,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 DTYPE = jnp.float32
 
@@ -151,9 +155,7 @@ def case_isotropic_additive() -> tuple[linox.LinearOperator, jnp.ndarray]:
 
 
 @pytest_cases.case(id="isotropic-additive-array-kernel")
-def case_isotropic_additive_array_kernel() -> tuple[
-    linox.LinearOperator, jnp.ndarray
-]:
+def case_isotropic_additive_array_kernel() -> tuple[linox.LinearOperator, jnp.ndarray]:
     x = jnp.array([[0.1, 0.2], [0.3, -0.1]], dtype=DTYPE)
     kernel_linop = linox.ArrayKernel(_inner_product_kernel, x)
     scalar = jnp.array(0.2, dtype=DTYPE)
@@ -286,7 +288,8 @@ def test_as_linop_rejects_unsupported_type() -> None:
     class NotALinearOperator:
         pass
 
-    with pytest.raises(TypeError):
+    msg = "is not a valid linear operator type."
+    with pytest.raises(TypeError, match=msg):
         utils.as_linop(NotALinearOperator())
 
 
@@ -343,7 +346,8 @@ def test_as_scalar_accepts_scalar_like(value: ScalarLike, dtype: jnp.dtype) -> N
 
 
 def test_as_scalar_rejects_array() -> None:
-    with pytest.raises(ValueError):
+    msg = "The given input is not a scalar."
+    with pytest.raises(ValueError, match=msg):
         utils.as_scalar(jnp.ones((2, 2)))
 
 
@@ -360,7 +364,8 @@ def test_as_shape_normalizes(input_shape: ShapeLike, expected: tuple[int, ...]) 
 
 
 def test_as_shape_validates_ndim() -> None:
-    with pytest.raises(TypeError):
+    msg = "must have 3 dimensions"
+    with pytest.raises(TypeError, match=msg):
         utils.as_shape((2, 3), ndim=3)
 
 
@@ -372,5 +377,6 @@ def test_broadcast_shapes_matches_jax() -> None:
 
 
 def test_broadcast_shapes_raises_on_incompatible() -> None:
-    with pytest.raises(ValueError):
+    msg = "cannot be broadcasted"
+    with pytest.raises(ValueError, match=msg):
         utils._broadcast_shapes([(3, 4), (2, 5)])

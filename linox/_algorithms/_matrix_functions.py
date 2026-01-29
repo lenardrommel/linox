@@ -12,7 +12,7 @@ Key algorithms:
 - Chebyshev polynomial approximations
 - Stochastic Lanczos quadrature for trace(f(A))
 
-References
+References:
 ----------
 .. [1] N. Krämer, M. Schober, and P. Hennig, "Gradients of functions of large matrices,"
        arXiv preprint arXiv:2405.17277, 2024.
@@ -29,7 +29,6 @@ References
 
 import jax
 import jax.numpy as jnp
-from jax import lax
 
 from linox._algorithms._lanczos_arnoldi import arnoldi_iteration, lanczos_tridiag
 from linox.typing import ArrayLike, LinearOperatorLike
@@ -67,12 +66,12 @@ def lanczos_matrix_function(
     reortho : bool, optional
         Whether to use full reorthogonalization. Default is True.
 
-    Returns
+    Returns:
     -------
     result : jax.Array
         Approximation to f(A) @ v.
 
-    Examples
+    Examples:
     --------
     >>> import jax.numpy as jnp
     >>> from linox import Matrix
@@ -83,7 +82,7 @@ def lanczos_matrix_function(
     >>> result = lanczos_matrix_function(A, v, jnp.exp, num_iters=10)
     >>> print(f"Approximation: {result[0]:.4f}")  # Should be ~0.368
 
-    Notes
+    Notes:
     -----
     For symmetric operators, this is the most efficient method for computing
     f(A)v. The approximation improves as num_iters increases.
@@ -95,7 +94,7 @@ def lanczos_matrix_function(
     - Inverse square root: lambda M: jnp.linalg.inv(sqrtm(M))
     - Power: lambda M: jnp.linalg.matrix_power(M, p)
 
-    References
+    References:
     ----------
     Based on matfree.funm.funm_lanczos_sym [1, 2] and Saad (1992) [3].
     """
@@ -149,12 +148,12 @@ def arnoldi_matrix_function(
     num_iters : int
         Number of Arnoldi iterations.
 
-    Returns
+    Returns:
     -------
     result : jax.Array
         Approximation to f(A) @ v.
 
-    Examples
+    Examples:
     --------
     >>> import jax.numpy as jnp
     >>> from linox import Matrix
@@ -163,12 +162,12 @@ def arnoldi_matrix_function(
     >>> v = jnp.array([1., 1.])
     >>> result = arnoldi_matrix_function(A, v, jnp.exp, num_iters=2)
 
-    Notes
+    Notes:
     -----
     For symmetric operators, lanczos_matrix_function is more efficient.
     Use this function when the operator is known to be non-symmetric.
 
-    References
+    References:
     ----------
     Based on matfree.funm.funm_arnoldi [1, 2].
     """
@@ -191,130 +190,6 @@ def arnoldi_matrix_function(
 
     # Project back
     result = v_norm * (Q @ (fH @ e1))
-
-    return result
-
-
-def chebyshev_matrix_function(
-    A: LinearOperatorLike,
-    v: ArrayLike,
-    func: callable,
-    num_terms: int,
-    bounds: tuple[float, float] | None = None,
-) -> jax.Array:
-    """Approximate f(A)v using Chebyshev polynomial expansion.
-
-    Approximates f(A)v by expanding f in Chebyshev polynomials and applying
-    the polynomial to A. This is particularly efficient for matrix functions
-    that are smooth on the spectrum of A.
-
-    Parameters
-    ----------
-    A : LinearOperatorLike
-        Linear operator or matrix. The spectrum should be contained in the
-        interval [a, b] specified by bounds.
-    v : ArrayLike
-        Vector to multiply by f(A).
-    func : callable
-        Scalar function to apply. Should map scalars to scalars.
-    num_terms : int
-        Number of Chebyshev terms to use in the expansion.
-    bounds : tuple[float, float], optional
-        Interval [a, b] containing the spectrum of A. If None, assumes [-1, 1].
-        Default is None.
-
-    Returns
-    -------
-    result : jax.Array
-        Approximation to f(A) @ v.
-
-    Examples
-    --------
-    >>> import jax.numpy as jnp
-    >>> from linox import Matrix
-    >>> # Matrix with spectrum in [-1, 1]
-    >>> A = Matrix(0.9 * jnp.eye(100))
-    >>> v = jnp.ones(100)
-    >>> # Approximate exp(A)v
-    >>> result = chebyshev_matrix_function(
-    ...     A, v, jnp.exp, num_terms=20, bounds=(-1.0, 1.0)
-    ... )
-
-    Notes
-    -----
-    The Chebyshev expansion is most accurate when:
-    1. The function f is smooth on the spectrum of A
-    2. The bounds tightly contain the spectrum of A
-    3. Sufficient terms are used (typically 10-50)
-
-    This method may be more efficient than Lanczos/Arnoldi when the same
-    function needs to be applied to multiple vectors, as the Chebyshev
-    coefficients can be precomputed.
-
-    References
-    ----------
-    Based on matfree.funm.funm_chebyshev [2] and Higham (2008) [4].
-    """
-    v = jnp.asarray(v)
-
-    if bounds is None:
-        a, b = -1.0, 1.0
-    else:
-        a, b = bounds
-
-    # Compute Chebyshev nodes in [a, b]
-    nodes = jnp.array(
-        [jnp.cos(jnp.pi * (2 * k + 1) / (2 * num_terms)) for k in range(num_terms)]
-    )
-    # Map from [-1, 1] to [a, b]
-    nodes_scaled = 0.5 * ((b - a) * nodes + (b + a))
-
-    # Evaluate function at Chebyshev nodes
-    func_vals = jax.vmap(func)(nodes_scaled)
-
-    # Compute Chebyshev coefficients
-    def compute_coeff(j):
-        return (2.0 / num_terms) * jnp.sum(
-            func_vals
-            * jnp.array([jnp.cos(jnp.pi * j * (2 * k + 1) / (2 * num_terms)) for k in range(num_terms)])
-        )
-
-    coeffs = jax.vmap(compute_coeff)(jnp.arange(num_terms))
-
-    # Scale operator to [-1, 1]
-    # A_scaled = 2(A - (a+b)/2 I) / (b-a)
-    def matvec_scaled(v):
-        c = (a + b) / 2
-        s = (b - a) / 2
-        return (A @ v - c * v) * (2.0 / s)
-
-    # Evaluate Chebyshev polynomial at A using Clenshaw recursion
-    # T_0(A)v = v, T_1(A)v = A_scaled @ v
-    # T_{n+1}(A)v = 2 A_scaled @ T_n(A)v - T_{n-1}(A)v
-
-    def clenshaw_step(carry, coeff_k):
-        b_k, b_km1 = carry
-        b_kp1 = coeff_k * v + 2 * matvec_scaled(b_k) - b_km1
-        return (b_kp1, b_k), None
-
-    # Initialize
-    b_0 = jnp.zeros_like(v)
-    b_1 = jnp.zeros_like(v)
-
-    # Run Clenshaw recursion (backwards from highest degree)
-    (b_final, _), _ = lax.scan(clenshaw_step, (b_0, b_1), coeffs[::-1])
-
-    # Final step: result = 0.5 * c_0 * v + A_scaled @ b_final - b_prev
-    # For simplicity, we reconstruct using standard Chebyshev evaluation
-    T_prev = jnp.zeros_like(v)
-    T_curr = v.copy()
-    result = coeffs[0] * T_curr
-
-    for k in range(1, num_terms):
-        T_next = 2 * matvec_scaled(T_curr) - T_prev
-        result = result + coeffs[k] * T_next
-        T_prev = T_curr
-        T_curr = T_next
 
     return result
 
@@ -359,14 +234,14 @@ def stochastic_lanczos_quadrature(
     reortho : bool, optional
         Whether to use full reorthogonalization in Lanczos. Default is True.
 
-    Returns
+    Returns:
     -------
     trace_estimate : jax.Array
         Estimate of trace(f(A)).
     trace_std : jax.Array
         Standard error of the estimate.
 
-    Examples
+    Examples:
     --------
     >>> import jax
     >>> import jax.numpy as jnp
@@ -382,7 +257,7 @@ def stochastic_lanczos_quadrature(
     >>> print(f"Estimate: {trace_est:.2f} ± {trace_std:.2f}")
     >>> print(f"True value: {true_logdet:.2f}")
 
-    Notes
+    Notes:
     -----
     This is one of the most important algorithms for GP inference, as it
     allows computing log|K| where K is a large GP covariance matrix without
@@ -395,7 +270,7 @@ def stochastic_lanczos_quadrature(
     Increasing num_samples reduces variance (stochastic error).
     Increasing num_iters reduces bias (Lanczos approximation error).
 
-    References
+    References:
     ----------
     Based on matfree.funm.integrand_funm_sym and matfree.stochtrace [1, 2].
     This method is central to the approach in Ubaru et al. (2017).
@@ -403,10 +278,7 @@ def stochastic_lanczos_quadrature(
     from jax import random
 
     # Get operator shape
-    if hasattr(A, "shape"):
-        n = A.shape[0]
-    else:
-        n = A.shape[0]
+    n = A.shape[0] if hasattr(A, "shape") else A.shape[0]
 
     # Generate test vectors
     if distribution == "rademacher":

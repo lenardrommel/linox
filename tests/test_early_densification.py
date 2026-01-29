@@ -14,8 +14,8 @@ Early densification is dangerous because:
 """
 
 import functools
-from typing import Any, Callable
-from unittest.mock import patch
+from collections.abc import Callable
+from typing import Any
 
 import jax
 import jax.numpy as jnp
@@ -23,23 +23,16 @@ import pytest
 
 import linox
 from linox import (
-    AddLinearOperator,
     BlockDiagonal,
-    BlockMatrix,
-    BlockMatrix2x2,
     Diagonal,
     Identity,
     IsotropicAdditiveLinearOperator,
     Kronecker,
     Matrix,
-    ProductLinearOperator,
-    ScaledLinearOperator,
 )
-from linox._arithmetic import diagonal, linverse, lpinverse, lsqrt
+from linox._arithmetic import diagonal, linverse
 from linox._low_rank import (
     IsotropicScalingPlusSymmetricLowRank,
-    LowRank,
-    PositiveDiagonalPlusSymmetricLowRank,
     SymmetricLowRank,
 )
 
@@ -51,7 +44,7 @@ from linox._low_rank import (
 class DensificationDetector:
     """Context manager that detects if todense() is called."""
 
-    def __init__(self, operator: linox.LinearOperator, allow_in_matmul: bool = True):
+    def __init__(self, operator: linox.LinearOperator, allow_in_matmul: bool = True) -> None:
         self.operator = operator
         self.allow_in_matmul = allow_in_matmul
         self.todense_called = False
@@ -90,11 +83,12 @@ class DensificationDetector:
             self.operator.todense = self.original_todense
         return False
 
-    def assert_no_densification(self, message: str = ""):
+    def assert_no_densification(self, message: str = "") -> None:
         if self.todense_called:
             stack_str = "\n  ".join(self.call_stack)
+            msg = f"Early densification detected! {message}\nCall stack:\n  {stack_str}"
             raise AssertionError(
-                f"Early densification detected! {message}\nCall stack:\n  {stack_str}"
+                msg
             )
 
 
@@ -133,7 +127,7 @@ def key():
 
 
 @pytest.fixture
-def small_size():
+def small_size() -> int:
     return 4
 
 
@@ -165,7 +159,7 @@ def vector(key, small_size):
 # ============================================================================
 
 
-def test_scaled_operator_no_densification(matrix_a, vector):
+def test_scaled_operator_no_densification(matrix_a, vector) -> None:
     """Test that ScaledLinearOperator doesn't densify during construction or matmul."""
     A = Matrix(matrix_a)
 
@@ -179,7 +173,7 @@ def test_scaled_operator_no_densification(matrix_a, vector):
     assert jnp.allclose(result, 2.5 * matrix_a @ vector)
 
 
-def test_add_operator_no_densification(matrix_a, matrix_b, vector):
+def test_add_operator_no_densification(matrix_a, matrix_b, vector) -> None:
     """Test that AddLinearOperator doesn't densify during construction or matmul."""
     A = Matrix(matrix_a)
     B = Matrix(matrix_b)
@@ -194,7 +188,7 @@ def test_add_operator_no_densification(matrix_a, matrix_b, vector):
     assert jnp.allclose(result, (matrix_a + matrix_b) @ vector)
 
 
-def test_product_operator_no_densification(matrix_a, matrix_b, vector):
+def test_product_operator_no_densification(matrix_a, matrix_b, vector) -> None:
     """Test that ProductLinearOperator doesn't densify during construction or matmul."""
     A = Matrix(matrix_a)
     B = Matrix(matrix_b)
@@ -209,7 +203,7 @@ def test_product_operator_no_densification(matrix_a, matrix_b, vector):
     assert jnp.allclose(result, matrix_a @ matrix_b @ vector, atol=1e-6)
 
 
-def test_transpose_no_densification(matrix_a, vector):
+def test_transpose_no_densification(matrix_a, vector) -> None:
     """Test that transpose doesn't densify."""
     A = Matrix(matrix_a)
 
@@ -226,7 +220,7 @@ def test_transpose_no_densification(matrix_a, vector):
 # ============================================================================
 
 
-def test_diagonal_of_scaled_no_densification(matrix_a):
+def test_diagonal_of_scaled_no_densification(matrix_a) -> None:
     """Test that diagonal of scaled operator doesn't densify."""
     A = Matrix(matrix_a)
     scaled = 3.0 * A
@@ -239,7 +233,7 @@ def test_diagonal_of_scaled_no_densification(matrix_a):
     assert jnp.allclose(diag, 3.0 * jnp.diag(matrix_a))
 
 
-def test_diagonal_of_sum_no_densification(matrix_a, matrix_b):
+def test_diagonal_of_sum_no_densification(matrix_a, matrix_b) -> None:
     """Test that diagonal of sum doesn't densify operands unnecessarily."""
     A = Matrix(matrix_a)
     B = Matrix(matrix_b)
@@ -260,19 +254,19 @@ def test_diagonal_of_sum_no_densification(matrix_a, matrix_b):
 # ============================================================================
 
 
-def test_kronecker_construction_no_densification(matrix_a, matrix_b):
+def test_kronecker_construction_no_densification(matrix_a, matrix_b) -> None:
     """Test that Kronecker product construction doesn't densify."""
     A = Matrix(matrix_a)
     B = Matrix(matrix_b)
 
     with DensificationDetector(A, allow_in_matmul=True) as det_a:
         with DensificationDetector(B, allow_in_matmul=True) as det_b:
-            kron_op = Kronecker(A, B)
+            Kronecker(A, B)
             det_a.assert_no_densification("Kronecker construction (A)")
             det_b.assert_no_densification("Kronecker construction (B)")
 
 
-def test_kronecker_matmul_no_densification(matrix_a, matrix_b, key):
+def test_kronecker_matmul_no_densification(matrix_a, matrix_b, key) -> None:
     """Test that Kronecker product matmul doesn't densify."""
     A = Matrix(matrix_a)
     B = Matrix(matrix_b)
@@ -295,7 +289,7 @@ def test_kronecker_matmul_no_densification(matrix_a, matrix_b, key):
 # ============================================================================
 
 
-def test_block_diagonal_no_densification(matrix_a, matrix_b, key):
+def test_block_diagonal_no_densification(matrix_a, matrix_b, key) -> None:
     """Test that BlockDiagonal doesn't densify blocks during matmul."""
     A = Matrix(matrix_a)
     B = Matrix(matrix_b)
@@ -306,7 +300,7 @@ def test_block_diagonal_no_densification(matrix_a, matrix_b, key):
 
     with DensificationDetector(A, allow_in_matmul=True) as det_a:
         with DensificationDetector(B, allow_in_matmul=True) as det_b:
-            result = block_op @ vec
+            block_op @ vec
             det_a.assert_no_densification("BlockDiagonal matmul (A)")
             det_b.assert_no_densification("BlockDiagonal matmul (B)")
 
@@ -316,7 +310,7 @@ def test_block_diagonal_no_densification(matrix_a, matrix_b, key):
 # ============================================================================
 
 
-def test_symmetric_low_rank_no_densification(key, small_size):
+def test_symmetric_low_rank_no_densification(key, small_size) -> None:
     """Test that SymmetricLowRank doesn't densify during construction or matmul."""
     rank = 2
     U = jax.random.normal(key, (small_size, rank))
@@ -332,7 +326,7 @@ def test_symmetric_low_rank_no_densification(key, small_size):
     assert jnp.allclose(result, expected)
 
 
-def test_isotropic_plus_low_rank_no_densification(key, small_size):
+def test_isotropic_plus_low_rank_no_densification(key, small_size) -> None:
     """Test IsotropicScalingPlusSymmetricLowRank doesn't densify."""
     rank = 2
     U = jax.random.normal(key, (small_size, rank))
@@ -353,14 +347,14 @@ def test_isotropic_plus_low_rank_no_densification(key, small_size):
 # ============================================================================
 
 
-def test_inverse_scaled_no_densification(spd_matrix):
+def test_inverse_scaled_no_densification(spd_matrix) -> None:
     """Test that inverse of scaled operator doesn't densify unnecessarily."""
     A = Matrix(spd_matrix)
     scaled = 2.0 * A
 
     # Getting inverse should not densify the underlying operator early
     with DensificationDetector(scaled.operator, allow_in_matmul=True) as detector:
-        inv_op = linverse(scaled)
+        linverse(scaled)
         # Note: inverse itself may need to densify at some point, but not during
         # construction of the inverse operator
         detector.assert_no_densification("inverse of scaled (during construction)")
@@ -374,7 +368,7 @@ def test_inverse_scaled_no_densification(spd_matrix):
 @pytest.mark.xfail(
     reason="Known issue: IsotropicAdditiveLinearOperator.lcholesky densifies"
 )
-def test_isotropic_add_cholesky_should_not_densify(spd_matrix, small_size):
+def test_isotropic_add_cholesky_should_not_densify(spd_matrix, small_size) -> None:
     """Test that Cholesky of isotropic add uses eigendecomposition.
 
     This is currently a known issue in the codebase.
@@ -390,7 +384,7 @@ def test_isotropic_add_cholesky_should_not_densify(spd_matrix, small_size):
 
 
 @pytest.mark.xfail(reason="Known issue: CongruenceTransform diagonal densifies")
-def test_congruence_diagonal_should_not_densify(matrix_a, spd_matrix):
+def test_congruence_diagonal_should_not_densify(matrix_a, spd_matrix) -> None:
     """Test that diagonal of congruence transform doesn't densify.
 
     This is currently a known issue in the codebase.
@@ -413,7 +407,7 @@ def test_congruence_diagonal_should_not_densify(matrix_a, spd_matrix):
 # ============================================================================
 
 
-def test_complex_chain_no_early_densification(key, small_size):
+def test_complex_chain_no_early_densification(key, small_size) -> None:
     """Test a complex chain of operations doesn't cause early densification."""
     # Create operators
     d1 = jnp.arange(1, small_size + 1, dtype=jnp.float32)
@@ -437,7 +431,7 @@ def test_complex_chain_no_early_densification(key, small_size):
     assert jnp.allclose(result, expected, atol=1e-6)
 
 
-def test_kronecker_chain_no_early_densification(small_size):
+def test_kronecker_chain_no_early_densification(small_size) -> None:
     """Test Kronecker chains maintain lazy evaluation."""
     d1 = jnp.arange(1, small_size + 1, dtype=jnp.float32)
     d2 = jnp.arange(2, small_size + 2, dtype=jnp.float32)
@@ -464,7 +458,7 @@ def test_kronecker_chain_no_early_densification(small_size):
 # ============================================================================
 
 
-def test_densification_detector_catches_todense():
+def test_densification_detector_catches_todense() -> None:
     """Test that DensificationDetector correctly detects todense() calls."""
     A = Matrix(jnp.eye(3))
 
@@ -474,7 +468,7 @@ def test_densification_detector_catches_todense():
             detector.assert_no_densification()
 
 
-def test_densification_detector_allows_matmul():
+def test_densification_detector_allows_matmul() -> None:
     """Test that DensificationDetector allows todense in _matmul."""
     A = Matrix(jnp.eye(3))
     vec = jnp.ones(3)

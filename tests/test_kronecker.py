@@ -243,7 +243,7 @@ def test_qr(square_spd_kronecker: tuple[Kronecker, jax.Array]) -> None:
 def test_svd(square_spd_kronecker: tuple[Kronecker, jax.Array]) -> None:
     linop, matrix = square_spd_kronecker
     linop_u, linop_s, linop_vh = linox.svd(linop)
-    matrix_u, matrix_s, matrix_vh = jnp.linalg.svd(matrix)
+    _matrix_u, _matrix_s, _matrix_vh = jnp.linalg.svd(matrix)
     assert jnp.allclose((linop_u @ jnp.diag(linop_s) @ linop_vh).todense(), matrix)
     key = jax.random.PRNGKey(0)
     vec = jax.random.normal(key, (matrix.shape[-1],))

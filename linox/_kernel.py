@@ -94,8 +94,8 @@ class ArrayKernel(KernelOperator):
 
 @lsqrt.dispatch
 def _(a: ArrayKernel) -> jax.Array:
-    _jitter = 1e-6 if a.dtype == jnp.float32 else 1e-10
-    return jnp.linalg.cholesky(a.todense() + _jitter * jnp.eye(a.shape[0]))
+    jitter = 1e-6 if a.dtype == jnp.float32 else 1e-10
+    return jnp.linalg.cholesky(a.todense() + jitter * jnp.eye(a.shape[0]))
 
 
 class ToeplitzKernel(KernelOperator):

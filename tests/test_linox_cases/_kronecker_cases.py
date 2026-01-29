@@ -6,9 +6,9 @@ from itertools import product
 import jax
 import jax.numpy as jnp
 import pytest
-from linox.typing import ShapeLike, ShapeType
 
 from linox._kronecker import Kronecker
+from linox.typing import ShapeLike, ShapeType
 
 DType = jnp.float32
 CaseType = tuple[Kronecker, jax.Array]

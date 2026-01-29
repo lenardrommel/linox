@@ -80,7 +80,7 @@ class BlockMatrix(LinearOperator):
         results = []
         start_idx = 0
         for size in self._col_sizes:
-            results.append(x[..., start_idx:start_idx + size, :])
+            results.append(x[..., start_idx : start_idx + size, :])
             start_idx += size
         return results
 

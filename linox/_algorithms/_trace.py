@@ -12,7 +12,7 @@ Key algorithms:
 - Diagonal estimation: Stochastic estimation of diag(A)
 - Trace and diagonal estimation: Joint estimation
 
-References
+References:
 ----------
 .. [1] M. F. Hutchinson, "A stochastic estimator of the trace of the influence
        matrix for Laplacian smoothing splines," Communications in Statistics -
@@ -27,9 +27,9 @@ References
 
 import jax
 import jax.numpy as jnp
-from jax import lax, random
+from jax import random
 
-from linox.typing import ArrayLike, LinearOperatorLike
+from linox.typing import LinearOperatorLike
 
 
 def hutchinson_trace(
@@ -63,14 +63,14 @@ def hutchinson_trace(
         - 'normal': Standard Gaussian N(0, 1)
         Default is 'rademacher'.
 
-    Returns
+    Returns:
     -------
     trace_estimate : jax.Array
         Monte Carlo estimate of trace(A).
     trace_std : jax.Array
         Standard error of the estimate (std / sqrt(num_samples)).
 
-    Examples
+    Examples:
     --------
     >>> import jax
     >>> import jax.numpy as jnp
@@ -81,7 +81,7 @@ def hutchinson_trace(
     >>> # True trace is 1000 + 0.1*1000 = 1100
     >>> print(f"Estimate: {trace_est:.2f} ± {trace_std:.2f}")
 
-    Notes
+    Notes:
     -----
     The Rademacher distribution (±1 with equal probability) is theoretically
     optimal for trace estimation in the sense of minimizing variance [1].
@@ -89,7 +89,7 @@ def hutchinson_trace(
     For GPU/TPU acceleration, consider increasing num_samples and using
     jax.vmap to parallelize the matrix-vector products.
 
-    References
+    References:
     ----------
     Based on Hutchinson (1990) [1] and matfree.stochtrace [2].
     """
@@ -153,14 +153,14 @@ def hutchinson_diagonal(
         Distribution for test vectors ('rademacher' or 'normal').
         Default is 'rademacher'.
 
-    Returns
+    Returns:
     -------
     diagonal_estimate : jax.Array, shape (n,)
         Monte Carlo estimate of diag(A).
     diagonal_std : jax.Array, shape (n,)
         Standard error of each diagonal element estimate.
 
-    Examples
+    Examples:
     --------
     >>> import jax
     >>> import jax.numpy as jnp
@@ -172,17 +172,14 @@ def hutchinson_diagonal(
     >>> true_diag = jnp.diag(A.todense())
     >>> print(f"Max error: {jnp.max(jnp.abs(diag_est - true_diag)):.4f}")
 
-    Notes
+    Notes:
     -----
     For operators with explicit diagonal() methods, use those instead as they
     are exact. This is useful when the diagonal is not directly accessible or
     would require densification.
     """
     # Get operator shape
-    if hasattr(A, "shape"):
-        n = A.shape[0]
-    else:
-        n = A.shape[0]
+    n = A.shape[0] if hasattr(A, "shape") else A.shape[0]
 
     # Generate test vectors
     if distribution == "rademacher":
@@ -233,14 +230,14 @@ def hutchinson_trace_and_diagonal(
         Distribution for test vectors ('rademacher' or 'normal').
         Default is 'rademacher'.
 
-    Returns
+    Returns:
     -------
     result : dict
         Dictionary with keys:
         - 'trace': (estimate, std) for trace(A)
         - 'diagonal': (estimate, std) for diag(A)
 
-    Examples
+    Examples:
     --------
     >>> import jax
     >>> import jax.numpy as jnp
@@ -251,16 +248,13 @@ def hutchinson_trace_and_diagonal(
     >>> trace_est, trace_std = result['trace']
     >>> diag_est, diag_std = result['diagonal']
 
-    Notes
+    Notes:
     -----
     This function reuses the same matrix-vector products for both estimates,
     making it approximately 2x faster than calling the functions separately.
     """
     # Get operator shape
-    if hasattr(A, "shape"):
-        n = A.shape[0]
-    else:
-        n = A.shape[0]
+    n = A.shape[0] if hasattr(A, "shape") else A.shape[0]
 
     # Generate test vectors
     if distribution == "rademacher":

@@ -8,7 +8,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 class Heat1dDataGenerator:
     """Simple 1D heat equation data generator."""
 
-    def __init__(self, x_range=(0, np.pi), nx=25, T=1.0, alpha=0.5, N_samples=100):
+    def __init__(self, x_range=(0, np.pi), nx=25, T=1.0, alpha=0.5, N_samples=100) -> None:
         self.x_range = x_range
         self.nx = nx
         self.T = T
@@ -23,7 +23,7 @@ class Heat1dDataGenerator:
         self.u0_samples = None
         self.data = None
 
-    def generate_initial_conditions(self, n_modes=3, seed=42):
+    def generate_initial_conditions(self, n_modes=3, seed=42) -> None:
         """Generate random initial conditions using Fourier series."""
         np.random.seed(seed)
 
@@ -44,10 +44,11 @@ class Heat1dDataGenerator:
 
             self.u0_samples[i] = u0
 
-    def solve_pde(self):
+    def solve_pde(self) -> None:
         """Solve heat equation analytically for all initial conditions."""
         if self.u0_samples is None:
-            raise ValueError("Initial conditions not yet generated")
+            msg = "Initial conditions not yet generated"
+            raise ValueError(msg)
 
         L = self.x_range[1] - self.x_range[0]
         self.data = np.zeros_like(self.u0_samples)
@@ -91,7 +92,7 @@ class Heat2dDataGenerator:
         T=1.0,
         alpha=0.5,
         N_samples=100,
-    ):
+    ) -> None:
         self.x_range = x_range
         self.y_range = y_range
         self.nx = nx
@@ -113,7 +114,7 @@ class Heat2dDataGenerator:
         self.u0_samples = None
         self.data = None
 
-    def generate_initial_conditions(self, n_modes_x=3, n_modes_y=3, seed=42):
+    def generate_initial_conditions(self, n_modes_x=3, n_modes_y=3, seed=42) -> None:
         """Generate random initial conditions using 2D Fourier series."""
         np.random.seed(seed)
 
@@ -139,10 +140,11 @@ class Heat2dDataGenerator:
 
             self.u0_samples[i] = u0
 
-    def solve_pde(self):
+    def solve_pde(self) -> None:
         """Solve 2D heat equation analytically for all initial conditions."""
         if self.u0_samples is None:
-            raise ValueError("Initial conditions not yet generated")
+            msg = "Initial conditions not yet generated"
+            raise ValueError(msg)
 
         Lx = self.x_range[1] - self.x_range[0]
         Ly = self.y_range[1] - self.y_range[0]
@@ -176,8 +178,9 @@ class Heat2dDataGenerator:
     def plot_solution(self, sample_idx=0, figsize=(12, 5)):
         """Plot initial condition and solution for a specific sample."""
         if self.u0_samples is None or self.data is None:
+            msg = "Data not yet generated. Run generate_initial_conditions() and solve_pde() first."
             raise ValueError(
-                "Data not yet generated. Run generate_initial_conditions() and solve_pde() first."
+                msg
             )
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
@@ -216,8 +219,9 @@ class Heat2dDataGenerator:
     def plot_multiple_solutions(self, n_samples=4, figsize=(15, 12)):
         """Plot initial conditions and solutions for multiple samples."""
         if self.u0_samples is None or self.data is None:
+            msg = "Data not yet generated. Run generate_initial_conditions() and solve_pde() first."
             raise ValueError(
-                "Data not yet generated. Run generate_initial_conditions() and solve_pde() first."
+                msg
             )
 
         n_samples = min(n_samples, self.N_samples)
@@ -225,7 +229,7 @@ class Heat2dDataGenerator:
 
         for i in range(n_samples):
             # Plot initial condition
-            im1 = axes[0, i].contourf(
+            axes[0, i].contourf(
                 self.X, self.Y, self.u0_samples[i], levels=15, cmap="RdBu_r"
             )
             axes[0, i].set_title(f"Initial (t=0)\nSample {i}")
@@ -234,7 +238,7 @@ class Heat2dDataGenerator:
                 axes[0, i].set_ylabel("y")
 
             # Plot solution
-            im2 = axes[1, i].contourf(
+            axes[1, i].contourf(
                 self.X, self.Y, self.data[i], levels=15, cmap="RdBu_r"
             )
             axes[1, i].set_title(f"Solution (t={self.T})\nSample {i}")
@@ -254,10 +258,10 @@ def get_data(name: str):
         data_gen.generate_initial_conditions(n_modes=5)
         data_gen.solve_pde()
         return data_gen.x_grid, data_gen.u0_samples, data_gen.data
-    elif name == "heat2d":
+    if name == "heat2d":
         data_gen = Heat2dDataGenerator(nx=30, ny=30, N_samples=10, T=0.1, alpha=0.5)
         data_gen.generate_initial_conditions(n_modes_x=5, n_modes_y=5)
         data_gen.solve_pde()
         return data_gen.x_grid, data_gen.y_grid, data_gen.u0_samples, data_gen.data
-    else:
-        raise ValueError(f"Unknown dataset name: {name}")
+    msg = f"Unknown dataset name: {name}"
+    raise ValueError(msg)
