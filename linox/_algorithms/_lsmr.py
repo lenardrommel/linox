@@ -263,13 +263,38 @@ def lsmr_solve(
 
         # Perform the next step of the bidiagonalization
         Av = A @ v
-        u = Av - alpha * u
-        beta = jnp.linalg.norm(u)
-        u = u / jnp.where(beta > 0, beta, 1.0)
+        u_new = Av - alpha * u
+        beta_new = jnp.linalg.norm(u_new)
 
-        v = A.T @ u - beta * v
-        alpha = jnp.linalg.norm(v)
-        v = v / jnp.where(alpha > 0, alpha, 1.0)
+        # Stable update using jax.lax.cond to handle beta_new near 0
+        def update_v_alpha(args):
+            u_val, beta_val = args
+            # Normalization
+            u_normalized = u_val / beta_val
+            
+            # Update v
+            v_new = A.T @ u_normalized - beta_val * v
+            alpha_new = jnp.linalg.norm(v_new)
+            
+            # Normalize v if alpha > 0
+            v_normalized = v_new / jnp.where(alpha_new > 0, alpha_new, 1.0)
+            
+            return u_normalized, v_normalized, alpha_new
+
+        def no_update(args):
+            u_val, _ = args
+            # When beta is 0, we don't update v or alpha
+            # u remains u_new (which is 0 vector if beta is 0, effectively)
+            return u_val, v, alpha
+
+        # Conditional execution
+        u, v, alpha = lax.cond(
+            beta_new > 0,
+            update_v_alpha,
+            no_update,
+            (u_new, beta_new)
+        )
+        beta = beta_new
 
         # Construct rotation Qhat_{k,2k+1}
         chat, shat, alphahat = _sym_ortho(alphabar, damp)
@@ -454,13 +479,13 @@ def lsmr_solve(
     ) = final_carry
 
     info = {
-        "istop": int(istop),
-        "itn": int(itn),
-        "normr": float(normr),
-        "normar": float(normar),
-        "normA": float(normA),
-        "condA": float(condA),
-        "normx": float(normx),
+        "istop": istop,
+        "itn": itn,
+        "normr": normr,
+        "normar": normar,
+        "normA": normA,
+        "condA": condA,
+        "normx": normx,
     }
 
     return x, info

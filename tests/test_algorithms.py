@@ -15,17 +15,19 @@ import pytest
 
 import linox
 from linox import Matrix
-from linox._algorithms import (
-    arnoldi_iteration,
-    arnoldi_matrix_function,
-    hutchinson_diagonal,
-    hutchinson_trace,
-    hutchinson_trace_and_diagonal,
-    lanczos_eigh,
-    lanczos_matrix_function,
-    lanczos_tridiag,
+from linox._algorithms._lanczos_arnoldi import *
+from linox._algorithms._lsmr import lsmr_solve
+from linox._algorithms._matrix_functions import (
     stochastic_lanczos_quadrature,
+    lanczos_matrix_function,
+    arnoldi_matrix_function,
 )
+from linox._algorithms._trace import (
+    hutchinson_trace,
+    hutchinson_diagonal,
+    hutchinson_trace_and_diagonal,
+)
+
 
 
 class TestLanczosArnoldi:
@@ -283,6 +285,67 @@ class TestStochasticLanczosQuadrature:
         assert jnp.abs(trace_est - true_trace) <= max(3 * trace_std, 1e-10)
 
 
+
+class TestLSMR:
+    """Tests for LSMR solver."""
+
+    def test_lsmr_identity(self):
+        """Test LSMR on identity system."""
+        n = 50
+        A = Matrix(jnp.eye(n))
+        b = jnp.ones(n)
+
+        x, info = lsmr_solve(A, b, atol=1e-8, btol=1e-8)
+
+        assert jnp.allclose(x, b, atol=1e-6)
+        assert info["istop"] in [1, 2, 3]  # Converged
+
+    def test_lsmr_diagonal(self):
+        """Test LSMR on diagonal system."""
+        # Enable 64-bit precision for this test
+        jax.config.update("jax_enable_x64", True)
+        
+        n = 50
+        # Use explicit float64
+        diag_vals = jnp.arange(1.0, n + 1.0, dtype=jnp.float64)
+        A = Matrix(jnp.diag(diag_vals))
+        x_true = jnp.ones(n, dtype=jnp.float64)
+        b = A @ x_true
+
+        x, info = lsmr_solve(A, b, atol=1e-10, btol=1e-10, maxiter=100)
+
+        assert jnp.all(jnp.isfinite(x))  # Check for NaNs
+        assert jnp.allclose(x, x_true, atol=1e-6)
+        assert info["istop"] in [1, 2, 3]
+
+    def test_lsmr_overdetermined(self):
+        """Test LSMR on overdetermined least-squares problem."""
+        m, n = 100, 50
+        key = jax.random.PRNGKey(0)
+        A_dense = jax.random.normal(key, (m, n))
+        A = Matrix(A_dense)
+        x_true = jax.random.normal(jax.random.PRNGKey(1), (n,))
+        b = A @ x_true + 0.01 * jax.random.normal(jax.random.PRNGKey(2), (m,))
+
+        x, info = lsmr_solve(A, b, atol=1e-8, btol=1e-8, maxiter=200)
+
+        # Should get close to true solution
+        assert jnp.linalg.norm(x - x_true) < 0.5
+        # Residual should be small
+        assert info["normr"] < 1.0
+
+    def test_lsmr_with_damping(self):
+        """Test LSMR with Tikhonov regularization."""
+        n = 50
+        A = Matrix(jnp.eye(n))
+        b = jnp.ones(n)
+        damp = 0.1
+
+        x, _ = lsmr_solve(A, b, damp=damp, atol=1e-8, btol=1e-8)
+
+        # With damping, solution should be slightly smaller than b
+        assert jnp.allclose(x, b / (1 + damp**2), atol=1e-2)
+
 class TestArithmeticIntegration:
     """Tests for integration with linox arithmetic module."""
 
@@ -292,16 +355,16 @@ class TestArithmeticIntegration:
         A = linox.Matrix(jnp.eye(n))
         key = jax.random.PRNGKey(0)
 
-        trace_est, _trace_std = linox.ltrace(A, key=key, num_samples=200)
+        trace_est, _trace_std = linox._arithmetic.ltrace(A, key=key, num_samples=200)
 
-        assert jnp.abs(trace_est - n) < 5.0
+        assert jnp.abs(trace_est - n) < 5.0, f"Trace estimate {trace_est} is not close to {n}"
 
     def test_ltrace_default_key(self) -> None:
         """Test ltrace with default key."""
         n = 50
         A = linox.Matrix(jnp.eye(n))
 
-        trace_est, _ = linox.ltrace(A, num_samples=100)
+        trace_est, _ = linox._arithmetic.ltrace(A, num_samples=100)
 
         assert jnp.abs(trace_est - n) < 10.0
 
