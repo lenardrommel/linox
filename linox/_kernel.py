@@ -120,21 +120,30 @@ class ArrayKernel(KernelOperator):
         self.chunk_size = chunk_size
 
     def _matmul(self, vec: jax.Array) -> jax.Array:
-        """Matrix-free matmul using lax.map (JIT-compatible).
+        """Matrix-free matmul computed row-by-row.
 
-        Computes K @ v row-by-row without ever building K.
-        Uses lax.map for JIT compatibility.
+        Handles arbitrary batch dimensions: for inputs with shape (..., n1, k),
+        computes result with shape (..., n0, k) using proper broadcasting.
         """
+        n0, n1 = self.shape
         x0 = self.x0
         x1 = self.x1
-
         kernel_row_fn = jax.vmap(self.kernel, in_axes=(None, 0))
 
-        def compute_row_dot(xi):
+        def compute_row(xi):
             row = kernel_row_fn(xi, x1)
-            return jnp.dot(row, vec)
+            return jnp.tensordot(row, vec, axes=(0, -2))
 
-        return lax.map(compute_row_dot, x0)
+        if vec.ndim == 1:
+
+            def compute_row_1d(xi):
+                row = kernel_row_fn(xi, x1)
+                return jnp.dot(row, vec)
+
+            return lax.map(compute_row_1d, x0)
+
+        result = lax.map(compute_row, x0)
+        return jnp.moveaxis(result, 0, -2)
 
     def transpose(self) -> "ArrayKernel":
         return ArrayKernel(
@@ -156,16 +165,11 @@ class ArrayKernel(KernelOperator):
                 f"Densifying large kernel ({n0}x{n1}). This may cause OOM. "
                 "Consider using matrix-free operations instead."
             )
-
-        x0 = self.x0
-        x1 = self.x1
-
         kernel_fn = jax.vmap(
             jax.vmap(self.kernel, in_axes=(None, 0)),
             in_axes=(0, None),
         )
-
-        return kernel_fn(x0, x1)
+        return kernel_fn(self.x0, self.x1)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self.kernel, self.x0, self.x1)
@@ -227,8 +231,21 @@ class ToeplitzKernel(KernelOperator):
         return jax.vmap(lambda xi: self.kernel(x0_reshaped[0], xi))(x0_reshaped)
 
     def _matmul(self, vec: jax.Array) -> jax.Array:
-        """FFT-based O(n log n) matmul - completely matrix-free."""
-        return self._toeplitz_op @ vec
+        """FFT-based O(n log n) matmul - completely matrix-free.
+
+        Handles multi-dimensional inputs from Kronecker products by reshaping
+        to 2D, performing the FFT-based matmul, then reshaping back.
+        """
+        n = self.shape[0]
+
+        if vec.ndim <= 2:
+            return self._toeplitz_op @ vec
+
+        batch_shape = vec.shape[:-2]
+        last_two = vec.shape[-2:]
+        vec_2d = vec.reshape(-1, last_two[-1])
+        result_2d = self._toeplitz_op @ vec_2d
+        return result_2d.reshape(*batch_shape, n, last_two[-1])
 
     def transpose(self) -> "ToeplitzKernel":
         """Symmetric Toeplitz: transpose is self."""
