@@ -434,10 +434,13 @@ class KroneckerSelectedEigenvectors(LinearOperator):
         self._d = len(factor_vecs)
         self._k = len(selected_indices)
         self._factor_dims = [Q.shape[0] for Q in factor_vecs]
-        self._n_total = int(jnp.prod(jnp.array(self._factor_dims)))
+        self._n_total = int(np.prod(self._factor_dims))
 
         # TRIAL
-        sel_np = np.asarray(selected_indices, dtype=np.int32)  # (k, d)
+        if isinstance(selected_indices, jax.Array):
+            sel_np = selected_indices
+        else:
+            sel_np = np.asarray(selected_indices, dtype=np.int64)  # (k, d)
 
         # self._gathered = []
         # for i in range(self._d):

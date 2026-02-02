@@ -238,14 +238,18 @@ class ToeplitzKernel(KernelOperator):
         """
         n = self.shape[0]
 
-        if vec.ndim <= 2:
+        if vec.ndim == 1:
+            return self._toeplitz_op @ vec  # (n,)
+        if vec.ndim == 2:
+            # Erwartet (n, k)
             return self._toeplitz_op @ vec
 
-        batch_shape = vec.shape[:-2]
-        last_two = vec.shape[-2:]
-        vec_2d = vec.reshape(-1, last_two[-1])
-        result_2d = self._toeplitz_op @ vec_2d
-        return result_2d.reshape(*batch_shape, n, last_two[-1])
+        # vec: (..., n, k)
+        k = vec.shape[-1]
+        vec_mat = jnp.moveaxis(vec, -2, 0).reshape(n, -1)  # (n, batch*k)
+        out_mat = self._toeplitz_op @ vec_mat  # (n, batch*k)
+        out = out_mat.reshape(n, *vec.shape[:-2], k)
+        return jnp.moveaxis(out, 0, -2)
 
     def transpose(self) -> "ToeplitzKernel":
         """Symmetric Toeplitz: transpose is self."""
