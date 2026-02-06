@@ -109,3 +109,11 @@ Low-rank module (your branch `_low_rank.py`) → `operators/lowrank.py` + `linal
 1) `eigh` returns eigenvalues as arrays; eigenvectors as array or operator.
 2) `sqrt/cholesky` may return apply-mode operators for large problems.
 3) `method="auto"` prefers structure, then approximate, then dense (configurable).
+
+
+# Other design stuff:
+  * operator + 0/1 should use matrix Zeros or matrix Ones and add them
+  * linox.eye(dim) makes universal identiy
+  * left/right add multiplication like op * 0.1 and 0.1 * op should both work
+  * op + 0.1 and 0.1 + op should either trigger a warning or be allowed and then add element wise the scalar
+  * operators should have a function that gets either the row/column or element of course lazily.

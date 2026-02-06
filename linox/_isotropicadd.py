@@ -14,9 +14,11 @@ from linox._arithmetic import (
     linverse,
     llog,
     lpinverse,
+    lpow,
     lsolve,
     lsqrt,
     ltrace,
+    slogdet,
 )
 from linox._linear_operator import LinearOperator
 from linox._matrix import Diagonal, Identity
@@ -202,7 +204,13 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
     Q, S = a.Q, a.S  # cached
     s = a.s.scalar
     # Cholesky of A + sI = Q * sqrt(Λ + sI) where A = Q Λ Q^T
-    new_lam = utils.as_linop(jnp.diag(jnp.sqrt(S + s)))
+    
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+        
+    new_lam = Diagonal(jnp.sqrt(eigs + s))
     return Q @ new_lam
 
 
@@ -211,7 +219,13 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
     a._ensure_eigh()  # noqa: SLF001
     Q, S = a.Q, a.S  # cached
     s = a.s.scalar
-    new_lam = utils.as_linop(jnp.diag(jnp.sqrt(S + s)))
+    
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+
+    new_lam = Diagonal(jnp.sqrt(eigs + s))
     return Q @ new_lam @ Q.T
 
 
@@ -265,12 +279,6 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
     return inv_iso - (Q @ D @ Q.T)
 
 
-@lpinverse.dispatch
-def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
-    a._ensure_eigh()  # noqa: SLF001
-    Q, S = a.Q, a.S  # cached
-    s = a.s.scalar
-
     inv_iso = lpinverse(a.s)
 
     if isinstance(S, LinearOperator):
@@ -280,6 +288,28 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
     D = Diagonal(eigs / (s * (eigs + s)))
 
     return inv_iso - (Q @ D @ Q.T)
+
+
+@slogdet.dispatch
+def _(a: IsotropicAdditiveLinearOperator) -> tuple[jax.Array, jax.Array]:
+    """Compute sign and logdet of sI + A using eigenvalues."""
+    a._ensure_eigh()  # noqa: SLF001
+    
+    Q, S = a.Q, a.S
+    s = a.s.scalar
+
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+        
+    vals = eigs + s
+    
+    # sign = product of signs
+    sign = jnp.prod(jnp.sign(vals))
+    logdet = jnp.sum(jnp.log(jnp.abs(vals)))
+    
+    return sign, logdet
 
 
 @leigh.dispatch
@@ -340,7 +370,13 @@ def _(
     s = a.s.scalar
 
     # Eigenvalues of sI + A are s + λ(A)
-    eigvals = a.S + s
+    S = a.S
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+    
+    eigvals = eigs + s
 
     if v is None:
         # Return lazy operator: U @ Diagonal(exp(s + λ)) @ U^T
@@ -367,7 +403,13 @@ def _(
     s = a.s.scalar
 
     # Eigenvalues of sI + A are s + λ(A)
-    eigvals = a.S + s
+    S = a.S
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+
+    eigvals = eigs + s
 
     if v is None:
         # Return lazy operator: U @ Diagonal(log(s + λ)) @ U^T
@@ -396,7 +438,13 @@ def _(
     s = a.s.scalar
 
     # Eigenvalues of sI + A are s + λ(A)
-    eigvals = a.S + s
+    S = a.S
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+
+    eigvals = eigs + s
 
     if v is None:
         # Return lazy operator: U @ Diagonal((s + λ)^p) @ U^T

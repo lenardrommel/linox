@@ -50,7 +50,6 @@ def _deprecated_l_prefix(func_name: str):
                 f"Use '{func_name[1:]}' instead.",
                 DeprecationWarning,
                 stacklevel=2,
-                stacklevel=2,
             )
             return func(*args, **kwargs)
 

@@ -7,6 +7,7 @@ import jax.numpy as jnp
 from jax import lax
 
 from linox import config
+from linox._arithmetic import lsqrt
 from linox._linear_operator import LinearOperator
 from linox._toeplitz import Toeplitz
 
@@ -183,13 +184,7 @@ class ArrayKernel(KernelOperator):
 
 
 jax.tree_util.register_pytree_node_class(ArrayKernel)
-    def todense(self):
-        """Convert the kernel matrix to a dense format.
 
-        Returns:
-            Dense kernel matrix.
-        """
-        return jnp.asarray(self._kernel_matrix)
 
 
 @lsqrt.dispatch
