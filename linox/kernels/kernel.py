@@ -1,3 +1,5 @@
+# kernel.py
+
 import abc
 import math
 
@@ -6,14 +8,16 @@ import jax.numpy as jnp
 
 
 class Kernel(abc.ABC):
+    """Abstract base class for kernel functions."""
+
     @abc.abstractmethod
-    def __init__(self, learnable: bool):
+    def __init__(self, learnable: bool) -> None:
         """Initialize kernel parameters."""
         self.learnable = learnable
         self.__kernel_name = self.__class__.__name__
 
     @abc.abstractmethod
-    def __call__(self, x, y):
+    def __call__(self, x: jax.Array, y: jax.Array | None = None) -> jax.Array:
         """Compute the kernel function between two sets of inputs.
 
         Args:
@@ -23,10 +27,9 @@ class Kernel(abc.ABC):
         Returns:
             Kernel matrix of shape (n, m).
         """
-        pass
 
     @property
-    def params(self):
+    def params(self) -> dict[str, jax.Array]:
         """Get a dictionary of the kernel's parameters."""
         if not self.learnable:
             return {}
@@ -39,7 +42,10 @@ class Kernel(abc.ABC):
 
 
 class L2InnerProductKernel(Kernel):
-    def __init__(self, learnable: bool = False, bias=1e-4):
+    """L² Inner Product Kernel with optional bias term."""
+
+    def __init__(self, learnable: bool, bias: float = 1e-4) -> None:
+        """Initialize L² inner product kernel parameters."""
         super().__init__(learnable=learnable)
         self.bias = bias
 
@@ -52,12 +58,15 @@ class L2InnerProductKernel(Kernel):
 
 
 class RBFKernel(Kernel):
-    def __init__(self, learnable: bool = True, lengthscale=1.0):
+    """Radial Basis Function (RBF) Kernel."""
+
+    def __init__(self, learnable: bool, lengthscale: float = 1.0) -> None:
+        """Initialize RBF kernel parameters."""
         super().__init__(learnable=learnable)
         self.lengthscale = lengthscale
 
-    def __call__(self, x, y: jax.Array | None = None) -> jax.Array:
-        """Compute RBF kernel between individual points"""
+    def __call__(self, x: jax.Array, y: jax.Array | None = None) -> jax.Array:
+        """Compute RBF kernel between individual points."""
         if y is None:
             y = x
 
@@ -67,14 +76,17 @@ class RBFKernel(Kernel):
 
 
 class Matern32Kernel(Kernel):
-    def __init__(self, learnable: bool = True, lengthscale=1.0):
+    """Matern 3/2 Kernel."""
+
+    def __init__(self, learnable: bool, lengthscale: float = 1.0) -> None:
+        """Initialize Matern 3/2 kernel parameters."""
         super().__init__(learnable=learnable)
         self.lengthscale = lengthscale
         self.nu = 1.5
         self._sqrt3 = math.sqrt(3)
 
-    def __call__(self, x, y):
-        """Compute Matern 3/2 kernel between individual points"""
+    def __call__(self, x: jax.Array, y: jax.Array | None = None) -> jax.Array:
+        """Compute Matern 3/2 kernel between individual points."""
         if y is None:
             y = x
 

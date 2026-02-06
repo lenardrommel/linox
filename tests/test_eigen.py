@@ -8,6 +8,35 @@ import linox
 from linox._eigen import EigenD
 from linox._linear_operator import LinearOperator
 from linox._matrix import Diagonal, Matrix
+from linox._matrix import Matrix
+from tests.test_linox_cases._matrix_cases import (
+    case_add_operator,
+    case_diagonal,
+    case_identity,
+    case_matrix,
+    case_ones,
+    case_product_operator,
+    case_scaled_operator,
+    case_transposed_operator,
+    case_zero,
+)
+
+special_linops = [
+    case_matrix,
+    case_identity,
+    case_zero,
+    case_ones,
+    case_diagonal,
+    case_add_operator,
+    case_scaled_operator,
+    case_product_operator,
+    case_transposed_operator,
+]
+
+DType = jnp.float32
+CaseType = tuple[linox.LinearOperator, jax.Array]
+KeyType = jax.random.PRNGKey
+
 
 jax.config.update("jax_enable_x64", True)
 

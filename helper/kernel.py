@@ -23,7 +23,6 @@ class Kernel(abc.ABC):  # noqa: D101
         Returns:
             Kernel matrix of shape (n, m).
         """
-        pass
 
     @property
     def params(self):
@@ -39,7 +38,7 @@ class Kernel(abc.ABC):  # noqa: D101
 
 
 class L2InnerProductKernel(Kernel):  # noqa: D101
-    def __init__(self, bias=1e-4):
+    def __init__(self, bias=1e-4) -> None:
         super().__init__()
         self.bias = bias
 
@@ -52,12 +51,12 @@ class L2InnerProductKernel(Kernel):  # noqa: D101
 
 
 class RBFKernel(Kernel):
-    def __init__(self, lengthscale=1.0):
+    def __init__(self, lengthscale=1.0) -> None:
         super().__init__()
         self.lengthscale = lengthscale
 
     def __call__(self, x, y: jax.Array | None = None) -> jax.Array:
-        """Compute RBF kernel between individual points"""
+        """Compute RBF kernel between individual points."""
         if y is None:
             y = x
 

@@ -183,6 +183,19 @@ class ArrayKernel(KernelOperator):
 
 
 jax.tree_util.register_pytree_node_class(ArrayKernel)
+    def todense(self):
+        """Convert the kernel matrix to a dense format.
+
+        Returns:
+            Dense kernel matrix.
+        """
+        return jnp.asarray(self._kernel_matrix)
+
+
+@lsqrt.dispatch
+def _(a: ArrayKernel) -> jax.Array:
+    jitter = 1e-6 if a.dtype == jnp.float32 else 1e-10
+    return jnp.linalg.cholesky(a.todense() + jitter * jnp.eye(a.shape[0]))
 
 
 class ToeplitzKernel(KernelOperator):

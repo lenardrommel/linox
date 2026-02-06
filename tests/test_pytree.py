@@ -334,8 +334,10 @@ def test_vmap_compatibility() -> None:
 
     # Create a batch of matrices
     matrices = jnp.stack([jax.random.normal(k, (2, 2)) for k in keys])
+    matrices = jnp.stack([jax.random.normal(k, (2, 2)) for k in keys])
 
     # Create a batch of vectors
+    vectors = jnp.stack([jax.random.normal(k, (2,)) for k in keys])
     vectors = jnp.stack([jax.random.normal(k, (2,)) for k in keys])
 
     # Define a function that creates a linear operator and applies it

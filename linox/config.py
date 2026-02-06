@@ -70,4 +70,4 @@ def warn(msg: str, *, prefix: str = "Warning") -> None:
     """
     emit(DebugEvent(kind="warn", msg=f"{prefix}: {msg}"))
     if _DEBUG:
-        print(f"{prefix}: {msg}")
+        pass
