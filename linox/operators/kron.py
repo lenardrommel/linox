@@ -569,17 +569,21 @@ class KroneckerSelectedEigenvectors(LinearOperator):
 
     @property
     def k(self) -> int:
+        """Number of selected eigenvector combinations."""
         return self._k
 
     @property
     def num_factors(self) -> int:
+        """Number of Kronecker factors."""
         return self._d
 
     @property
     def factor_dims(self) -> list[int]:
+        """Dimensions of each Kronecker factor."""
         return self._factor_dims
 
     def tree_flatten(self) -> tuple[tuple, dict]:
+        """Flatten for JAX pytree registration."""
         children = (
             tuple(self._factor_vecs),
             tuple(self._sort_indices),
@@ -593,6 +597,7 @@ class KroneckerSelectedEigenvectors(LinearOperator):
     def tree_unflatten(
         cls, aux_data: dict, children: tuple
     ) -> "KroneckerSelectedEigenvectors":
+        """Unflatten for JAX pytree registration."""
         factor_vecs, sort_indices = children
         return cls(
             list(factor_vecs),
@@ -686,6 +691,7 @@ class KroneckerSelectedEigenvectors(LinearOperator):
         return result
 
     def transpose(self) -> "KroneckerSelectedEigenvectorsTranspose":
+        """Return transpose operator."""
         return KroneckerSelectedEigenvectorsTranspose(self)
 
     def _todense(self) -> jax.Array:
@@ -706,20 +712,22 @@ class KroneckerSelectedEigenvectorsTranspose(LinearOperator):
         super().__init__((parent.shape[1], parent.shape[0]), parent.dtype)
 
     def tree_flatten(self) -> tuple[tuple, dict]:
+        """Flatten for JAX pytree registration."""
         return (self._parent,), {}
 
     @classmethod
     def tree_unflatten(
         cls, aux_data: dict, children: tuple
     ) -> "KroneckerSelectedEigenvectorsTranspose":
+        """Unflatten for JAX pytree registration."""
         return cls(children[0])
 
     def _matmul(self, v: jax.Array) -> jax.Array:
         return self._parent._rmatmul(v)
 
     def transpose(self) -> KroneckerSelectedEigenvectors:
+        """Return transpose (the parent operator)."""
         return self._parent
-
     def _todense(self) -> jax.Array:
         return self._parent._todense().T
 
@@ -1007,6 +1015,34 @@ def topk_eigh(
     return_full_eigs: bool = False,
     mode: str = "jax",
 ):
+    """Compute top-k eigenvalues/vectors of a Kronecker product.
+
+    Parameters
+    ----------
+    op_or_factors : LinearOperator or list[LinearOperator]
+        Either a Kronecker operator or a list of factor operators
+    k : int
+        Number of eigenvalues/vectors to compute
+    largest : bool, default=True
+        If True, compute largest eigenvalues; if False, compute smallest
+    sigma2 : float or jax.Array, optional
+        Noise variance for whitening
+    include_noise_shift : bool, default=False
+        Whether to include noise shift in eigenvalues
+    return_full_eigs : bool, default=False
+        If True, return full eigenvalue arrays for each factor
+    mode : str, default="jax"
+        Computation mode
+
+    Returns
+    -------
+    eigenvalues : jax.Array
+        Top-k eigenvalues
+    eigenvectors : LinearOperator
+        Top-k eigenvectors as a linear operator
+    info : KronTopkEighInfo
+        Factorized representation with additional information
+    """
     scalar = None
     if isinstance(op_or_factors, LinearOperator):
         factors, scalar = extract_kronecker_factors(op_or_factors)
@@ -1113,6 +1149,8 @@ def topk_eigh(
 
 
 class KroneckerAdditiveIsotropicAdditiveLinearOperator(AddLinearOperator):
+    """Kronecker product with isotropic additive term (Kron + sI)."""
+
     def __init__(self, kronecker: Kronecker, s: jax.Array) -> None:
         self._kronecker = kronecker
         self._s = s
@@ -1128,17 +1166,20 @@ class KroneckerAdditiveIsotropicAdditiveLinearOperator(AddLinearOperator):
         )
 
     def transpose(self) -> "KroneckerAdditiveIsotropicAdditiveLinearOperator":
+        """Return transposed operator."""
         return KroneckerAdditiveIsotropicAdditiveLinearOperator(
             self._kronecker.transpose(), self._s
         )
 
     def tree_flatten(self) -> tuple[tuple, dict]:
+        """Flatten for JAX pytree registration."""
         return (self._kronecker, self._s), {}
 
     @classmethod
     def tree_unflatten(
         cls, aux_data: dict, children: tuple
     ) -> "KroneckerAdditiveIsotropicAdditiveLinearOperator":
+        """Unflatten for JAX pytree registration."""
         return cls(children[0], children[1])
 
 

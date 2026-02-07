@@ -3,6 +3,7 @@
 import jax
 import jax.numpy as jnp
 
+from linox._types import ArrayLike, ScalarType
 from linox.operators.arithmetic import (
     congruence_transform,
     diagonal,
@@ -19,7 +20,6 @@ from linox.operators.arithmetic import (
     ltrace,
 )
 from linox.operators.base import LinearOperator
-from linox.typing import ArrayLike, ScalarType
 
 # special functions for diagonal.
 _batch_jnp_diag = jnp.vectorize(jnp.diag, signature="(n)->(n,n)")

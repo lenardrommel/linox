@@ -30,8 +30,8 @@ References
 import jax
 import jax.numpy as jnp
 
+from linox._types import LinearOperatorLike
 from linox.linalg.approx.lanczos import lanczos_matrix_function
-from linox.typing import LinearOperatorLike
 
 
 def stochastic_lanczos_quadrature(

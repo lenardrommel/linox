@@ -1,14 +1,19 @@
+"""Toeplitz matrix operators with FFT-based multiplication.
+
+Provides efficient O(n log n) matrix-vector products for Toeplitz matrices
+using FFT-based circular convolution.
+"""
 # _toeplity.py
 
 import jax
 from jax import numpy as jnp
 from jax import scipy as jsp
 
+from linox._types import ArrayLike
 from linox.linalg._toeplitz_solve import solve_toeplitz_jax
 from linox.operators.arithmetic import diagonal, lsolve
 from linox.operators.base import LinearOperator
 from linox.operators.special import Identity
-from linox.typing import ArrayLike
 
 jax.config.update("jax_enable_x64", True)
 
@@ -27,6 +32,7 @@ class Toeplitz(LinearOperator):
 
     @property
     def shape(self) -> tuple[int, int]:
+        """Shape of the Toeplitz matrix."""
         n = int(self.v.shape[0])
         return (n, n)
 
@@ -127,10 +133,12 @@ class Toeplitz(LinearOperator):
         return jsp.linalg.toeplitz(self.v)
 
     def from_matrix(self, matrix: jax.Array) -> "Toeplitz":
+        """Create Toeplitz operator from matrix."""
         self.v = matrix[0, :]
         return Toeplitz(self.v)
 
     def transpose(self) -> "Toeplitz":
+        """Return transpose (self for symmetric Toeplitz)."""
         return Toeplitz(self.v)
 
 

@@ -15,10 +15,12 @@ class OperatorIR:
 
     @property
     def is_symmetric(self) -> bool:
+        """Check if operator is symmetric."""
         return "symmetric" in self.tags
 
     @property
     def is_psd(self) -> bool:
+        """Check if operator is positive semi-definite."""
         return "psd" in self.tags
 
 

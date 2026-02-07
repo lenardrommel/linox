@@ -22,7 +22,7 @@ from linox import (
     Kronecker,
     ScaledLinearOperator,
 )
-from linox._kernel import ArrayKernel
+from linox.operators.kernel import ArrayKernel
 
 try:
     from helper.plotting import (

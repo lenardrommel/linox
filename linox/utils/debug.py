@@ -31,6 +31,7 @@ class LinOpNode:
     children: list[LinOpNode] = field(default_factory=list)
 
     def pretty(self, indent: str = "", last: bool = True) -> str:
+        """Generate a pretty-printed tree representation of the operator graph."""
         branch = "└─ " if last else "├─ "
         hdr = f"{indent}{branch}{self.kind}(shape={self.shape}, dtype={self.dtype})"
         if self.extra:
@@ -104,6 +105,7 @@ class InspectReport:
         return self.events
 
     def summary(self) -> str:
+        """Generate a summary of debug events grouped by kind."""
         # Aggregate stats
         stats = {}  # kind -> {starts, ends, point, time}
 

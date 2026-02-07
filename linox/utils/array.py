@@ -10,7 +10,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from linox.typing import ArrayLike, DTypeLike, ScalarLike, ShapeLike, ShapeType
+from linox._types import ArrayLike, DTypeLike, ScalarLike, ShapeLike, ShapeType
 
 if TYPE_CHECKING:
     from linox.operators.base import LinearOperator

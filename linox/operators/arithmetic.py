@@ -29,9 +29,9 @@ import jax.numpy as jnp
 import plum  # type: ignore
 
 from linox import config, utils
+from linox._types import ScalarLike, ShapeLike
 from linox.config import warn as _warn
 from linox.operators.base import LinearOperator
-from linox.typing import ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
 

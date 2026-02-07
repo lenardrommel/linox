@@ -3,8 +3,8 @@
 import jax
 import jax.numpy as jnp
 
+from linox._types import ArrayLike, ScalarLike
 from linox.operators.dense import Matrix
-from linox.typing import ArrayLike, ScalarLike
 
 
 def woodbury_solve(U: Matrix, s: ArrayLike, d: ScalarLike | ArrayLike, v: ArrayLike):

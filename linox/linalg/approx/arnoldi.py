@@ -8,7 +8,7 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
-from linox.typing import ArrayLike, LinearOperatorLike
+from linox._types import ArrayLike, LinearOperatorLike
 
 
 def arnoldi_iteration(

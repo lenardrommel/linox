@@ -1,7 +1,4 @@
 """Linox Operators."""
-
-import jax
-
 from .arithmetic import (
     AddLinearOperator,
     CongruenceTransform,

@@ -138,11 +138,11 @@ Recommended additions:
 
 ---
 
-## 7. Checklist for v0.0.3
+## 7. Checklist for v0.0.3 ✅ COMPLETE
 
-- [ ] Define `OperatorIR` types (dataclasses)
-- [ ] Implement `analyze(op)` returning IR or a generic `OpInfo`
-- [ ] Implement `canonicalize(op)` with core rewrite rules
-- [ ] Ensure `extract_kronecker_factors` is used by `eigh(k=...)` and `topk_eigh_info`
-- [ ] Add property propagation rules (Kronecker/Add/Product/Scale)
-- [ ] Extend `linop_graph` to visualize canonical form and tags
+- [x] Define `OperatorIR` types (dataclasses) — in `structure/ir.py`
+- [x] Implement `analyze(op)` returning IR or a generic `OpInfo` — in `structure/analyze.py`
+- [x] Implement `canonicalize(op)` with core rewrite rules — in `structure/canonicalize.py`
+- [x] Ensure `extract_kronecker_factors` is used by `eigh(k=...)` and `topk_eigh_info`
+- [x] Add property propagation rules (Kronecker/Add/Product/Scale)
+- [x] Extend `linop_graph` to visualize canonical form and tags — in `utils/debug.py`

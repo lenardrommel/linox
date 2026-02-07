@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from linox.typing import AnyType, CallableType
+    from linox._types import AnyType, CallableType
 
 _DEBUG: bool = os.getenv("LINOX_DEBUG", "0") not in {"0", "false", "False", ""}
 _DEBUG_HOOK: CallableType[[DebugEvent], None] | None = None

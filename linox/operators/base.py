@@ -9,7 +9,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from linox import config, utils
-from linox.typing import DTypeLike, ScalarLike, ShapeLike
+from linox._types import DTypeLike, ScalarLike, ShapeLike
 
 BinaryOperandType = Union["LinearOperator", ScalarLike, jnp.ndarray]
 

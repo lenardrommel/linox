@@ -204,11 +204,11 @@ You likely want a lightweight user-facing explanation in README:
 
 ---
 
-## 9. Checklist for v0.0.3
+## 9. Checklist for v0.0.3 ✅ COMPLETE
 
-- [ ] Add `clear_cache()` to operators that cache decompositions / structure
-- [ ] Add `linox.structure.analyze(op) -> OperatorIR` (cacheable)
-- [ ] Add `linox.canonicalize(op)` pass and cache it
-- [ ] Add a session cache (weakref/LRU)
-- [ ] Extend tracing events: densify, solve, eig, sqrt, slogdet, trace
-- [ ] Document how caches interact with JIT
+- [x] Add `clear_cache()` to operators that cache decompositions / structure
+- [x] Add `linox.structure.analyze(op) -> OperatorIR` (cacheable)
+- [x] Add `linox.canonicalize(op)` pass and cache it
+- [x] Add a session cache (weakref/LRU)
+- [x] Extend tracing events: densify, solve, eig, sqrt, slogdet, trace
+- [x] Document how caches interact with JIT

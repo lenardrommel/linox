@@ -65,14 +65,17 @@ class LowRank(LinearOperator):
 
     @property
     def U(self) -> jax.Array:
+        """Left factor matrix."""
         return self._U
 
     @property
     def S(self) -> jax.Array:
+        """Singular values vector."""
         return self._S
 
     @property
     def V(self) -> jax.Array:
+        """Right factor matrix (defaults to U if not provided)."""
         return self._V if self._V is not None else self._U
 
     def _matmul(self, arr: jnp.array) -> jnp.array:
@@ -82,9 +85,11 @@ class LowRank(LinearOperator):
         return self.U @ jnp.diag(self.S) @ self.V.T
 
     def transpose(self) -> "LowRank":
+        """Return transposed low rank operator."""
         return LowRank(self.V, self.S, self.U)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         children = (self._U, self._S, self._V)
         aux_data = {}
         return children, aux_data
@@ -95,6 +100,7 @@ class LowRank(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "LowRank":
+        """Unflatten for JAX pytree registration."""
         del aux_data
         U, S, V = children
         return cls(U=U, S=S, V=V)
@@ -117,9 +123,11 @@ class SymmetricLowRank(LowRank):
         super().__init__(U, S)
 
     def transpose(self) -> "SymmetricLowRank":
+        """Return transpose (self for symmetric operators)."""
         return self
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         children = (self._U, self._S)
         aux_data = {}
         return children, aux_data
@@ -130,6 +138,7 @@ class SymmetricLowRank(LowRank):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "SymmetricLowRank":
+        """Unflatten for JAX pytree registration."""
         del aux_data
         U, S = children
         return cls(U=U, S=S)
@@ -167,24 +176,30 @@ class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
 
     @property
     def scalar(self) -> float:
+        """Isotropic scaling factor."""
         return self._scalar
 
     @property
     def U(self) -> jax.Array:
+        """Factor matrix."""
         return self._U
 
     @property
     def S(self) -> jax.Array:
+        """Singular values vector."""
         return self._S
 
     @property
     def lr_eigh(self) -> jax.Array:
+        """Low rank eigendecomposition (U, S)."""
         return self._lr_eigh
 
     def transpose(self) -> "IsotropicScalingPlusSymmetricLowRank":
+        """Return transpose (self for symmetric operators)."""
         return self
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         # We need to override the AddLinearOperator's tree_flatten
         children = (self._scalar, self._U, self._S)
         aux_data = {}
@@ -196,6 +211,7 @@ class IsotropicScalingPlusSymmetricLowRank(AddLinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "IsotropicScalingPlusSymmetricLowRank":
+        """Unflatten for JAX pytree registration."""
         del aux_data
         scalar, U, S = children
         return cls(scalar=scalar, U=U, S=S)
@@ -266,14 +282,17 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
 
     @property
     def diagonal(self) -> jax.Array:
+        """Diagonal component."""
         return self._diagonal
 
     @property
     def low_rank(self) -> SymmetricLowRank:
+        """Low rank component."""
         return self._low_rank
 
     @property
     def low_rank_scale(self) -> float:
+        """Scaling factor for low rank component."""
         return self._low_rank_scale
 
     @functools.cached_property
@@ -295,9 +314,11 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
         )
 
     def transpose(self) -> "PositiveDiagonalPlusSymmetricLowRank":
+        """Return transpose (self for symmetric operators)."""
         return self
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         # We need to override the AddLinearOperator's tree_flatten
         children = (self._diagonal, self._low_rank, self._low_rank_scale)
         aux_data = {}
@@ -309,6 +330,7 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "PositiveDiagonalPlusSymmetricLowRank":
+        """Unflatten for JAX pytree registration."""
         del aux_data
         diagonal, low_rank, low_rank_scale = children
         return cls(diagonal=diagonal, low_rank=low_rank, low_rank_scale=low_rank_scale)

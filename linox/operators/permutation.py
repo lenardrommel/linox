@@ -13,8 +13,8 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 
+from linox._types import ArrayLike
 from linox.operators.base import LinearOperator
-from linox.typing import ArrayLike
 
 DTYPE = jnp.float32
 
@@ -74,12 +74,15 @@ class Permutation(LinearOperator):
         return _permute_rows(I, self._perm)
 
     def transpose(self) -> "Permutation":
+        """Return transposed permutation."""
         return Permutation(self._perm_inv, self._perm)
 
     def inverse(self) -> "Permutation":
+        """Return inverse permutation."""
         return self.transpose()
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         children = (self._perm, self._perm_inv)
         aux_data = {}
         return children, aux_data
@@ -90,6 +93,7 @@ class Permutation(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "Permutation":
+        """Unflatten for JAX pytree registration."""
         del aux_data
         perm, perm_inv = children
         return cls(perm=perm, perm_inv=perm_inv)

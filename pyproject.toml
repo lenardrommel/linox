@@ -87,7 +87,9 @@ ignore = [
   "D107",  # Missing docstring in __init__
   "D105",  # Missing docstring in magic method
   "RUF002", # Docstring contains ambiguous sign
+  "RUF003", # Comment contains ambiguous sign
   "E741", # Ambiguous variable name
+  "D401", # Docstring not in imperative mood
 ]
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

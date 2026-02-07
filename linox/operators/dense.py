@@ -4,6 +4,7 @@ import jax
 import jax.numpy as jnp
 
 from linox import config
+from linox._types import ArrayLike
 from linox.config import warn as _warn
 from linox.operators.arithmetic import (
     congruence_transform,
@@ -17,7 +18,6 @@ from linox.operators.arithmetic import (
     lsub,
 )
 from linox.operators.base import LinearOperator
-from linox.typing import ArrayLike
 
 
 class Matrix(LinearOperator):

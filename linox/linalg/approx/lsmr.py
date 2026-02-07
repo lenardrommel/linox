@@ -31,7 +31,7 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
-from linox.typing import ArrayLike, LinearOperatorLike
+from linox._types import ArrayLike, LinearOperatorLike
 
 _LARGE_VALUE = 1e10
 """A placeholder for np.inf for stopping criteria."""

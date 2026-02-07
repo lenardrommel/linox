@@ -4,6 +4,7 @@ import jax
 import jax.numpy as jnp
 
 from linox import utils
+from linox._types import DTypeLike, ScalarLike, ScalarType, ShapeLike
 from linox.operators.arithmetic import (
     ScaledLinearOperator,
     congruence_transform,
@@ -22,7 +23,6 @@ from linox.operators.arithmetic import (
 )
 from linox.operators.base import LinearOperator
 from linox.operators.dense import Matrix
-from linox.typing import DTypeLike, ScalarLike, ScalarType, ShapeLike
 from linox.utils import as_shape
 
 
@@ -66,16 +66,20 @@ class Identity(LinearOperator):
 
     @property
     def is_symmetric(self) -> bool:
+        """Check if operator is symmetric."""
         return True
 
     @property
     def is_psd(self) -> bool:
+        """Check if operator is positive semi-definite."""
         return True
 
     def transpose(self) -> "Identity":
+        """Return transpose (self for identity)."""
         return self
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         children = ()
         aux_data = {"shape": self.shape[:-1], "dtype": self.dtype}
         return children, aux_data
@@ -86,6 +90,7 @@ class Identity(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "Identity":
+        """Unflatten for JAX pytree registration."""
         del children
         return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
 
@@ -259,19 +264,23 @@ class Scalar(LinearOperator):
 
     @property
     def is_symmetric(self) -> bool:
+        """Check if operator is symmetric."""
         return True
 
     @property
     def is_psd(self) -> bool:
+        """Check if operator is positive semi-definite."""
         try:
             return float(self.scalar) >= 0
-        except:
+        except Exception:
             return False
 
     def transpose(self) -> "Scalar":
+        """Return transpose (self for scalar)."""
         return self
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         children = (self.scalar,)
         aux_data = {}
         return children, aux_data
@@ -282,6 +291,7 @@ class Scalar(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "Scalar":
+        """Unflatten for JAX pytree registration."""
         del aux_data
         (scalar,) = children
         return cls(scalar=scalar)
@@ -357,18 +367,22 @@ class Zero(LinearOperator):
 
     @property
     def is_symmetric(self) -> bool:
+        """Check if operator is symmetric."""
         return True
 
     @property
     def is_psd(self) -> bool:
+        """Check if operator is positive semi-definite."""
         return True
 
     def transpose(self) -> "Zero":
+        """Return transposed zero operator."""
         return Zero(
             shape=(*self.shape[:-2], self.shape[-1], self.shape[-2]), dtype=self.dtype
         )
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         children = ()
         aux_data = {"shape": self.shape, "dtype": self.dtype}
         return children, aux_data
@@ -379,6 +393,7 @@ class Zero(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "Zero":
+        """Unflatten for JAX pytree registration."""
         del children
         return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
 
@@ -476,11 +491,13 @@ class Ones(LinearOperator):
         return jnp.ones(self.shape, dtype=self.dtype)
 
     def transpose(self) -> "Ones":
+        """Return transposed ones operator."""
         return Ones(
             shape=(*self.shape[:-2], self.shape[-1], self.shape[-2]), dtype=self.dtype
         )
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         children = ()
         aux_data = {"shape": self.shape, "dtype": self.dtype}
         return children, aux_data
@@ -491,6 +508,7 @@ class Ones(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "Ones":
+        """Unflatten for JAX pytree registration."""
         del children
         return cls(shape=aux_data["shape"], dtype=aux_data["dtype"])
 

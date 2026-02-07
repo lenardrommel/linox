@@ -7,12 +7,12 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 
+from helper.kernel import L2InnerProductKernel, RBFKernel
 from linox import (
     AddLinearOperator,
     Kronecker,
     ProductLinearOperator,
 )
-from linox.kernels.kernel import L2InnerProductKernel, RBFKernel
 
 try:  # Python < 3.11 compatibility
     from enum import StrEnum  # type: ignore[attr-defined]

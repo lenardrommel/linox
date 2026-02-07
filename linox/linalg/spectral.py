@@ -27,8 +27,8 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
+from linox._types import ArrayLike, LinearOperatorLike
 from linox.operators.base import LinearOperator
-from linox.typing import ArrayLike, LinearOperatorLike
 
 
 def lanczos_bidiag(
