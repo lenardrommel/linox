@@ -370,7 +370,7 @@ def test_as_shape_validates_ndim() -> None:
 
 def test_broadcast_shapes_matches_jax() -> None:
     shapes: Iterable[ShapeLike] = [(2, 1, 3), (1, 3)]
-    assert utils._broadcast_shapes(shapes) == jnp.broadcast_shapes(
+    assert linox._broadcast_shapes(shapes) == jnp.broadcast_shapes(
         *(tuple(s) for s in shapes)
     )
 
@@ -378,4 +378,4 @@ def test_broadcast_shapes_matches_jax() -> None:
 def test_broadcast_shapes_raises_on_incompatible() -> None:
     msg = "cannot be broadcasted"
     with pytest.raises(ValueError, match=msg):
-        utils._broadcast_shapes([(3, 4), (2, 5)])
+        linox._broadcast_shapes([(3, 4), (2, 5)])

@@ -88,7 +88,7 @@ def test_inspect_run_matches_matmul(rhs_kind) -> None:
     )
 
     # --- call inspect_run (ADAPT THIS LINE) ---
-    res = linox.graph.inspect_run(op, rhs)  # or op.inspect_run(rhs)
+    res = utils.inspect_run(op, rhs)  # or op.inspect_run(rhs)
 
     out, trace = _get_trace(res)
     expected = op @ rhs
@@ -103,7 +103,7 @@ def test_inspect_run_has_step_metadata() -> None:
     op = utils.as_linop(jnp.eye(3))
     rhs = jnp.ones((3,))
 
-    res = linox.inspect_run(op, rhs)
+    res = utils.inspect_run(op, rhs)
     out, trace = _get_trace(res)
 
     assert out.shape == (3,)
@@ -125,9 +125,10 @@ def test_inspect_run_composition_shows_multiple_steps() -> None:
     C = utils.as_linop(jnp.array([[1.0, 1.0], [1.0, 0.0]]))
 
     op = (A @ B) + (2.0 * C)  # Product + Scaled + Add
-    rhs = jnp.array([1.0, 2.0])
+    op = linox.kron(op, op)
+    rhs = jnp.array([1.0, 2.0, 3.0, 4.0])
 
-    out, trace = _get_trace(linox.inspect_run(op, rhs))
+    out, trace = _get_trace(utils.inspect_run(op, rhs))
     assert jnp.allclose(out, op @ rhs, atol=1e-8)
 
     steps = _trace_steps(trace)
@@ -143,7 +144,7 @@ def test_inspect_run_handles_kronecker_nested() -> None:
     op = Kronecker(Kronecker(A, A), Kronecker(B, B))  # nested kron
 
     rhs = jnp.ones((op.shape[-1],))
-    out, trace = _get_trace(linox.inspect_run(op, rhs))
+    out, trace = _get_trace(utils.inspect_run(op, rhs))
 
     assert jnp.allclose(out, op @ rhs, atol=1e-8)
     steps = _trace_steps(trace)
@@ -157,7 +158,7 @@ def test_inspect_run_pinv_rhs_matrix_does_not_break() -> None:
     pinv_op = linox.lpinverse(op)
 
     I = jnp.eye(pinv_op.shape[-1], dtype=pinv_op.dtype)
-    out, _trace = _get_trace(linox.inspect_run(pinv_op, I))
+    out, _trace = _get_trace(utils.inspect_run(pinv_op, I))
 
     assert out.shape == (pinv_op.shape[-2], pinv_op.shape[-1])
     assert jnp.allclose(out, pinv_op @ I, atol=1e-8)
@@ -176,7 +177,7 @@ def test_inspect_run_pinv_rhs_matrix_does_not_break() -> None:
 def test_inspect_run_supports_common_ops(op_builder) -> None:
     op = op_builder()
     rhs = jnp.ones((op.shape[-1],))
-    out, trace = _get_trace(linox.inspect_run(op, rhs))
+    out, trace = _get_trace(utils.inspect_run(op, rhs))
     assert jnp.allclose(out, op @ rhs, atol=1e-8)
     steps = _trace_steps(trace)
     assert steps is not None

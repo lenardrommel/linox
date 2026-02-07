@@ -226,7 +226,7 @@ def test_diagonal_of_scaled_no_densification(matrix_a) -> None:
     scaled = 3.0 * A
 
     # Getting diagonal should not densify the scaled operator
-    with DensificationDetector(scaled.operator, allow_in_matmul=True) as detector:
+    with DensificationDetector(scaled, allow_in_matmul=True) as detector:
         diag = diagonal(scaled)
         detector.assert_no_densification("diagonal of ScaledLinearOperator")
 
@@ -353,7 +353,7 @@ def test_inverse_scaled_no_densification(spd_matrix) -> None:
     scaled = 2.0 * A
 
     # Getting inverse should not densify the underlying operator early
-    with DensificationDetector(scaled.operator, allow_in_matmul=True) as detector:
+    with DensificationDetector(scaled, allow_in_matmul=True) as detector:
         linverse(scaled)
         # Note: inverse itself may need to densify at some point, but not during
         # construction of the inverse operator

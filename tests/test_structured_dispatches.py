@@ -28,11 +28,14 @@ class TestDiagonalDispatches:
         A = Diagonal(diag_vals)
         key = jax.random.PRNGKey(0)
 
-        trace_est, trace_std = linox.ltrace(A, key=key)
+        trace_est, trace_std = linox.ltrace(A, key=key, return_std=True)
+        trace_est_no_std = linox.ltrace(A, key=key)
+        assert not isinstance(trace_est_no_std, tuple), "trace should return float if return_std=False"
 
         true_trace = jnp.sum(diag_vals)
         assert jnp.allclose(trace_est, true_trace)
         assert trace_std == 0.0  # Exact computation
+        assert jnp.allclose(trace_est_no_std, true_trace)
 
     def test_lexp_diagonal_with_vector(self) -> None:
         """Test matrix exponential of diagonal with vector."""

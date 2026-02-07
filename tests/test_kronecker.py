@@ -413,7 +413,7 @@ def test_topk_eigh_with_factors() -> None:
     B = B @ B.T + jnp.eye(4) * 0.1
 
     k = 5
-    eigs, vecs = topk_eigh([linox.Matrix(A), linox.Matrix(B)], k=k, largest=True)
+    eigs, vecs, _ = topk_eigh([linox.Matrix(A), linox.Matrix(B)], k=k, largest=True)
 
     # Verify with dense computation
     dense_kron = jnp.kron(A, B)
@@ -438,7 +438,7 @@ def test_topk_eigh_with_kronecker_operator() -> None:
     kron = Kronecker(linox.Matrix(A), linox.Matrix(B))
 
     k = 5
-    eigs, _vecs = topk_eigh(kron, k=k, largest=True)
+    eigs, _vecs, _ = topk_eigh(kron, k=k, largest=True)
 
     # Verify with dense computation
     dense_kron = jnp.kron(A, B)
@@ -463,7 +463,7 @@ def test_topk_eigh_with_scaled_kronecker() -> None:
     scaled_kron = scale * kron
 
     k = 5
-    eigs, _vecs = topk_eigh(scaled_kron, k=k, largest=True)
+    eigs, _vecs, _ = topk_eigh(scaled_kron, k=k, largest=True)
 
     # Verify with dense computation
     dense_kron = scale * jnp.kron(A, B)
@@ -491,7 +491,7 @@ def test_topk_eigh_with_nested_kronecker() -> None:
     )
 
     k = 5
-    eigs, _vecs = topk_eigh(nested_kron, k=k, largest=True)
+    eigs, _vecs, _ = topk_eigh(nested_kron, k=k, largest=True)
 
     # Verify with dense computation
     dense_kron = jnp.kron(A, jnp.kron(B, C))
@@ -515,7 +515,7 @@ def test_topk_eigh_eigenvector_correctness() -> None:
     dense_kron = jnp.kron(A, B)
 
     k = 3
-    eigs, vecs = topk_eigh(kron, k=k, largest=True)
+    eigs, vecs, _ = topk_eigh(kron, k=k, largest=True)
 
     # Verify Av = λv for each eigenpair
     for i in range(k):

@@ -17,7 +17,6 @@ from linox import (
     Zero,
     Kronecker,
     BlockDiagonal,
-    BlockMatrix,
 )
 
 

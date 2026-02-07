@@ -1,9 +1,7 @@
 
 import jax
 import jax.numpy as jnp
-import pytest
 
-import linox.linalg.functions as lfuncs  # import directly to check
 from linox import Matrix
 from linox.api import slogdet, solve, sqrt
 

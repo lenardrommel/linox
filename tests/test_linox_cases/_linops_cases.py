@@ -15,6 +15,13 @@ matrices = [
     jnp.array([[2, 0], [1, 3]], dtype=DTYPE),
     jnp.array([[2, 0, -1.5], [1, 3, -230]], dtype=DTYPE),
 ]
+
+symmetric_matrices = [
+    jnp.array([[-1.5, 3], [3, -230]], dtype=DTYPE),
+    jnp.array([[2, 1], [1, 3]], dtype=DTYPE),
+    jnp.array([[2, 1, -1.5], [1, 3, 0], [-1.5, 0, 7]], dtype=DTYPE),
+]
+
 spd_matrices = [
     jnp.array([[1.0]], dtype=DTYPE),
     jnp.array([[1.0, -2.0], [-2.0, 5.0]], dtype=DTYPE),
@@ -48,7 +55,7 @@ mul_shapes = [
     ((3, 4), (4, 3)),
 ]
 
-symmetric_shapes = [((2, 2), (2, 2)), ((3, 3), (3, 3))]
+symmetric_shapes = [((2, 2), (2, 2)), ((3, 3), (3, 3)), ((10, 10), (10, 10))]
 
 
 def draw_random_onb(shape: SHAPE_TYPE) -> jnp.ndarray:
@@ -131,6 +138,11 @@ all_base_options = linops_options + symmetric_options
 
 @pytest.mark.parametrize("matrix", matrices)
 def case_matrix(matrix: jnp.ndarray) -> tuple[linox.LinearOperator, jnp.ndarray]:
+    linop = linox.Matrix(matrix)
+    return linop, matrix
+
+@pytest.mark.parametrize("matrix", symmetric_matrices)
+def case_symmetric_matrix(matrix: jnp.ndarray) -> tuple[linox.LinearOperator, jnp.ndarray]:
     linop = linox.Matrix(matrix)
     return linop, matrix
 
