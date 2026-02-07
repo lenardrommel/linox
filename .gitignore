@@ -2,6 +2,10 @@
 # Dev environment
 local_*
 .vscode/
+.cursor/
+coverage.*
+uv.lock
+tox.ini
 
 
 # Byte-compiled / optimized / DLL files
@@ -39,6 +43,9 @@ dist/
 downloads/
 eggs/
 .eggs/
+.egg-info/
+.ruff_cache/
+__pycache__/
 lib/
 lib64/
 parts/
