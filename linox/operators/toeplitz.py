@@ -30,6 +30,18 @@ class Toeplitz(LinearOperator):
         n = int(self.v.shape[0])
         return (n, n)
 
+    def _matmul(self, vector: jax.Array) -> jax.Array:
+        """Matrix-vector product for symmetric Toeplitz matrix.
+
+        Uses FFT-based circulant convolution for O(n log n) complexity.
+
+        Args:
+            vector: Vector to multiply with, shape (n,) or (n, k)
+
+        Returns
+        -------
+            Result of multiplication, shape (n,) or (n, k)
+        """
         if vector.ndim == 1:
             vector = vector[:, None]
             squeeze_output = True

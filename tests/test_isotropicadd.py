@@ -2,10 +2,9 @@
 
 import jax
 import jax.numpy as jnp
+import linox
 import pytest
 import pytest_cases
-
-import linox
 from linox.operators.arithmetic import lsolve
 from linox.operators.isotropic import (
     IsotropicAdditiveLinearOperator,
@@ -218,7 +217,7 @@ def test_inverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     )
     if not isinstance(lin_inv, linox.AddLinearOperator):
         msg = f"Expected AddLinearOperator, got {type(lin_inv)}"
-        raise ValueError(msg)  # noqa: TRY004
+        raise ValueError(msg)
     vec = jax.random.normal(jax.random.PRNGKey(0), (matrix.shape[-1],))
     linop_inv_vec = lin_inv @ vec
     matrix_inv_vec = inv_matrix @ vec

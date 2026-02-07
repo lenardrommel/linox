@@ -31,7 +31,7 @@ def arnoldi_iteration(
     num_iters : int
         Number of Arnoldi iterations.
 
-    Returns:
+    Returns
     -------
     Q : jax.Array, shape (n, num_iters)
         Orthonormal Arnoldi vectors.

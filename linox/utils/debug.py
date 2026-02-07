@@ -15,13 +15,15 @@ if TYPE_CHECKING:
 class LinOpNode:
     """A node in the linear operator graph visualization.
 
-    Attributes:
+    Attributes
+    ----------
         kind: The class name or type of the operator.
         shape: The shape of the operator (rows, cols).
         dtype: The data type of the operator elements.
         extra: Dictionary of additional metadata (e.g., parameters).
         children: List of child nodes (operands).
     """
+
     kind: str
     shape: tuple[int, int] | tuple[Any, ...]
     dtype: Any = None
@@ -93,6 +95,7 @@ class InspectReport:
 
     Use `.steps` or iterate over the report to access `DebugEvent` objects.
     """
+
     events: list[config.DebugEvent]
 
     @property
@@ -160,7 +163,8 @@ def inspect_run(fn: Callable[..., Any], *args, **kwargs):
         *args: Positional arguments for `fn`.
         **kwargs: Keyword arguments for `fn`.
 
-    Returns:
+    Returns
+    -------
         A tuple `(result, report)` where:
         - `result`: The return value of `fn(*args, **kwargs)`.
         - `report`: An `InspectReport` containing the list of debug events.

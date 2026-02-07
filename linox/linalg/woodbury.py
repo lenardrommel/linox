@@ -17,7 +17,8 @@ def woodbury_solve(U: Matrix, s: ArrayLike, d: ScalarLike | ArrayLike, v: ArrayL
       d: Diagonal matrix, D = diag{d}.
       v: Vector.
 
-    Returns:
+    Returns
+    -------
       Solution of the linear system.
     """
     d = jnp.asarray(d)
@@ -46,7 +47,8 @@ def woodbury_chol_solve(L: Matrix, d: ScalarLike | ArrayLike, v: ArrayLike):
       d: Diagonal matrix, D = diag{d}.
       v: Vector.
 
-    Returns:
+    Returns
+    -------
       Solution of the linear system.
     """
     D_inv_v = v / d

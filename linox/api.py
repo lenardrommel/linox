@@ -15,15 +15,11 @@ from .linalg import spectral as _spectral_module
 from .linalg import trace as _trace_module
 
 # Arithmetic operators (for export compatibility)
-from .operators.arithmetic import InverseLinearOperator  # Compatibility aliases
-from .operators.arithmetic import InverseLinearOperator as Inverse  # Alias for inv()
 from .operators.arithmetic import (
     AddLinearOperator,
+    InverseLinearOperator,  # Compatibility aliases
     ProductLinearOperator,
-)
-from .operators.arithmetic import PseudoInverseLinearOperator
-from .operators.arithmetic import PseudoInverseLinearOperator as PseudoInverse
-from .operators.arithmetic import (
+    PseudoInverseLinearOperator,
     ScaledLinearOperator,
     TransposedLinearOperator,
     congruence_transform,
@@ -33,21 +29,22 @@ from .operators.arithmetic import (
     is_symmetric,
     lcholesky,
     ldet,
-)
-from .operators.arithmetic import leigh as _leigh_impl
-from .operators.arithmetic import (
+    lexp,
     linverse,
+    llog,
     lpinverse,
+    lpow,
     lpsolve,
     lqr,
+    symmetrize,
 )
-from .operators.arithmetic import (
-    svd as _svd_impl,
-)
+from .operators.arithmetic import InverseLinearOperator as Inverse  # Alias for inv()
+from .operators.arithmetic import PseudoInverseLinearOperator as PseudoInverse
+from .operators.arithmetic import leigh as _leigh_impl
 from .operators.arithmetic import lsolve as _lsolve_impl
 from .operators.arithmetic import lsqrt as _lsqrt_impl
 from .operators.arithmetic import (
-    symmetrize,
+    svd as _svd_impl,
 )
 
 # Internal imports
@@ -88,6 +85,8 @@ Int = int
 
 
 __all__ = [
+    "PSD",
+    "SPD",
     # Arithmetic Classes
     "AddLinearOperator",
     "BlockDiagonal",
@@ -112,15 +111,13 @@ __all__ = [
     "PseudoInverseLinearOperator",
     "Scalar",
     "ScaledLinearOperator",
+    "Sym",
     "SymmetricLowRank",
     "Toeplitz",
     "TransposedLinearOperator",
-    "PSD",
-    "SPD",
-    "Sym",
-    "Zero",
     # Utils / Debug / Misc
     "ValidationError",
+    "Zero",
     "_broadcast_shapes",
     "allclose",
     "as_linop",
@@ -148,10 +145,13 @@ __all__ = [
     "lcholesky",
     "ldet",
     "leigh",
+    "lexp",
     "linverse",
+    "llog",
     "log",
     "logdet",
     "lpinverse",
+    "lpow",
     "lpsolve",
     "lqr",
     "lsolve",

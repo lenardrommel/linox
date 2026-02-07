@@ -2,16 +2,16 @@
 
 import jax
 import jax.numpy as jnp
+import linox
 import pytest
 import pytest_cases
-
-import linox
 from linox.operators.kron import (
     Kronecker,
     KroneckerSelectedEigenvectors,
     extract_kronecker_factors,
     topk_eigh,
 )
+
 from tests.test_linox_cases._kronecker_cases import (
     case_add,
     case_kronecker,

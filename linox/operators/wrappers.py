@@ -111,7 +111,7 @@ class Sym(LinearOperator):
         return (self.wrapped,), {}
 
     @classmethod
-    def tree_unflatten(cls, aux: dict, children: tuple) -> "Sym":
+    def tree_unflatten(cls, aux: dict, children: tuple) -> Sym:
         """Unflatten from JAX PyTree representation."""
         (wrapped,) = children
         return cls(wrapped)
@@ -201,7 +201,7 @@ class PSD(LinearOperator):
         return (self.wrapped,), {}
 
     @classmethod
-    def tree_unflatten(cls, aux: dict, children: tuple) -> "PSD":
+    def tree_unflatten(cls, aux: dict, children: tuple) -> PSD:
         """Unflatten from JAX PyTree representation."""
         (wrapped,) = children
         return cls(wrapped)
@@ -246,7 +246,7 @@ class SPD(PSD):
         return True
 
     @classmethod
-    def tree_unflatten(cls, aux: dict, children: tuple) -> "SPD":
+    def tree_unflatten(cls, aux: dict, children: tuple) -> SPD:
         """Unflatten from JAX PyTree representation."""
         (wrapped,) = children
         return cls(wrapped)

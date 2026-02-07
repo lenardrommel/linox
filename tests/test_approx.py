@@ -1,7 +1,6 @@
 
 import jax
 import jax.numpy as jnp
-
 from linox import Matrix
 from linox.api import slogdet, solve, sqrt
 
@@ -76,14 +75,14 @@ def test_eigh_lanczos():
     A = Matrix(A_mat)
     
     # Exact top 5
-    w_true, v_true = jax.scipy.linalg.eigh(A_mat)
+    w_true, _v_true = jax.scipy.linalg.eigh(A_mat)
     # eigh returns ascending order
     # top 5 (largest algebraic) are last 5
     top_k = 5
     w_expected = w_true[-top_k:]
     
     # Approx
-    w_approx, v_approx = eigh(A, k=top_k, method="lanczos", num_iters=30)
+    w_approx, _v_approx = eigh(A, k=top_k, method="lanczos", num_iters=30)
     
     # Check eigenvalues match (sorting might differ or be same)
     # lanczos_eigh usually returns sorted?

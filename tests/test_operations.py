@@ -23,10 +23,9 @@ Uses the combination helpers from test_linox_cases/_operations_cases.py to:
 
 import jax
 import jax.numpy as jnp
+import linox
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
-
-import linox
 from linox.operators.arithmetic import (
     diagonal,
     iso,
@@ -39,6 +38,7 @@ from linox.operators.arithmetic import (
     svd,
 )
 from linox.utils import as_dense
+
 from tests.test_linox_cases._operations_cases import (
     CaseType,
     sample_add_operator,

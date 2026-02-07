@@ -1,9 +1,8 @@
 import jax
 import jax.numpy as jnp
+import linox
 import pytest
 import pytest_cases
-
-import linox
 from linox import LinearOperator
 
 DTYPE = jnp.float32

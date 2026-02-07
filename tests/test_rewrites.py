@@ -1,5 +1,4 @@
 import jax.numpy as jnp
-
 import linox
 from linox.operators import (
     Diagonal,

@@ -19,6 +19,7 @@ import functools
 import jax
 import jax.numpy as jnp
 
+from linox.linalg.woodbury import woodbury_solve
 from linox.operators.arithmetic import (
     AddLinearOperator,
     ProductLinearOperator,
@@ -27,7 +28,6 @@ from linox.operators.arithmetic import (
     lsqrt,
     slogdet,
 )
-from linox.linalg.woodbury import woodbury_solve
 from linox.operators.base import LinearOperator
 from linox.operators.diagonal import Diagonal
 from linox.operators.special import Identity
@@ -52,9 +52,9 @@ class LowRank(LinearOperator):
     ) -> None:
         # Check shapes
         if S is not None:
-            assert U.shape[-1] == S.shape[-1]  # noqa: S101
+            assert U.shape[-1] == S.shape[-1]
         if V is not None:
-            assert U.shape[-1] == V.shape[-1]  # noqa: S101
+            assert U.shape[-1] == V.shape[-1]
 
         self._U = U
         self._S = S if S is not None else jnp.ones(U.shape[-1])

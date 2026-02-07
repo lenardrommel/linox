@@ -4,22 +4,21 @@ This module tests that all core operators and functions work correctly under
 JAX transformations including `jit`, `vmap`, and `grad`.
 """
 
-import pytest
-import jax
-import jax.numpy as jnp
 from functools import partial
 
+import jax
+import jax.numpy as jnp
 import linox
+import pytest
 from linox import (
-    Matrix,
+    BlockDiagonal,
     Diagonal,
     Identity,
+    Kronecker,
+    Matrix,
     Scalar,
     Zero,
-    Kronecker,
-    BlockDiagonal,
 )
-
 
 # =============================================================================
 # Fixtures

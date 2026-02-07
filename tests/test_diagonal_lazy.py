@@ -1,7 +1,6 @@
 # test_diagonal_lazy.py
 
 import jax.numpy as jnp
-
 import linox
 
 

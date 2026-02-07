@@ -1,9 +1,10 @@
 
-import jax.numpy as jnp
 import jax
-from hypothesis import given, settings
+import jax.numpy as jnp
 import linox
+from hypothesis import given, settings
 from linox import utils
+
 from tests.test_linox_cases._hypothesis_cases import linear_operators
 
 # Configure JAX

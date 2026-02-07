@@ -4,11 +4,10 @@
 
 import jax
 import jax.numpy as jnp
+import linox
 import numpy as np
 import pytest
 import pytest_cases
-
-import linox
 
 from tests.test_linox_cases._linops_cases import (
     case_add,
@@ -183,7 +182,7 @@ def test_inv(linop: linox.LinearOperator, matrix: np.ndarray) -> None:
 
         try:
             matrix_inv = jnp.linalg.inv(matrix)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             expected_exception = e
 
         if expected_exception is None:

@@ -10,9 +10,8 @@ Tests that ltrace, lexp, llog, lpow work correctly and exploit structure for:
 
 import jax
 import jax.numpy as jnp
-import pytest
-
 import linox
+import pytest
 from linox import Diagonal, Identity, Matrix
 from linox.operators.eigen import EigenD
 from linox.operators.isotropic import IsotropicAdditiveLinearOperator
@@ -90,7 +89,7 @@ class TestIdentityDispatches:
         A = Identity((n,))
         key = jax.random.PRNGKey(0)
 
-        trace_est, trace_std = linox.ltrace(A, key=key)
+        trace_est, trace_std = linox.ltrace(A, key=key, return_std=True)
 
         assert jnp.allclose(trace_est, n)
         assert trace_std == 0.0
@@ -139,7 +138,7 @@ class TestKroneckerDispatches:
         K = Kronecker(A, B)
         key = jax.random.PRNGKey(0)
 
-        trace_est, _trace_std = linox.ltrace(K, key=key)
+        trace_est, _trace_std = linox.ltrace(K, key=key, return_std=True)
 
         # trace(A⊗B) = trace(A) * trace(B) = 6 * 9 = 54
         true_trace = 6.0 * 9.0
@@ -184,7 +183,7 @@ class TestEigenDDispatches:
         A = EigenD(Identity(A_dense.shape[0]), Diagonal(jnp.diag(A_dense)))
         key = jax.random.PRNGKey(0)
 
-        trace_est, trace_std = linox.ltrace(A, key=key)
+        trace_est, trace_std = linox.ltrace(A, key=key, return_std=True)
 
         true_trace = 6.0
         assert jnp.allclose(trace_est, true_trace)
@@ -237,7 +236,7 @@ class TestIsotropicAdditiveDispatches:
         iso_A = IsotropicAdditiveLinearOperator(s, A)
         key = jax.random.PRNGKey(0)
 
-        trace_est, _trace_std = linox.ltrace(iso_A, key=key)
+        trace_est, _trace_std = linox.ltrace(iso_A, key=key, return_std=True)
 
         # trace(2I + I) = 2*10 + 10 = 30
         true_trace = 30.0

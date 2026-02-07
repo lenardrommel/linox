@@ -6,10 +6,9 @@ import operator
 
 import jax
 import jax.numpy as jnp
+import linox
 import pytest
 import pytest_cases
-
-import linox
 from linox.operators.arithmetic import (
     AddLinearOperator,
     CongruenceTransform,
@@ -18,6 +17,7 @@ from linox.operators.arithmetic import (
     ScaledLinearOperator,
     TransposedLinearOperator,
 )
+
 from tests.test_linox_cases._matrix_cases import (
     case_add_operator,
     case_diagonal,

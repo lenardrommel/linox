@@ -38,6 +38,8 @@ from .wrappers import (
 )
 
 __all__ = [
+    "PSD",
+    "SPD",
     "AddLinearOperator",
     "BlockDiagonal",
     "BlockMatrix",
@@ -55,13 +57,11 @@ __all__ = [
     "LowRank",
     "Matrix",
     "Ones",
-    "PSD",
     "PSDFromFactor",
     "Permutation",
     "PositiveDiagonalPlusSymmetricLowRank",
     "ProductLinearOperator",
     "PseudoInverseLinearOperator",
-    "SPD",
     "Scalar",
     "ScaledLinearOperator",
     "Sym",

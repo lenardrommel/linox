@@ -30,7 +30,7 @@ class Matrix(LinearOperator):
         A: The matrix defining the linear operator
     """
 
-    def __init__(self, A: ArrayLike) -> None:  # type: ignore  # noqa: PGH003
+    def __init__(self, A: ArrayLike) -> None:  # type: ignore
         self.A = jnp.asarray(A)
         config.emit(
             config.DebugEvent(

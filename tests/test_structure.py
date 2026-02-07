@@ -1,5 +1,4 @@
 import jax.numpy as jnp
-
 from linox.cache.session import cache_lookup, cache_update, clear_cache, with_cache
 from linox.operators import Identity, Kronecker, Matrix
 from linox.structure import KroneckerIR, analyze

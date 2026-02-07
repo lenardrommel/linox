@@ -12,7 +12,7 @@ Key algorithms:
 - Chebyshev polynomial approximations
 - Stochastic Lanczos quadrature for trace(f(A))
 
-References:
+References
 ----------
 .. [1] N. Krämer, M. Schober, and P. Hennig, "Gradients of functions of large matrices,"
        arXiv preprint arXiv:2405.17277, 2024.
@@ -74,14 +74,14 @@ def stochastic_lanczos_quadrature(
     reortho : bool, optional
         Whether to use full reorthogonalization in Lanczos. Default is True.
 
-    Returns:
+    Returns
     -------
     trace_estimate : jax.Array
         Estimate of trace(f(A)).
     trace_std : jax.Array
         Standard error of the estimate.
 
-    Examples:
+    Examples
     --------
     >>> import jax
     >>> import jax.numpy as jnp
@@ -97,7 +97,7 @@ def stochastic_lanczos_quadrature(
     >>> print(f"Estimate: {trace_est:.2f} ± {trace_std:.2f}")
     >>> print(f"True value: {true_logdet:.2f}")
 
-    Notes:
+    Notes
     -----
     This is one of the most important algorithms for GP inference, as it
     allows computing log|K| where K is a large GP covariance matrix without
@@ -110,7 +110,7 @@ def stochastic_lanczos_quadrature(
     Increasing num_samples reduces variance (stochastic error).
     Increasing num_iters reduces bias (Lanczos approximation error).
 
-    References:
+    References
     ----------
     Based on matfree.funm.integrand_funm_sym and matfree.stochtrace [1, 2].
     This method is central to the approach in Ubaru et al. (2017).

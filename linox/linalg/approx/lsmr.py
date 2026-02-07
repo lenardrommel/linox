@@ -13,7 +13,7 @@ Key features:
 - JAX-compatible with automatic differentiation support
 - Iterative with configurable stopping criteria
 
-References:
+References
 ----------
 .. [1] D. C.-L. Fong and M. A. Saunders, "LSMR: An iterative algorithm for sparse
        least-squares problems," SIAM Journal on Scientific Computing, vol. 33,
@@ -124,7 +124,7 @@ def lsmr_solve(
         Initial guess for the solution. If None, starts with zero vector.
         Default is None.
 
-    Returns:
+    Returns
     -------
     x : jax.Array, shape (n,)
         Solution vector.
@@ -138,7 +138,7 @@ def lsmr_solve(
         - 'condA': Estimate of cond(A)
         - 'normx': Norm of solution ||x||
 
-    Examples:
+    Examples
     --------
     >>> import jax.numpy as jnp
     >>> from linox import Matrix
@@ -147,12 +147,12 @@ def lsmr_solve(
     >>> x, info = lsmr_solve(A, b)
     >>> assert jnp.allclose(x, b)
 
-    Notes:
+    Notes
     -----
     This implementation closely follows matfree's LSMR, which is based on
     Fong and Saunders (2011) and matches SciPy's implementation.
 
-    References:
+    References
     ----------
     .. [1] D. C.-L. Fong and M. A. Saunders, "LSMR: An iterative algorithm for
            sparse least-squares problems," SIAM J. Sci. Comput., 2011.
@@ -168,10 +168,7 @@ def lsmr_solve(
     # Initialize x
     if x0 is None:
         # Match x shape to b's shape (handling (m, 1) case from base.py)
-        if b.ndim > 1:
-            x_shape = (n, *b.shape[1:])
-        else:
-            x_shape = (n,)
+        x_shape = (n, *b.shape[1:]) if b.ndim > 1 else (n,)
         x = jnp.zeros(x_shape, dtype=b.dtype)
         Ax = jnp.zeros_like(b)
         u = b.copy()

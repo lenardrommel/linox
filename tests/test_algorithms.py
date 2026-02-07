@@ -11,17 +11,17 @@ These tests verify the correctness of:
 
 import jax
 import jax.numpy as jnp
-import pytest
-
 import linox
+import pytest
 from linox import Matrix
-from linox.linalg.approx.arnoldi import *
-from linox.linalg.approx.lsmr import lsmr_solve
-from linox.linalg.functions import (
-    arnoldi_matrix_function,
+from linox.linalg.approx.arnoldi import arnoldi_iteration, arnoldi_matrix_function
+from linox.linalg.approx.lanczos import (
+    lanczos_eigh,
     lanczos_matrix_function,
-    stochastic_lanczos_quadrature,
+    lanczos_tridiag,
 )
+from linox.linalg.approx.lsmr import lsmr_solve
+from linox.linalg.approx.slq import slq
 from linox.linalg.trace import (
     hutchinson_diagonal,
     hutchinson_trace,
@@ -245,8 +245,8 @@ class TestStochasticLanczosQuadrature:
         A = Matrix(jnp.eye(n))
         key = jax.random.PRNGKey(0)
 
-        logdet_est, logdet_std = stochastic_lanczos_quadrature(
-            A, jnp.log, key, num_samples=100, num_iters=5
+        logdet_est, logdet_std = slq(
+            A, jnp.log, key, num_samples=100, m=5
         )
 
         # log|I| = 0
@@ -260,8 +260,8 @@ class TestStochasticLanczosQuadrature:
         A = Matrix(jnp.diag(diag_vals))
         key = jax.random.PRNGKey(0)
 
-        logdet_est, logdet_std = stochastic_lanczos_quadrature(
-            A, jnp.log, key, num_samples=100, num_iters=20
+        logdet_est, logdet_std = slq(
+            A, jnp.log, key, num_samples=100, m=20
         )
 
         true_logdet = jnp.sum(jnp.log(diag_vals))
@@ -274,8 +274,8 @@ class TestStochasticLanczosQuadrature:
         A = Matrix(-jnp.eye(n))  # -I
         key = jax.random.PRNGKey(0)
 
-        trace_est, trace_std = stochastic_lanczos_quadrature(
-            A, jnp.exp, key, num_samples=50, num_iters=5
+        trace_est, trace_std = slq(
+            A, jnp.exp, key, num_samples=50, m=5
         )
 
         # trace(exp(-I)) = n * exp(-1)
@@ -296,7 +296,7 @@ class TestLSMR:
         x, info = lsmr_solve(A, b, atol=1e-8, btol=1e-8)
 
         assert jnp.allclose(x, b, atol=1e-6)
-        assert info["istop"] in {1, 2, 3}  # Converged
+        assert int(info["istop"]) in {1, 2, 3}  # Converged
 
     def test_lsmr_diagonal(self) -> None:
         """Test LSMR on diagonal system."""
@@ -314,7 +314,7 @@ class TestLSMR:
 
         assert jnp.all(jnp.isfinite(x))  # Check for NaNs
         assert jnp.allclose(x, x_true, atol=1e-6)
-        assert info["istop"] in {1, 2, 3}
+        assert int(info["istop"]) in {1, 2, 3}
 
     def test_lsmr_overdetermined(self) -> None:
         """Test LSMR on overdetermined least-squares problem."""

@@ -2,9 +2,8 @@
 """Hypothesis strategies for generating linear operators."""
 
 import jax.numpy as jnp
-from hypothesis import strategies as st
-
 import linox
+from hypothesis import strategies as st
 
 
 def _valid_shapes(min_dim=1, max_dim=5):

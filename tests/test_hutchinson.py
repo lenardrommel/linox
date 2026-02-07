@@ -1,7 +1,6 @@
 
 import jax
 import jax.numpy as jnp
-
 from linox import Matrix
 from linox.linalg.approx.hutchinson import hutchinson_diagonal, hutchinson_trace
 

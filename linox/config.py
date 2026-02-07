@@ -145,7 +145,8 @@ def resolve_method(operation: str, op: AnyType, requested_method: str) -> str:
         op: The linear operator involved
         requested_method: The method argument provided by the user
 
-    Returns:
+    Returns
+    -------
         The resolved method name (e.g. 'exact', 'lanczos', 'cg').
     """
     if requested_method != "auto":

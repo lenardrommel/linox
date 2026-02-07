@@ -1,9 +1,8 @@
 # test_traced_values.py
 
 import jax
-from jax import numpy as jnp
-
 import linox
+from jax import numpy as jnp
 
 
 def create_operator():

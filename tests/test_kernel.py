@@ -3,10 +3,9 @@
 
 import jax
 import jax.numpy as jnp
+import linox as lo
 import pytest
 import pytest_cases
-
-import linox as lo
 from linox.typing import ShapeType
 from linox.utils.debug import inspect_run
 
@@ -365,9 +364,7 @@ def test_arraykernel_different_chunk_sizes_same_result() -> None:
     assert jnp.allclose(result1, result2, atol=1e-6)
 
 
-@pytest.mark.skip(
-    reason="Toeplitz._matmul does not handle batched inputs from Kronecker"
-)
+
 @pytest.mark.parametrize("n", [100])
 def test_kronecker_of_toeplitz_matmul_does_not_densify(n: int, monkeypatch) -> None:
     x1 = jnp.arange(n).reshape(-1, 1).astype(jnp.float32)

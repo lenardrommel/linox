@@ -1,3 +1,8 @@
+"""Kernel-based linear operators with automatic structure detection.
+
+Provides lazy kernel operators that avoid materializing full kernel matrices,
+with automatic selection of Toeplitz structure for stationary kernels on uniform grids.
+"""
 # _kernel.py
 
 from collections.abc import Callable
@@ -53,7 +58,7 @@ def kernel_operator(
     assume_uniform: bool = False,
     chunk_size: int = 256,
 ) -> "KernelOperator":
-    """Factory function for creating the optimal kernel operator.
+    """Create the optimal kernel operator based on structure detection.
 
     Automatically selects ToeplitzKernel when:
     - Self-covariance (x1 is None or x1 is x0 - identity check only, no value comparison)
@@ -62,13 +67,25 @@ def kernel_operator(
 
     Otherwise creates a lazy ArrayKernel that never materializes the full matrix.
 
-    Args:
-        kernel: Kernel function k(x, y) -> scalar
-        x0: First set of points
-        x1: Second set of points (None for self-covariance)
-        is_stationary: True if kernel is stationary k(x,y) = f(x-y)
-        assume_uniform: True to skip uniformity check (use when creating grid with arange)
-        chunk_size: Chunk size for lazy matmul computation
+    Parameters
+    ----------
+    kernel : Callable[[jax.Array, jax.Array], jax.Array]
+        Kernel function k(x, y) -> scalar
+    x0 : jax.Array
+        First set of points
+    x1 : jax.Array, optional
+        Second set of points (None for self-covariance)
+    is_stationary : bool, default=False
+        True if kernel is stationary k(x,y) = f(x-y)
+    assume_uniform : bool, default=False
+        True to skip uniformity check (use when creating grid with arange)
+    chunk_size : int, default=256
+        Chunk size for lazy matmul computation
+
+    Returns
+    -------
+    KernelOperator
+        Either ToeplitzKernel or ArrayKernel depending on structure
     """
     is_self_cov = _is_self_covariance_cheap(x0, x1)
     is_uniform = assume_uniform or _is_uniform_1d_host(x0)
@@ -143,6 +160,7 @@ class ArrayKernel(KernelOperator):
         return lax.map(compute_row_dot, x0)
 
     def transpose(self) -> "ArrayKernel":
+        """Return transposed kernel operator."""
         return ArrayKernel(
             kernel=lambda x, y: self.kernel(y, x),
             x0=self.x1,
@@ -174,6 +192,7 @@ class ArrayKernel(KernelOperator):
         return kernel_fn(x0, x1)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         children = (self.kernel, self.x0, self.x1)
         aux_data = {"chunk_size": self.chunk_size}
         return children, aux_data
@@ -184,6 +203,7 @@ class ArrayKernel(KernelOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "ArrayKernel":
+        """Unflatten for JAX pytree registration."""
         kernel, x0, x1 = children
         return cls(kernel=kernel, x0=x0, x1=x1, chunk_size=aux_data["chunk_size"])
 
@@ -259,6 +279,7 @@ class ToeplitzKernel(KernelOperator):
         return self._toeplitz_op._todense()
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten for JAX pytree registration."""
         children = (self.kernel, self.x0)
         aux_data = {"chunk_size": self.chunk_size}
         return children, aux_data
@@ -269,6 +290,7 @@ class ToeplitzKernel(KernelOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "ToeplitzKernel":
+        """Unflatten for JAX pytree registration."""
         kernel, x0 = children
         return cls(kernel=kernel, x0=x0, chunk_size=aux_data["chunk_size"])
 

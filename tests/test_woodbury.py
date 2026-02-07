@@ -1,7 +1,7 @@
 
 import jax
 import jax.numpy as jnp
-from linox.linalg.woodbury import woodbury_solve, woodbury_chol_solve
+from linox.linalg.woodbury import woodbury_chol_solve, woodbury_solve
 
 jax.config.update("jax_enable_x64", True)
 
@@ -67,9 +67,9 @@ def test_woodbury_solve_scalar_d():
     assert jnp.allclose(x_expected, x_woodbury, atol=1e-5)
 
 def test_isotropic_add_woodbury_integration():
+    from linox.operators.arithmetic import lsolve
     from linox.operators.isotropic import IsotropicAdditiveLinearOperator
     from linox.operators.lowrank import SymmetricLowRank
-    from linox.operators.arithmetic import lsolve
     
     key = jax.random.PRNGKey(3)
     n = 10
@@ -95,9 +95,12 @@ def test_isotropic_add_woodbury_integration():
     assert jnp.allclose(x_expected, x_iso, atol=1e-5)
 
 def test_positive_diag_plus_lowrank_woodbury_integration():
-    from linox.operators.lowrank import PositiveDiagonalPlusSymmetricLowRank, SymmetricLowRank
-    from linox.operators.diagonal import Diagonal
     from linox.operators.arithmetic import lsolve
+    from linox.operators.diagonal import Diagonal
+    from linox.operators.lowrank import (
+        PositiveDiagonalPlusSymmetricLowRank,
+        SymmetricLowRank,
+    )
     
     key = jax.random.PRNGKey(4)
     n = 10

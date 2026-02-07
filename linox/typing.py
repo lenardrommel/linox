@@ -40,7 +40,7 @@ ShapeType = tuple[int, ...]
 ScalarType = jnp.ndarray
 """Type defining a scalar."""
 
-MatrixType = Union[jnp.ndarray, "linox._linear_operator.LinearOperator"]  # noqa: SLF001
+MatrixType = Union[jnp.ndarray, "linox._linear_operator.LinearOperator"]
 """Type defining a matrix, i.e. a linear map between \
 finite-dimensional vector spaces."""
 

@@ -89,7 +89,8 @@ def toeplitz_solve_hybrid(toeplitz_vec, b):
         toeplitz_vec: First row/column of symmetric Toeplitz matrix
         b: Right-hand side vector
 
-    Returns:
+    Returns
+    -------
         x: Solution vector
     """
     # Use pure_callback to call SciPy from within JAX
@@ -120,7 +121,8 @@ def hybrid_bwd(residuals, grad_output):
         residuals: (toeplitz_vec, b, x) from forward pass
         grad_output: Gradient w.r.t. output x
 
-    Returns:
+    Returns
+    -------
         (grad_toeplitz_vec, grad_b): Gradients w.r.t. inputs
     """
     toeplitz_vec, _b, x = residuals
@@ -153,7 +155,7 @@ def hybrid_bwd(residuals, grad_output):
 toeplitz_solve_hybrid.defvjp(hybrid_fwd, hybrid_bwd)
 
 
-def solve_toeplitz_jax(c_or_cr, b, check_finite=True):  # noqa: ARG001
+def solve_toeplitz_jax(c_or_cr, b, check_finite=True):
     """JAX-compatible Toeplitz solver using hybrid approach.
 
     Args:
@@ -161,7 +163,8 @@ def solve_toeplitz_jax(c_or_cr, b, check_finite=True):  # noqa: ARG001
         b: Right-hand side vector
         check_finite: Ignored (kept for API compatibility)
 
-    Returns:
+    Returns
+    -------
         x: Solution vector
     """
     if isinstance(c_or_cr, tuple):

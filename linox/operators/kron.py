@@ -13,16 +13,13 @@ This module includes:
 """
 
 import heapq
-import time
-from collections.abc import Sequence
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 
 from linox import utils
-from linox._registry import get, register
 from linox.operators.arithmetic import (
     AddLinearOperator,
     ProductLinearOperator,
@@ -79,25 +76,31 @@ class Kronecker(LinearOperator):
 
     @property
     def A(self) -> LinearOperator:
+        """First factor of the Kronecker product."""
         return self._A
 
     @property
     def B(self) -> LinearOperator:
+        """Second factor of the Kronecker product."""
         return self._B
 
     @property
     def shape(self) -> tuple[int, int]:
+        """Shape of the Kronecker product."""
         return self._shape
 
     @property
     def is_symmetric(self) -> bool:
+        """Check if Kronecker product is symmetric."""
         return self.A.is_symmetric and self.B.is_symmetric
 
     @property
     def is_psd(self) -> bool:
+        """Check if Kronecker product is positive semi-definite."""
         return self.A.is_psd and self.B.is_psd
 
     def tree_flatten(self) -> tuple[tuple, dict]:
+        """Flatten for JAX pytree registration."""
         children = (self.A, self.B)
         aux_data = {}
         return children, aux_data
@@ -108,6 +111,7 @@ class Kronecker(LinearOperator):
         aux_data: dict,
         children: tuple,
     ) -> "Kronecker":
+        """Unflatten for JAX pytree registration."""
         return cls(*children)
 
     def _matmul(self, vec: jax.Array) -> jax.Array:
@@ -130,9 +134,11 @@ class Kronecker(LinearOperator):
         return jnp.kron(self.A._todense(), self.B._todense())
 
     def transpose(self) -> "Kronecker":
+        """Return transposed Kronecker product."""
         return Kronecker(self.A.transpose(), self.B.transpose())
 
     def trace(self) -> jax.Array:
+        """Compute trace of Kronecker product."""
         return jnp.trace(self.A) * jnp.trace(self.B)
 
 
@@ -142,8 +148,9 @@ def _(op: Kronecker) -> Kronecker:
 
 
 def _solve_left(A, M):
-    """Solve A X = M for X, where A is (n,n) linop and
-    M is (..., n, k). Returns (..., n, k).
+    """Solve A X = M for X.
+
+    Where A is (n,n) linop and M is (..., n, k). Returns (..., n, k).
     """
     n = A.shape[0]
     k = M.shape[-1]
@@ -205,8 +212,9 @@ def _(op: Kronecker) -> Kronecker:
 
 
 def _psolve_left(A, M):
-    """Solve A X = M for X, where A is (n,n) linop and
-    M is (..., n, k). Returns (..., n, k).
+    """Solve A X = M for X.
+
+    Where A is (n,n) linop and M is (..., n, k). Returns (..., n, k).
     """
     n = A.shape[0]
     k = M.shape[-1]
@@ -306,7 +314,8 @@ def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
 def _(op: Kronecker) -> tuple[Kronecker, Kronecker]:
     """QR decomposition of a kronecker product.
 
-    Returns:
+    Returns
+    -------
         Q(Q_A, Q_B): Orthogonal matrix
         R(R_A, R_B): Upper triangular matrix.
     """
@@ -321,12 +330,14 @@ def _(op: Kronecker, **kwargs) -> tuple[Kronecker, jax.Array, Kronecker]:
 
     Exploits the structure: SVD(A ⊗ B) = (U_A ⊗ U_B) (S_A ⊗ S_B) (V_A^H ⊗ V_B^H)
 
-    Returns:
+    Returns
+    -------
         U(U_A, U_B): Left singular vectors as Kronecker product
         S: Singular values (outer product of S_A and S_B, flattened)
         Vh(Vh_A, Vh_B): Right singular vectors (Hermitian) as Kronecker product
 
-    Notes:
+    Notes
+    -----
         Passes through all kwargs (k, num_iters, u0, etc.) to constituent SVDs.
     """
     U_A, S_A, Vh_A = svd(op.A, **kwargs)
@@ -388,7 +399,7 @@ def _(
     distribution: str = "rademacher",
 ) -> tuple[jax.Array, jax.Array]:
     """Trace of Kronecker product: trace(A ⊗ B) = trace(A) * trace(B)."""
-    from linox.operators.arithmetic import ltrace  # noqa: PLC0415
+    from linox.operators.arithmetic import ltrace
 
     trace_A, std_A = ltrace(
         op.A, key=key, num_samples=num_samples, distribution=distribution
@@ -445,7 +456,7 @@ def _(
         from linox._algorithms._matrix_functions import (
             lanczos_matrix_function,
         )
-        from linox.config import warn as _warn  # noqa: PLC0415
+        from linox.config import warn as _warn
 
         _warn(
             "Computing log(A ⊗ B) using dense method - no efficient structured formula available"
@@ -493,26 +504,6 @@ def _factor_pair(total: int) -> tuple[int, int]:
             return k, total // k
     return total, 1
 
-
-@register("kronecker", tags=("rectangular",))
-def make_kronecker(
-    key: jax.random.PRNGKey,
-    shape: tuple[int, int],
-    dtype: jnp.dtype = jnp.float32,
-    require: str | None = None,
-    *,
-    maker_A: str = "matrix",
-    maker_B: str = "matrix",
-) -> Kronecker:
-    m, n = shape
-    mA, mB = _factor_pair(m)
-    nA, nB = _factor_pair(n)
-
-    keyA, keyB = jax.random.split(key)
-    A = get(maker_A).maker(keyA, (mA, nA), dtype, require=require)
-    B = get(maker_B).maker(keyB, (mB, nB), dtype, require=require)
-
-    return Kronecker(A, B)
 
 
 class KroneckerSelectedEigenvectors(LinearOperator):
@@ -750,7 +741,8 @@ def extract_kronecker_factors(
         op: A LinearOperator that may be a Kronecker product, possibly nested
             or wrapped in a ScaledLinearOperator.
 
-    Returns:
+    Returns
+    -------
         factors: List of leaf LinearOperators (non-Kronecker factors).
         scalar: The scalar multiplier if op was wrapped in ScaledLinearOperator,
             otherwise None.
@@ -797,7 +789,7 @@ class KronTopkEighInfo(NamedTuple):
     factor_eigs: list[jax.Array]  # [w_0_sorted, ...], each (n_i,)
     sort_indices: list[jax.Array]  # [order_0, ...], each (n_i,)
     selected_indices: list[tuple[int, ...]]  # [(i0,i1,...), ...], length k
-    scalar: Optional[jax.Array]  # scalar if ScaledLinearOperator was unwrapped
+    scalar: jax.Array | None  # scalar if ScaledLinearOperator was unwrapped
 
 
 def whitened_selected_columns(
@@ -985,10 +977,7 @@ def _topk_product_grid_indices_host(
 
             w_old = w_list_sorted[dim][idx[dim]]
             w_new = w_list_sorted[dim][nxt[dim]]
-            if w_old != 0.0:
-                p_nxt = p * (w_new / w_old)
-            else:
-                p_nxt = base_prod(nxt)
+            p_nxt = p * (w_new / w_old) if w_old != 0.0 else base_prod(nxt)
 
             v_nxt = p_nxt + add_shift
             heapq.heappush(heap, ((-v_nxt if largest else v_nxt), p_nxt, nxt))

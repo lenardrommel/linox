@@ -3,7 +3,6 @@
 import contextlib
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List
 
 from linox import config
 from linox.config import DebugEvent
@@ -13,9 +12,9 @@ from linox.config import DebugEvent
 class TraceReport:
     """Report generated from a trace session."""
 
-    events: List[DebugEvent]
-    summary: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
-    dense_ops: List[DebugEvent] = field(default_factory=list)
+    events: list[DebugEvent]
+    summary: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    dense_ops: list[DebugEvent] = field(default_factory=list)
 
     def analyze(self):
         """Analyze events and populate summary."""
@@ -41,7 +40,7 @@ class TraceContext:
     """Context manager for tracing linox operations."""
 
     def __init__(self):
-        self.events: List[DebugEvent] = []
+        self.events: list[DebugEvent] = []
         self._prev_hook = None
 
     def __enter__(self) -> "TraceContext":

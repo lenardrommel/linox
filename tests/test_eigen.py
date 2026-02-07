@@ -2,12 +2,12 @@
 
 import jax
 import jax.numpy as jnp
-import pytest
-
 import linox
+import pytest
 from linox.operators.dense import Matrix
 from linox.operators.diagonal import Diagonal
 from linox.operators.eigen import EigenD
+
 from tests.test_linox_cases._matrix_cases import (
     case_add_operator,
     case_diagonal,

@@ -4,21 +4,19 @@ This module tests that operators and functions correctly validate their inputs
 and raise appropriate errors for invalid inputs.
 """
 
-import pytest
 import jax
 import jax.numpy as jnp
-
 import linox
+import pytest
 from linox import (
-    Matrix,
+    BlockDiagonal,
     Diagonal,
     Identity,
+    Kronecker,
+    Matrix,
     Scalar,
     Zero,
-    Kronecker,
-    BlockDiagonal,
 )
-
 
 # =============================================================================
 # Fixtures

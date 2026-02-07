@@ -14,7 +14,7 @@ from linox.typing import DTypeLike, ScalarLike, ShapeLike
 BinaryOperandType = Union["LinearOperator", ScalarLike, jnp.ndarray]
 
 
-class LinearOperator:  # noqa: PLR0904 To many public methods
+class LinearOperator:
     r"""Abstract base class for `matrix-free` finite-dimensional linear operators.
 
     It follows in most parts the implementation of `probnum.linops.LinearOperator`
@@ -45,11 +45,11 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
         Shape of the linear operator.
     dtype: Type
 
-    See Also:
+    See Also
     --------
     aslinop : Transform into a LinearOperator
 
-    Notes:
+    Notes
     -----
     -   A subclass is only required to implement :meth:`_matmat`. Additionally, other
         methods like :meth:`_solve`, :meth:`_inverse`, :meth:`_transpose`,
@@ -177,14 +177,14 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
     ########################################################################
 
     def __neg__(self) -> "LinearOperator":
-        from .arithmetic import lneg  # noqa: PLC0415
+        from .arithmetic import lneg
 
         return lneg(self)
 
     def __add__(
         self, other: "LinearOperator"
     ) -> "LinearOperator":  # Here the package uses a BinaryOperandType
-        from .arithmetic import ladd  # noqa: PLC0415
+        from .arithmetic import ladd
 
         return ladd(self, other)
 
@@ -192,32 +192,32 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
         return self.__add__(other, self)
 
     def __sub__(self, other: BinaryOperandType) -> "LinearOperator":
-        from .arithmetic import lsub  # noqa: PLC0415
+        from .arithmetic import lsub
 
         return lsub(self, other)
 
     def __rsub__(self, other: BinaryOperandType) -> "LinearOperator":
-        from .arithmetic import lsub  # noqa: PLC0415
+        from .arithmetic import lsub
 
         return lsub(other, self)
 
     def __mul__(self, other: BinaryOperandType) -> "LinearOperator":
-        from .arithmetic import lmul  # noqa: PLC0415
+        from .arithmetic import lmul
 
         return lmul(self, other)
 
     def __rmul__(self, other: BinaryOperandType) -> "LinearOperator":
-        from .arithmetic import lmul  # noqa: PLC0415
+        from .arithmetic import lmul
 
         return lmul(other, self)
 
     def __truediv__(self, other: BinaryOperandType) -> "LinearOperator":
-        from .arithmetic import ldiv  # noqa: PLC0415
+        from .arithmetic import ldiv
 
         return ldiv(self, other)
 
     def __matmul__(self, other: BinaryOperandType) -> "LinearOperator":
-        from .arithmetic import lmatmul  # noqa: PLC0415
+        from .arithmetic import lmatmul
         flatten = False
         operand = other
         if isinstance(other, (jax.Array, np.ndarray)):
@@ -240,7 +240,7 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
         return res if not flatten else res[..., 0]
 
     def __rmatmul__(self, other: BinaryOperandType) -> "LinearOperator":
-        from linox.operators.arithmetic import lmatmul  # noqa: PLC0415
+        from linox.operators.arithmetic import lmatmul
 
 
         # lazy evaluation

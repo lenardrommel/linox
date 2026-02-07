@@ -19,9 +19,8 @@ from typing import Any
 
 import jax
 import jax.numpy as jnp
-import pytest
-
 import linox
+import pytest
 from linox import (
     BlockDiagonal,
     Diagonal,
@@ -240,11 +239,10 @@ def test_diagonal_of_sum_no_densification(matrix_a, matrix_b) -> None:
     sum_op = A + B
 
     # Getting diagonal should not densify A or B individually
-    with DensificationDetector(A, allow_in_matmul=True) as det_a:
-        with DensificationDetector(B, allow_in_matmul=True) as det_b:
-            diag = diagonal(sum_op)
-            det_a.assert_no_densification("diagonal of sum (operand A)")
-            det_b.assert_no_densification("diagonal of sum (operand B)")
+    with DensificationDetector(A, allow_in_matmul=True) as det_a, DensificationDetector(B, allow_in_matmul=True) as det_b:
+        diag = diagonal(sum_op)
+        det_a.assert_no_densification("diagonal of sum (operand A)")
+        det_b.assert_no_densification("diagonal of sum (operand B)")
 
     assert jnp.allclose(diag, jnp.diag(matrix_a) + jnp.diag(matrix_b))
 
@@ -259,11 +257,10 @@ def test_kronecker_construction_no_densification(matrix_a, matrix_b) -> None:
     A = Matrix(matrix_a)
     B = Matrix(matrix_b)
 
-    with DensificationDetector(A, allow_in_matmul=True) as det_a:
-        with DensificationDetector(B, allow_in_matmul=True) as det_b:
-            Kronecker(A, B)
-            det_a.assert_no_densification("Kronecker construction (A)")
-            det_b.assert_no_densification("Kronecker construction (B)")
+    with DensificationDetector(A, allow_in_matmul=True) as det_a, DensificationDetector(B, allow_in_matmul=True) as det_b:
+        Kronecker(A, B)
+        det_a.assert_no_densification("Kronecker construction (A)")
+        det_b.assert_no_densification("Kronecker construction (B)")
 
 
 def test_kronecker_matmul_no_densification(matrix_a, matrix_b, key) -> None:
@@ -298,11 +295,10 @@ def test_block_diagonal_no_densification(matrix_a, matrix_b, key) -> None:
     n = block_op.shape[0]
     vec = jax.random.normal(key, (n,))
 
-    with DensificationDetector(A, allow_in_matmul=True) as det_a:
-        with DensificationDetector(B, allow_in_matmul=True) as det_b:
-            block_op @ vec
-            det_a.assert_no_densification("BlockDiagonal matmul (A)")
-            det_b.assert_no_densification("BlockDiagonal matmul (B)")
+    with DensificationDetector(A, allow_in_matmul=True) as det_a, DensificationDetector(B, allow_in_matmul=True) as det_b:
+        block_op @ vec
+        det_a.assert_no_densification("BlockDiagonal matmul (A)")
+        det_b.assert_no_densification("BlockDiagonal matmul (B)")
 
 
 # ============================================================================
@@ -395,11 +391,10 @@ def test_congruence_diagonal_should_not_densify(matrix_a, spd_matrix) -> None:
     B = Matrix(spd_matrix)
     cong = CongruenceTransform(A, B)
 
-    with DensificationDetector(A, allow_in_matmul=True) as det_a:
-        with DensificationDetector(B, allow_in_matmul=True) as det_b:
-            _ = diagonal(cong)
-            det_a.assert_no_densification("CongruenceTransform diagonal (A)")
-            det_b.assert_no_densification("CongruenceTransform diagonal (B)")
+    with DensificationDetector(A, allow_in_matmul=True) as det_a, DensificationDetector(B, allow_in_matmul=True) as det_b:
+        _ = diagonal(cong)
+        det_a.assert_no_densification("CongruenceTransform diagonal (A)")
+        det_b.assert_no_densification("CongruenceTransform diagonal (B)")
 
 
 # ============================================================================
@@ -462,10 +457,9 @@ def test_densification_detector_catches_todense() -> None:
     """Test that DensificationDetector correctly detects todense() calls."""
     A = Matrix(jnp.eye(3))
 
-    with pytest.raises(AssertionError, match="Early densification detected"):
-        with DensificationDetector(A, allow_in_matmul=False) as detector:
-            _ = A.todense()
-            detector.assert_no_densification()
+    with pytest.raises(AssertionError, match="Early densification detected"), DensificationDetector(A, allow_in_matmul=False) as detector:
+        _ = A.todense()
+        detector.assert_no_densification()
 
 
 def test_densification_detector_allows_matmul() -> None:

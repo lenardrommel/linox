@@ -28,7 +28,8 @@ def hutchinson_trace(
         num_samples: Number of random probes
         distribution: 'rademacher' (default) or 'normal'
 
-    Returns:
+    Returns
+    -------
         (estimate, std_error)
     """
     n = A.shape[-1]
@@ -59,7 +60,8 @@ def hutchinson_diagonal(
         num_samples: Number of probes
         distribution: 'rademacher' (default) or 'normal'
 
-    Returns:
+    Returns
+    -------
         (estimate, std_error) each of shape (n,)
     """
     n = A.shape[-1]

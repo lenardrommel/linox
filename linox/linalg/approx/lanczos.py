@@ -119,7 +119,7 @@ def lanczos_tridiag(
     reortho : bool, optional
         Whether to perform full reorthogonalization. Default is True.
 
-    Returns:
+    Returns
     -------
     Q : jax.Array, shape (n, num_iters)
         Orthonormal Lanczos vectors.

@@ -106,7 +106,7 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
 
     -------
 
-    Returns:
+    Returns
     -------
     A LinearOperator supporting matrix-free application and spectral transforms
     of ``s I + A`` via the multipledispatch functions listed above.
@@ -152,32 +152,39 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
 
     @property
     def s(self) -> jax.Array:
+        """Scalar operator component (s * I)."""
         return self._s
 
     @property
     def scalar(self) -> jax.Array:
+        """Scalar value s from the isotropic shift."""
         return self._s.scalar
 
     @property
     def shape(self) -> tuple[int, int]:
+        """Shape of the operator."""
         return self._A.shape
 
     @property
     def operator(self) -> LinearOperator:
+        """The base linear operator A."""
         return self._A
 
     @property
     def Q(self) -> LinearOperator:
+        """Eigenvectors of A (computed lazily via leigh)."""
         self._ensure_eigh()
         return self._Q
 
     @property
     def S(self) -> LinearOperator:
+        """Eigenvalues of A (computed lazily via leigh)."""
         self._ensure_eigh()
         return self._S
 
     @property
     def projector(self) -> LinearOperator:
+        """Projector onto the eigenspace Q Q^T (cached)."""
         self._ensure_eigh()
         if self._projector is None:
             self._projector = self._Q @ self._Q.T
@@ -185,6 +192,7 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
 
     @property
     def complement(self) -> LinearOperator:
+        """Orthogonal complement projector I - Q Q^T (cached)."""
         self._ensure_eigh()
         if self._complement is None:
             self._complement = (
@@ -192,7 +200,7 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
             )
         return self._complement
 
-    def _matmul(self, arr: jax.Array):  # noqa: ANN202
+    def _matmul(self, arr: jax.Array):
         return self._s @ arr + self._A @ arr
 
     def _todense(self) -> jax.Array:
@@ -366,7 +374,7 @@ def _(
     if v is None:
         # Return lazy operator: U @ Diagonal(exp(s + λ)) @ U^T
         exp_eigvals = Diagonal(jnp.exp(eigvals))
-        from linox.operators.arithmetic import congruence_transform  # noqa: PLC0415
+        from linox.operators.arithmetic import congruence_transform
 
         return congruence_transform(a.Q, exp_eigvals)
     # exp(sI + A) @ v = U @ exp(s + λ) @ U^T @ v
@@ -396,7 +404,7 @@ def _(
     if v is None:
         # Return lazy operator: U @ Diagonal(log(s + λ)) @ U^T
         log_eigvals = Diagonal(jnp.log(eigvals))
-        from linox.operators.arithmetic import congruence_transform  # noqa: PLC0415
+        from linox.operators.arithmetic import congruence_transform
 
         return congruence_transform(a.Q, log_eigvals)
     # log(sI + A) @ v = U @ log(s + λ) @ U^T @ v
@@ -428,7 +436,7 @@ def _(
     if v is None:
         # Return lazy operator: U @ Diagonal((s + λ)^p) @ U^T
         pow_eigvals = Diagonal(eigvals**power)
-        from linox.operators.arithmetic import congruence_transform  # noqa: PLC0415
+        from linox.operators.arithmetic import congruence_transform
 
         return congruence_transform(a.Q, pow_eigvals)
     # (sI + A)^p @ v = U @ (s + λ)^p @ U^T @ v

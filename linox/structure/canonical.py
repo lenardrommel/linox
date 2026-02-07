@@ -14,7 +14,8 @@ def canonicalize(op: LinearOperator) -> LinearOperator:
     Args:
         op: The linear operator to canonicalize.
 
-    Returns:
+    Returns
+    -------
         A potentially simplified linear operator.
     """
     # For now, we assume construction-time simplification is sufficient.

@@ -26,7 +26,7 @@ from functools import reduce, wraps
 
 import jax
 import jax.numpy as jnp
-import plum  # type: ignore  # noqa: PGH003
+import plum  # type: ignore
 
 from linox import config, utils
 from linox.config import warn as _warn
@@ -89,9 +89,15 @@ def get_scale_and_op(x: LinearOperator) -> tuple[jax.Array, LinearOperator]:
 def smart_add(*operators: LinearOperator) -> LinearOperator:
     """Smart addition with simplification rules."""
     # Lazy imports to avoid circular dependencies
-    from linox.operators.special import Zero, Scalar, Identity  # noqa: PLC0415
-    from linox.operators.lowrank import SymmetricLowRank, IsotropicScalingPlusSymmetricLowRank, PositiveDiagonalPlusSymmetricLowRank  # noqa: PLC0415
-    from linox.operators.isotropic import IsotropicAdditiveLinearOperator  # noqa: PLC0415
+    from linox.operators.isotropic import (
+        IsotropicAdditiveLinearOperator,
+    )
+    from linox.operators.lowrank import (
+        IsotropicScalingPlusSymmetricLowRank,
+        PositiveDiagonalPlusSymmetricLowRank,
+        SymmetricLowRank,
+    )
+    from linox.operators.special import Identity, Scalar, Zero
     
     # 1. Flatten AddLinearOperators
     flat_ops = []
@@ -149,7 +155,7 @@ def smart_add(*operators: LinearOperator) -> LinearOperator:
         # If we have Diagonal + SymmetricLowRank, we can use the specialized class
         # which has efficient solves/determinants via Woodbury.
         # NOTE: Order matters. Check both op1+op2 and op2+op1.
-        from linox.operators.diagonal import Diagonal  # noqa: PLC0415
+        from linox.operators.diagonal import Diagonal
 
         diag_op = None
         lr_op = None
@@ -233,7 +239,7 @@ def lmatmul(a: LinearOperator, b: LinearOperator) -> ArithmeticType:
 
 def smart_matmul(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     """Smart matrix multiplication with simplification rules."""
-    from linox.operators.arithmetic import TransposedLinearOperator  # noqa: PLC0415
+    from linox.operators.arithmetic import TransposedLinearOperator
     from linox.operators.factor import PSDFromFactor
 
     # Check for PSDFromFactor: A @ A.T or A.T @ A
@@ -307,7 +313,7 @@ def lpinverse(a: LinearOperator) -> ArithmeticType:
 
 @plum.dispatch
 def iso(scalar: ScalarLike, a: LinearOperator) -> LinearOperator:
-    from linox.operators.isotropic import (  # noqa: PLC0415
+    from linox.operators.isotropic import (
         IsotropicAdditiveLinearOperator,
     )
 
@@ -356,12 +362,14 @@ def svd(
             than k. If None, uses min(2*k, min(m, n)). Only used when k is provided.
         u0: Initial vector for Lanczos bidiagonalization. Only used when k is provided.
 
-    Returns:
+    Returns
+    -------
         U: Left singular vectors - shape (m, m) for full SVD or (m, k) for partial
         S: Singular values in descending order - shape (min(m,n),) or (k,)
         Vt: Right singular vectors (transposed) - shape (n, n) for full or (k, n)
 
-    Examples:
+    Examples
+    --------
         Full SVD (may densify):
         >>> U, S, Vt = svd(operator)
 
@@ -369,7 +377,8 @@ def svd(
         >>> U, S, Vt = svd(operator, k=10)
         >>> # Only top 10 singular values/vectors computed efficiently
 
-    Notes:
+    Notes
+    -----
         - For large matrices, use k parameter to avoid densification
         - Structure-exploiting dispatches exist for Kronecker and other special operators
         - Partial SVD uses Lanczos bidiagonalization (Golub-Kahan process)
@@ -385,7 +394,7 @@ def svd(
     ):
         if k is not None:
             # Use matrix-free partial SVD
-            from linox._algorithms._svd import svd_partial  # noqa: PLC0415
+            from linox._algorithms._svd import svd_partial
 
             return svd_partial(a, k, num_iters, u0)
 
@@ -423,12 +432,14 @@ def lsvd(
         u0: Initial vector of shape (m,) for bidiagonalization.
             If None, uses vector of ones. Default is None.
 
-    Returns:
+    Returns
+    -------
         U: Left singular vectors of shape (m, k)
         S: Singular values of shape (k,) in descending order
         Vt: Right singular vectors of shape (k, n)
 
-    Examples:
+    Examples
+    --------
         >>> import jax.numpy as jnp
         >>> from linox import Matrix
         >>> A = Matrix(jnp.random.randn(1000, 500))
@@ -437,7 +448,8 @@ def lsvd(
         >>> # Use instead:
         >>> U, S, Vt = linox.svd(A, k=10)
 
-    Notes:
+    Notes
+    -----
         **Deprecated:** Use ``svd(a, k=k)`` instead.
 
         This is the matrix-free alternative to jnp.linalg.svd for computing
@@ -445,7 +457,6 @@ def lsvd(
 
         Inspired by matfree library (https://github.com/pnkraemer/matfree).
     """
-
     warnings.warn(
         "lsvd is deprecated and will be removed in a future version. "
         "Use svd(a, k=k) instead.",
@@ -460,7 +471,8 @@ def lsvd(
 def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
     """QR decomposition of a linear operator.
 
-    Returns:
+    Returns
+    -------
         Q: Orthogonal matrix
         R: Upper triangular matrix.
     """
@@ -529,7 +541,7 @@ def _(a: LinearOperator, b: LinearOperator) -> jax.Array:
 @plum.dispatch
 def lu_factor(
     a: LinearOperator,
-    overwrite_a: bool = False,  # noqa: FBT001
+    overwrite_a: bool = False,
 ) -> tuple[jax.Array, jax.Array]:
     """LU factorization of a linear operator."""
     _warn(f"Linear operator {a} is densed for lu_factor computation.")
@@ -548,7 +560,7 @@ def lu_solve(a: LinearOperator, b: jax.Array) -> jax.Array:
 
 
 @plum.dispatch
-def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001
+def lpsolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:
     """Solve the linear system Ax = b."""
     # if a.shape[-1] != _rhs_rows(b):
     #     msg = f"Shape mismatch: {a.shape} and {b.shape}"
@@ -587,7 +599,8 @@ def ldet(a: LinearOperator) -> jax.Array:
 def slogdet(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
     """Compute the sign and log determinant of a linear operator.
 
-    Returns:
+    Returns
+    -------
         sign: Sign of the determinant
         logdet: Logarithm of the determinant
     """
@@ -600,7 +613,7 @@ def slogdet(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
 
 @plum.dispatch
 def kron(a: LinearOperator, b: LinearOperator) -> LinearOperator:
-    from linox.operators.kron import Kronecker  # noqa: PLC0415
+    from linox.operators.kron import Kronecker
 
     return Kronecker(a, b)
 
@@ -622,15 +635,17 @@ def ltrace(
         num_samples: Number of random samples for estimation
         distribution: Either 'rademacher' or 'normal'
 
-    Returns:
+    Returns
+    -------
         trace_estimate: Monte Carlo estimate of trace(a)
         trace_std: Standard error of the estimate
 
-    Notes:
+    Notes
+    -----
         For exact trace computation on small/dense operators, use jnp.trace(a.todense()).
         This method is inspired by matfree library (https://github.com/pnkraemer/matfree).
     """
-    from linox.linalg.approx.hutchinson import hutchinson_trace  # noqa: PLC0415
+    from linox.linalg.approx.hutchinson import hutchinson_trace
 
     if key is None:
         key = jax.random.PRNGKey(0)
@@ -656,11 +671,13 @@ def lexp(
         num_iters: Number of Krylov iterations
         method: 'lanczos' for symmetric or 'arnoldi' for general
 
-    Returns:
+    Returns
+    -------
         If v is provided: exp(A) @ v
         If v is None: Lazy linear operator representing exp(A)
 
-    Notes:
+    Notes
+    -----
         Inspired by matfree library (https://github.com/pnkraemer/matfree).
     """
     from linox.linalg.approx.arnoldi import arnoldi_matrix_function
@@ -698,17 +715,17 @@ def llog(
         num_iters: Number of Krylov iterations
         method: 'lanczos' for symmetric or 'arnoldi' for general
 
-    Returns:
+    Returns
+    -------
         If v is provided: log(A) @ v
         If v is None: Lazy linear operator representing log(A)
 
-    Notes:
+    Notes
+    -----
         Inspired by matfree library (https://github.com/pnkraemer/matfree).
     """
-    from linox._algorithms._matrix_functions import (  # noqa: PLC0415
-        arnoldi_matrix_function,
-        lanczos_matrix_function,
-    )
+    from linox.linalg.approx.arnoldi import arnoldi_matrix_function
+    from linox.linalg.approx.lanczos import lanczos_matrix_function
 
     if v is None:
         _warn("llog without vector returns lazy operator - evaluation may be expensive")
@@ -745,17 +762,17 @@ def lpow(
         num_iters: Number of Krylov iterations
         method: 'lanczos' for symmetric or 'arnoldi' for general
 
-    Returns:
+    Returns
+    -------
         If v is provided: A^p @ v
         If v is None: Lazy linear operator representing A^p
 
-    Notes:
+    Notes
+    -----
         Inspired by matfree library (https://github.com/pnkraemer/matfree).
     """
-    from linox._algorithms._matrix_functions import (  # noqa: PLC0415
-        arnoldi_matrix_function,
-        lanczos_matrix_function,
-    )
+    from linox.linalg.approx.arnoldi import arnoldi_matrix_function
+    from linox.linalg.approx.lanczos import lanczos_matrix_function
 
     # Define power function (element-wise on eigenvalues)
     def power_func(eigvals):
@@ -805,7 +822,8 @@ def is_symmetric(
         key: Random key for generating test vectors (default: uses key 0)
         num_probes: Number of random vectors to test (default: 1)
 
-    Returns:
+    Returns
+    -------
         True if the operator appears symmetric within tolerance
     """
     if not is_square(a):
@@ -855,7 +873,8 @@ def is_hermitian(
         key: Random key for generating test vectors (default: uses key 0)
         num_probes: Number of random vectors to test (default: 1)
 
-    Returns:
+    Returns
+    -------
         True if the operator appears Hermitian within tolerance
     """
     if not is_square(a):
@@ -923,7 +942,7 @@ def _(a: LinearOperator, b: jax.Array) -> jax.Array:
 
 @lmatmul.dispatch
 def _(a: jax.Array, b: LinearOperator) -> LinearOperator:
-    from linox.operators.dense import Matrix  # noqa: PLC0415
+    from linox.operators.dense import Matrix
 
     return Matrix(a) @ b
 
@@ -1022,7 +1041,7 @@ def _(a: ScaledLinearOperator, b: jax.Array) -> jax.Array:
 
 
 @lpsolve.dispatch
-def _(a: ScaledLinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001, ARG001
+def _(a: ScaledLinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:
     return lpsolve(a.operator, b) / a.scalar
 
 
@@ -1196,7 +1215,7 @@ class ProductLinearOperator(LinearOperator):
         ))
         super().__init__(shape=shape, dtype=result_dtype)
 
-    def __check_init__(self) -> None:  # noqa: PLW3201
+    def __check_init__(self) -> None:
         for i, op1 in enumerate(self.operator_list[:-1]):
             op2 = self.operator_list[i + 1]
             if op1.shape[-1] != op2.shape[-2]:
@@ -1362,7 +1381,7 @@ class InverseLinearOperator(LinearOperator):
             return lsolve(self.operator, arr)
 
         if self.method == "lsmr":
-            from linox.linalg.approx.lsmr import lsmr_solve  # noqa: PLC0415
+            from linox.linalg.approx.lsmr import lsmr_solve
             x, _ = lsmr_solve(self.operator, arr, **self.solver_options)
             return x
 
@@ -1474,7 +1493,8 @@ class PseudoInverseLinearOperator(LinearOperator):
         Compute the dense pseudo-inverse using SVD.
         U, S, Vh = svd(self.operator).
 
-        Returns:
+        Returns
+        -------
             x_LS = \sum_i (u_i^T b) / s_i v_i
             -> U, S, Vh = svd(self.operator)
             return U @ jnp.diag(1 / S) @ Vh.
@@ -1512,7 +1532,8 @@ def _(
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """SVD of pseudo-inverse operator: inverts singular values above tolerance.
 
-    Notes:
+    Notes
+    -----
         Passes through all kwargs (k, full_matrices, compute_uv, etc.) to the
         underlying operator's SVD, then inverts singular values.
     """
@@ -1643,7 +1664,7 @@ def solve(a: LinearOperator, b: jax.Array) -> jax.Array:
 
 
 @plum.dispatch
-def psolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:  # noqa: ANN001
+def psolve(a: LinearOperator, b: jax.Array, rtol=1e-8) -> jax.Array:
     """Solve Ax = b using pseudo-inverse. See lpsolve for implementation details."""
     return lpsolve(a, b, rtol)
 

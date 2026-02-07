@@ -26,7 +26,8 @@ def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
         x: Shape representation.
         ndim: The required number of dimensions in the shape.
 
-    Raises:
+    Raises
+    ------
         TypeError
             If ``x`` is not a valid :const:`ShapeLike`.
         TypeError
@@ -72,7 +73,8 @@ def as_scalar(x: ScalarLike, dtype: DTypeLike = None) -> jnp.ndarray:
         Scalar value.
         dtype: Data type of the scalar.
 
-    Raises:
+    Raises
+    ------
         ValueError
         If :code:`x` can not be interpreted as a scalar.
     """
@@ -94,7 +96,8 @@ def as_linop(x: LinearOperatorLike) -> "LinearOperator":
     Args:
         x: Object to convert.
 
-    Raises:
+    Raises
+    ------
         TypeError
         If ``x`` is not a valid linear operator.
     """
@@ -112,7 +115,7 @@ def as_linop(x: LinearOperatorLike) -> "LinearOperator":
 
     # For arrays, wrap in Matrix
     if isinstance(x, (np.ndarray, jax.Array)):
-        from linox.operators.dense import Matrix  # noqa: PLC0415
+        from linox.operators.dense import Matrix
         return Matrix(x)
 
     # Add Callable support.
@@ -127,7 +130,8 @@ def _broadcast_shapes(shapes: Iterable[ShapeLike]) -> ShapeLike:
     Args:
         shapes: Shapes to broadcast.
 
-    Raises:
+    Raises
+    ------
         ValueError
             If the shapes cannot be broadcasted.
     """
@@ -145,7 +149,8 @@ def _broadcast_to(x: ArrayLike, shape: ShapeLike) -> jnp.ndarray:
         x: Array to broadcast.
         shape: Shape to broadcast to.
 
-    Raises:
+    Raises
+    ------
         ValueError
             If the array cannot be broadcasted to the given shape.
     """
@@ -165,7 +170,8 @@ def todense(x: LinearOperatorLike) -> jnp.ndarray:
     Args:
         x: Linear operator to convert.
 
-    Returns:
+    Returns
+    -------
         Dense matrix.
     """
     from linox.operators.base import LinearOperator
@@ -187,7 +193,8 @@ def allclose(
         rtol: Relative tolerance.
         atol: Absolute tolerance.
 
-    Returns:
+    Returns
+    -------
         Whether the two linear operators are close to each other.
     """
     a_dense = todense(a)
@@ -201,7 +208,8 @@ def as_dense(a: LinearOperatorLike) -> jnp.ndarray:
     Args:
         a: Linear operator to convert.
 
-    Returns:
+    Returns
+    -------
         Dense matrix.
     """
     from linox.operators.base import LinearOperator

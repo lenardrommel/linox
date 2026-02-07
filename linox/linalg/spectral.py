@@ -11,7 +11,7 @@ Key algorithms:
 - Lanczos bidiagonalization: Reduces matrix to bidiagonal form
 - Partial SVD: Computes k largest singular values/vectors
 
-References:
+References
 ----------
 .. [1] N. Krämer, M. Schober, and P. Hennig, "Gradients of functions of large matrices,"
        arXiv preprint arXiv:2405.17277, 2024.
@@ -61,7 +61,7 @@ def lanczos_bidiag(
         numerical stability at the cost of O(num_iters^2) operations.
         Default is True (recommended).
 
-    Returns:
+    Returns
     -------
     U : jax.Array, shape (m, num_iters)
         Left orthonormal basis vectors (columns).
@@ -72,7 +72,7 @@ def lanczos_bidiag(
     beta : jax.Array, shape (num_iters-1,)
         Super-diagonal elements of bidiagonal matrix B.
 
-    Notes:
+    Notes
     -----
     The bidiagonal matrix B has the form:
         B = [[alpha[0], beta[0],    0,       ...],
@@ -83,7 +83,7 @@ def lanczos_bidiag(
     This is related to Golub-Kahan bidiagonalization and is used in
     algorithms like LSMR and partial SVD computation.
 
-    Examples:
+    Examples
     --------
     >>> import jax
     >>> import jax.numpy as jnp
@@ -95,7 +95,7 @@ def lanczos_bidiag(
     >>> # U and V contain orthonormal vectors
     >>> # B = diag(alpha) + diag(beta, 1) is bidiagonal
 
-    References:
+    References
     ----------
     Inspired by matfree.decomp.bidiag [1, 2] and the Golub-Kahan process [3].
     """
@@ -235,7 +235,7 @@ def svd_partial(
         Whether to use full reorthogonalization in bidiagonalization.
         This significantly improves numerical stability. Default is True.
 
-    Returns:
+    Returns
     -------
     U : jax.Array, shape (m, k)
         Left singular vectors (columns).
@@ -244,7 +244,7 @@ def svd_partial(
     Vt : jax.Array, shape (k, n)
         Right singular vectors (rows).
 
-    Examples:
+    Examples
     --------
     >>> import jax
     >>> import jax.numpy as jnp
@@ -260,7 +260,7 @@ def svd_partial(
     >>> A_approx = U @ jnp.diag(S) @ Vt
     >>> error = jnp.linalg.norm(A_dense - A_approx)
 
-    Notes:
+    Notes
     -----
     This is a matrix-free alternative to jnp.linalg.svd for computing
     a few singular values/vectors of large sparse or structured matrices.
@@ -270,7 +270,7 @@ def svd_partial(
     2. Computes SVD of small bidiagonal matrix B
     3. Projects back to get singular vectors of A
 
-    References:
+    References
     ----------
     Inspired by matfree library [1, 2].
     """

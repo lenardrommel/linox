@@ -71,12 +71,11 @@ The tests reveal current framework capabilities and some dtype handling requirem
 from collections.abc import Callable
 
 import jax.numpy as jnp
+import linox
 import numpy as np
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
-
-import linox
 
 DTYPE = jnp.float32
 FLOATS = st.floats(

@@ -50,7 +50,7 @@ class BlockMatrix(LinearOperator):
         # Determine the dtype
         dtype = self._blocks[0][0].dtype
         for i, j in product(range(len(self._blocks)), range(len(self._blocks[0]))):
-            assert (  # noqa: S101
+            assert (
                 self._blocks[i][j].dtype == dtype
             ), "All blocks must have the same dtype."
             expected_shape = (self._blocks[i][0].shape[0], self._blocks[0][j].shape[1])
@@ -93,7 +93,7 @@ class BlockMatrix(LinearOperator):
 
         # Perform matrix multiplication for each row of blocks
         for i in range(self._block_shape[0]):
-            row_wise_results.append(  # noqa: PERF401
+            row_wise_results.append(
                 jnp.sum(
                     jnp.array([
                         block @ cur_x

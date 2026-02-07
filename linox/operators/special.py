@@ -26,7 +26,7 @@ from linox.typing import DTypeLike, ScalarLike, ScalarType, ShapeLike
 from linox.utils import as_shape
 
 
-def _matmul_broadcast(a: LinearOperator, b: LinearOperator):  # noqa: ANN202
+def _matmul_broadcast(a: LinearOperator, b: LinearOperator):
     batch_shape = jnp.broadcast_shapes(a.shape[:-2], b.shape[:-2])
     return (*batch_shape, a.shape[-2], b.shape[-1])
 

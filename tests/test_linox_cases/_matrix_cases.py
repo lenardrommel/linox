@@ -5,9 +5,8 @@ from itertools import product
 
 import jax
 import jax.numpy as jnp
-import pytest
-
 import linox
+import pytest
 from linox import LinearOperator
 from linox.operators.arithmetic import (
     AddLinearOperator,

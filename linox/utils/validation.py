@@ -40,7 +40,7 @@ class ValidationError(ValueError):
     def __init__(
         self,
         message: str,
-        operator: "LinearOperator",
+        operator: LinearOperator,
         hint: str | None = None,
     ) -> None:
         self.operator = operator
@@ -57,7 +57,7 @@ class ValidationError(ValueError):
 
 
 def validate(
-    op: "LinearOperator",
+    op: LinearOperator,
     *,
     mode: Literal["default", "debug"] = "default",
     rtol: float = 1e-5,
@@ -124,7 +124,7 @@ def validate(
     return True
 
 
-def _validate_structural(op: "LinearOperator") -> None:
+def _validate_structural(op: LinearOperator) -> None:
     """Perform cheap O(1) structural validation.
 
     Checks:
@@ -174,7 +174,7 @@ def _validate_structural(op: "LinearOperator") -> None:
 
 
 def _validate_numerical(
-    op: "LinearOperator",
+    op: LinearOperator,
     *,
     rtol: float,
     atol: float,

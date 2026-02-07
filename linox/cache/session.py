@@ -59,7 +59,8 @@ def cache_key(op: Any) -> str:
     Args:
         op: The operator (or any object) to key.
 
-    Returns:
+    Returns
+    -------
         A unique string key (e.g. valid for the lifetime of the object).
     """
     return str(id(op))

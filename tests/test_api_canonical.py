@@ -1,6 +1,5 @@
 import jax
 import jax.numpy as jnp
-
 import linox
 from linox import Diagonal, Identity, Matrix
 
