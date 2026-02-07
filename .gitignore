@@ -24,7 +24,7 @@ geometric_bayesian/
 # Local files
 benchmarks/
 TODO.md
-
+mds/
 
 # C extensions
 *.so

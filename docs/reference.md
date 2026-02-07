@@ -10,7 +10,7 @@
 ::: linox.structure
 
 ## Typing
-::: linox.typing
+::: linox._types
 
 ## Config
 ::: linox.config
