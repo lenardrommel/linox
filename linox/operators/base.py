@@ -71,7 +71,6 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
     ) -> None:
         self.__shape = utils.as_shape(shape, ndim=len(shape))
 
-        # DType
         self.__dtype = jnp.dtype(dtype)
 
     @property
@@ -161,7 +160,6 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
     def _matmul(self, other: jnp.ndarray) -> jnp.ndarray:
         return self._todense() @ other
 
-    #        return self.mv(other.swapaxes(-1, -2)).swapaxes(-1, -2)
 
     def transpose(self) -> "LinearOperator":
         return self._todense().swapaxes(-1, -2)
@@ -242,6 +240,8 @@ class LinearOperator:  # noqa: PLR0904 To many public methods
         return res if not flatten else res[..., 0]
 
     def __rmatmul__(self, other: BinaryOperandType) -> "LinearOperator":
+        from linox.operators.arithmetic import lmatmul  # noqa: PLC0415
+
 
         # lazy evaluation
         isLazyEvaluation = True

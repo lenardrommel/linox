@@ -13,10 +13,10 @@ from .config import is_debug, set_debug
 from .linalg import functions as _functions_module
 from .linalg import spectral as _spectral_module
 from .linalg import trace as _trace_module
-from .linalg.spectral import svd_partial
 
 # Arithmetic operators (for export compatibility)
 from .operators.arithmetic import InverseLinearOperator  # Compatibility aliases
+from .operators.arithmetic import InverseLinearOperator as Inverse  # Alias for inv()
 from .operators.arithmetic import (
     AddLinearOperator,
     ProductLinearOperator,
@@ -40,6 +40,9 @@ from .operators.arithmetic import (
     lpinverse,
     lpsolve,
     lqr,
+)
+from .operators.arithmetic import (
+    svd as _svd_impl,
 )
 from .operators.arithmetic import lsolve as _lsolve_impl
 from .operators.arithmetic import lsqrt as _lsqrt_impl
@@ -118,6 +121,7 @@ __all__ = [
     "Zero",
     # Utils / Debug / Misc
     "ValidationError",
+    "_broadcast_shapes",
     "allclose",
     "as_linop",
     "assume_psd",
@@ -301,7 +305,7 @@ def trace(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> jax.Array:
 
     if m == "hutchinson":
         return _trace_module.trace(op, method="hutchinson", **kwargs)
-    return _trace_module.trace(op)
+    return _trace_module.trace(op, **kwargs)
 
 
 def det(a: LinearyOperatorLike) -> jax.Array:
@@ -384,7 +388,7 @@ def eigh(
 
 def svd(a: LinearyOperatorLike, **kwargs) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Singular Value Decomposition."""
-    return _spectral_module.svd(ensure_linop(a), **kwargs)
+    return _svd_impl(ensure_linop(a), **kwargs)
 
 
 # --- Element-wise / Function Application ---

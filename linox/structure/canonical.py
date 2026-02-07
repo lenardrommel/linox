@@ -1,7 +1,6 @@
 """Canonicalization of linear operators."""
 
 from linox.operators import LinearOperator
-from linox.operators.arithmetic import smart_add, smart_matmul
 
 
 def canonicalize(op: LinearOperator) -> LinearOperator:

@@ -13,7 +13,9 @@ This module includes:
 """
 
 import heapq
+import time
 from collections.abc import Sequence
+from typing import NamedTuple, Optional
 
 import jax
 import jax.numpy as jnp
@@ -780,116 +782,345 @@ def extract_kronecker_factors(
     return factors, scalar
 
 
+class KronTopkEighInfo(NamedTuple):
+    """Extra info to keep top-k eigenpairs factorized.
+
+    Notes
+    -----
+    - factor_vecs[i] are the eigenvectors Q_i in *original* column order (as returned by leigh)
+    - factor_eigs[i] are the eigenvalues w_i in *sorted* order (descending if largest=True)
+    - sort_indices[i] is the permutation 'order' such that w_sorted = w[order]
+    - selected_indices are tuples in *sorted coordinates* (i.e. indices into w_sorted)
+    """
+
+    factor_vecs: list[jax.Array]  # [Q_0, Q_1, ...], each (n_i, n_i)
+    factor_eigs: list[jax.Array]  # [w_0_sorted, ...], each (n_i,)
+    sort_indices: list[jax.Array]  # [order_0, ...], each (n_i,)
+    selected_indices: list[tuple[int, ...]]  # [(i0,i1,...), ...], length k
+    scalar: Optional[jax.Array]  # scalar if ScaledLinearOperator was unwrapped
+
+
+def whitened_selected_columns(
+    info: KronTopkEighInfo,
+    *,
+    eps: float = 1e-12,
+    sigma2: float | jax.Array | None = None,
+    scale_on_factor: int = 0,  # 0 = u-factor
+) -> tuple[list[jax.Array], list[jax.Array], list[jax.Array], jax.Array]:
+    """Return factorwise columns for selected Kronecker eigenvectors with correct per-column whitening.
+
+    We build columns for each factor r: Q_r[:, idx_orig_r(i)].
+    Then compute full eigenvalue λ_i = scalar * Π_r w_r_sorted[idx_sorted_r(i)].
+    Whitening scale is s_i = (max(λ_i, floor))^{-1/2}, and we absorb s_i into one factor (default u-factor).
+
+    Returns
+    -------
+    factor_cols : list[jax.Array]
+        factor_cols[r] has shape (n_r, k), with column i the eigenvector column for factor r.
+        The whitening scale s_i is applied ONLY on factor `scale_on_factor`.
+    idx_sorted_list, idx_orig_list : list[jax.Array]
+        indices per factor
+    full_eigs : jax.Array
+        shape (k,), the full Kronecker eigenvalues (incl. scalar)
+    """
+    d = len(info.factor_vecs)
+    k = len(info.selected_indices)
+
+    idx_sorted_list: list[jax.Array] = []
+    idx_orig_list: list[jax.Array] = []
+    factor_cols: list[jax.Array] = []
+
+    # gather columns
+    for r in range(d):
+        Qr = info.factor_vecs[r]  # (n_r, n_r) in original order
+        order = info.sort_indices[r]  # sorted -> original
+        info.factor_eigs[r]  # sorted eigenvalues (n_r,)
+
+        idx_sorted = jnp.array([info.selected_indices[i][r] for i in range(k)])  # (k,)
+        idx_orig = order[idx_sorted]  # (k,)
+        cols = Qr[:, idx_orig]  # (n_r, k)
+
+        idx_sorted_list.append(idx_sorted)
+        idx_orig_list.append(idx_orig)
+        factor_cols.append(cols)
+
+    # full eigenvalues λ_i = scalar * Π_r wr_sorted[idx_sorted_r(i)]
+    full_eigs = jnp.ones((k,), dtype=info.factor_eigs[0].dtype)
+    for r in range(d):
+        full_eigs = full_eigs * info.factor_eigs[r][idx_sorted_list[r]]
+
+    if info.scalar is not None:
+        full_eigs = full_eigs * jnp.asarray(info.scalar, dtype=full_eigs.dtype)
+
+    # floor for pseudo-inverse sqrt
+    floor = jnp.asarray(eps, dtype=full_eigs.dtype)
+    if sigma2 is not None:
+        floor = jnp.maximum(floor, jnp.asarray(sigma2, dtype=full_eigs.dtype))
+
+    inv_sqrt = jnp.exp(-0.5 * jnp.log(jnp.maximum(full_eigs, floor)))  # (k,)
+
+    # absorb scale into one factor to keep factorization
+    factor_cols[scale_on_factor] = factor_cols[scale_on_factor] * inv_sqrt[None, :]
+
+    return factor_cols, idx_sorted_list, idx_orig_list, full_eigs
+
+
+def build_kron_columns_from_factors(
+    factor_cols: list[jax.Array],
+) -> jax.Array:
+    """Build explicit kron columns from factor columns.
+
+    Parameters
+    ----------
+    factor_cols : list[jax.Array]
+        List [C0, C1, ...] where each Cr has shape (n_r, k)
+
+    Returns
+    -------
+    X : jax.Array
+        Explicit columns X[:, l] = kron_r Cr[:, l], shape (prod n_r, k)
+
+    Notes
+    -----
+    This is O(prod n_r * k) memory/time; fine for testing and for cases where
+    prod n_r is not enormous.
+    """
+    k = factor_cols[0].shape[1]
+
+    cols_out = []
+    for l_idx in range(k):
+        v = factor_cols[0][:, l_idx]
+        for r in range(1, len(factor_cols)):
+            v = jnp.kron(v, factor_cols[r][:, l_idx])
+        cols_out.append(v)
+    return jnp.stack(cols_out, axis=1)  # (prod n_r, k)
+
+
+def _topk_product_grid_indices_jax(
+    w_list_sorted: list[jax.Array],
+    k: int,
+    *,
+    largest: bool,
+    scalar: jax.Array,
+    add_shift: jax.Array,
+    oversample: int = 4,
+):
+    d = len(w_list_sorted)
+    keep = int(k * oversample)
+
+    w0 = w_list_sorted[0]
+    m0 = min(int(w0.shape[0]), keep)
+    vals = w0[:m0]
+    idx = jnp.arange(m0, dtype=jnp.int32)[:, None]
+
+    for r in range(1, d):
+        wr = w_list_sorted[r]
+        mr = min(int(wr.shape[0]), keep)
+        wr = wr[:mr]
+
+        prod = vals[:, None] * wr[None, :]
+        flat = prod.reshape(-1)
+
+        score = flat if largest else -flat
+        k2 = min(int(flat.shape[0]), keep)
+
+        top_score, top_flat_idx = jax.lax.top_k(score, k2)
+        top_vals = top_score if largest else -top_score
+
+        i_prev = top_flat_idx // mr
+        i_r = top_flat_idx % mr
+
+        idx = jnp.concatenate([idx[i_prev], i_r[:, None].astype(jnp.int32)], axis=1)
+        vals = top_vals
+
+    vals = vals[:k]
+    idx = idx[:k, :]
+    eigvals = scalar * vals + add_shift
+    return eigvals, idx
+
+
+def _topk_product_grid_indices_host(
+    w_list_sorted: list[np.ndarray],  # each (m_r,) sorted asc if smallest else desc
+    k: int,
+    *,
+    largest: bool,
+    eps_cutoff: float,
+    scalar: float = 1.0,
+    add_shift: float = 0.0,
+):
+    d = len(w_list_sorted)
+    sizes = [w.shape[0] for w in w_list_sorted]
+    if any(s == 0 for s in sizes):
+        return [], []
+
+    idx0 = tuple(0 for _ in range(d))
+
+    def base_prod(idx):
+        p = float(scalar)
+        for r, ir in enumerate(idx):
+            p *= float(w_list_sorted[r][ir])
+        return p
+
+    p0 = base_prod(idx0)
+    v0 = p0 + add_shift
+
+    heap = [((-v0 if largest else v0), p0, idx0)]
+    visited = {idx0}
+
+    eigvals: list[float] = []
+    selected: list[tuple[int, ...]] = []
+
+    while heap and len(eigvals) < k:
+        prio, p, idx = heapq.heappop(heap)
+        val = -prio if largest else prio  # == p + add_shift
+
+        # expand neighbors first (so skipping doesn't block exploration)
+        for dim in range(d):
+            nxt = list(idx)
+            nxt[dim] += 1
+            nxt = tuple(nxt)
+            if nxt[dim] >= sizes[dim] or nxt in visited:
+                continue
+            visited.add(nxt)
+
+            w_old = w_list_sorted[dim][idx[dim]]
+            w_new = w_list_sorted[dim][nxt[dim]]
+            if w_old != 0.0:
+                p_nxt = p * (w_new / w_old)
+            else:
+                p_nxt = base_prod(nxt)
+
+            v_nxt = p_nxt + add_shift
+            heapq.heappush(heap, ((-v_nxt if largest else v_nxt), p_nxt, nxt))
+
+        # "numerical zero" filter
+        if val <= eps_cutoff:
+            if largest:
+                # for PSD + largest, once you hit ~0, the rest are <= 0
+                break
+            else:
+                # for smallest, keep going until positive entries appear
+                continue
+
+        eigvals.append(val)
+        selected.append(idx)
+
+    return eigvals, selected
+
+
 def topk_eigh(
-    op_or_factors: LinearOperator | Sequence[LinearOperator | jax.Array],
+    op_or_factors,
     k: int,
     *,
     largest: bool = True,
-) -> tuple[jax.Array, KroneckerSelectedEigenvectors]:
-    r"""Compute top-k or bottom-k eigenvalues/vectors of a Kronecker product.
-
-    Uses a heap-based best-first search on the monotone grid of eigenvalue
-    products. Avoids :math:`O(\prod n_i^2)` memory by never forming the full
-    Kronecker product.
-
-    Note:
-        Assumes all factors are PSD (positive semi-definite) so that
-        eigenvalues are non-negative and the monotone grid property holds.
-
-    Args:
-        op_or_factors: Either a single LinearOperator (which may be a nested
-            Kronecker structure, optionally wrapped in ScaledLinearOperator),
-            or a sequence of symmetric PSD LinearOperators/arrays as factors.
-        k: Number of eigenvalues to return.
-        largest: If True, return largest k eigenvalues; else smallest k.
-
-    Returns:
-        eigenvalues: Array of shape (k,) with the k largest/smallest eigenvalues.
-        eigenvectors: LinearOperator of shape (n_total, k) representing the
-            k eigenvectors without forming the full Kronecker product.
-
-    Example:
-        >>> from linox import Matrix, topk_eigh, Kronecker
-        >>> A = Matrix(jnp.eye(3) * 2)
-        >>> B = Matrix(jnp.eye(4) * 3)
-        >>> # Pass factors directly
-        >>> eigs, Q = topk_eigh([A, B], k=5, largest=True)
-        >>> # Or pass a Kronecker operator
-        >>> kron = Kronecker(A, B)
-        >>> eigs2, Q2 = topk_eigh(kron, k=5, largest=True)
-    """
-    # Handle single LinearOperator input (possibly nested Kronecker)
+    sigma2: float | jax.Array | None = None,
+    include_noise_shift: bool = False,
+    return_full_eigs: bool = False,
+    mode: str = "jax",
+):
     scalar = None
     if isinstance(op_or_factors, LinearOperator):
         factors, scalar = extract_kronecker_factors(op_or_factors)
     else:
         factors = [utils.as_linop(f) for f in op_or_factors]
-    d = len(factors)
 
-    factor_eigs = []
-    factor_vecs = []
-    sort_indices = []
+    factor_eigs: list[jax.Array] = []
+    factor_vecs: list[jax.Array] = []
+    sort_indices: list[jax.Array] = []
+    full_factor_eigs: list[jax.Array] = []
 
+    # compute eigendecomp of each factor
     for A in factors:
         w, Q = leigh(A)
         if isinstance(w, LinearOperator):
             w = diagonal(w)
-        order = jnp.argsort(-w) if largest else jnp.argsort(w)
-        factor_eigs.append(w[order])
+
+        eps = jnp.finfo(w.dtype).eps
+        w_safe = jnp.maximum(w, eps)  # (n,)
+
+        Q_dense = Q._todense() if hasattr(Q, "_todense") else jnp.asarray(Q)  # (n,n)
+
+        order = jnp.argsort(-w_safe) if largest else jnp.argsort(w_safe)  # (n,)
+        w_sorted = w_safe[order]
+        Q_sorted = Q_dense[:, order]
+
         sort_indices.append(order)
-        factor_vecs.append(Q._todense() if hasattr(Q, "_todense") else jnp.asarray(Q))
+        factor_eigs.append(w_sorted)
+        factor_vecs.append(Q_sorted)
 
-    sizes = [len(w) for w in factor_eigs]
+        if return_full_eigs:
+            full_factor_eigs.append(w_sorted)
 
-    def compute_eigenvalue(indices: tuple[int, ...]) -> float:
-        prod = 1.0
-        for i, idx in enumerate(indices):
-            prod *= factor_eigs[i][idx]
-        return float(prod)
+    # numerical eps cutoff (host float)
+    dtype = factor_eigs[0].dtype
 
-    initial_idx = tuple(0 for _ in range(d))
-    initial_val = compute_eigenvalue(initial_idx)
+    # time_start = time.time()  # Timing removed
 
-    heap = [(-initial_val, initial_idx)] if largest else [(initial_val, initial_idx)]
-    visited = {initial_idx}
+    if mode == "jax":
+        # JAX branch: NO device_get, NO python if on traced values
+        scalar_j = (
+            jnp.asarray(1.0, dtype=dtype)
+            if scalar is None
+            else jnp.asarray(scalar, dtype=dtype)
+        )
+        add_shift_j = jnp.asarray(0.0, dtype=dtype)
+        if include_noise_shift and sigma2 is not None:
+            add_shift_j = jnp.asarray(sigma2, dtype=dtype)
 
-    eigenvalues = []
-    selected_indices = []
+        eig_array, selected_indices = _topk_product_grid_indices_jax(
+            factor_eigs,
+            k,
+            largest=largest,
+            scalar=scalar_j,
+            add_shift=add_shift_j,
+        )
 
-    while len(eigenvalues) < k and heap:
-        if largest:
-            neg_val, idx = heapq.heappop(heap)
-            val = -neg_val
-        else:
-            val, idx = heapq.heappop(heap)
+    else:
+        # Host/debug branch only
+        eps_cutoff = float(np.finfo(np.dtype(dtype)).eps)
 
-        eigenvalues.append(val)
-        selected_indices.append(idx)
+        scalar_f = 1.0
+        if scalar is not None:
+            scalar_f = float(jax.device_get(jnp.asarray(scalar)))
+            if scalar_f < 0.0:
+                raise ValueError(
+                    "Negative scalar breaks PSD monotone-grid assumptions."
+                )
 
-        for dim in range(d):
-            new_idx = list(idx)
-            new_idx[dim] += 1
-            new_idx = tuple(new_idx)
+        add_shift = 0.0
+        if include_noise_shift and sigma2 is not None:
+            add_shift = float(jax.device_get(jnp.asarray(sigma2)))
 
-            if new_idx[dim] < sizes[dim] and new_idx not in visited:
-                visited.add(new_idx)
-                new_val = compute_eigenvalue(new_idx)
-                if largest:
-                    heapq.heappush(heap, (-new_val, new_idx))
-                else:
-                    heapq.heappush(heap, (new_val, new_idx))
+        w_host_list = [np.asarray(jax.device_get(w)) for w in factor_eigs]
+        eigvals_list, selected_indices = _topk_product_grid_indices_host(
+            w_host_list,
+            k,
+            largest=largest,
+            eps_cutoff=eps_cutoff,
+            scalar=scalar_f,
+            add_shift=add_shift,
+        )
+        eig_array = jnp.asarray(eigvals_list, dtype=dtype)
 
-    eigenvectors = KroneckerSelectedEigenvectors(
-        factor_vecs, selected_indices, sort_indices
+    # time_end = time.time() # Timing removed
+    # logger.info(...) # Removed
+
+    Qk = KroneckerSelectedEigenvectors(factor_vecs, selected_indices, sort_indices)
+
+    info = KronTopkEighInfo(
+        factor_vecs=factor_vecs,
+        factor_eigs=factor_eigs,
+        sort_indices=sort_indices,
+        selected_indices=selected_indices,
+        scalar=scalar,
     )
-
-    eig_array = jnp.array(eigenvalues)
-
-    # If input was ScaledLinearOperator, multiply eigenvalues by scalar
-    if scalar is not None:
-        eig_array = scalar * eig_array
-
-    return eig_array, eigenvectors
+    if return_full_eigs:
+        # return eig_array, Qk, info, full_factor_eigs
+        # Compatibility wrapper: existing calls might expect (vals, vecs).
+        # But this function is new (renamed from topk_eigh which was slightly different).
+        # We'll return (vals, vecs, info, ...) and update users.
+        return eig_array, Qk, info, full_factor_eigs
+    return eig_array, Qk, info
 
 
 class KroneckerAdditiveIsotropicAdditiveLinearOperator(AddLinearOperator):

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -14,6 +13,15 @@ if TYPE_CHECKING:
 
 @dataclass
 class LinOpNode:
+    """A node in the linear operator graph visualization.
+
+    Attributes:
+        kind: The class name or type of the operator.
+        shape: The shape of the operator (rows, cols).
+        dtype: The data type of the operator elements.
+        extra: Dictionary of additional metadata (e.g., parameters).
+        children: List of child nodes (operands).
+    """
     kind: str
     shape: tuple[int, int] | tuple[Any, ...]
     dtype: Any = None
@@ -81,6 +89,10 @@ def linop_graph(
 
 @dataclass
 class InspectReport:
+    """A report containing the trace of operations executed during `inspect_run`.
+
+    Use `.steps` or iterate over the report to access `DebugEvent` objects.
+    """
     events: list[config.DebugEvent]
 
     @property
@@ -89,11 +101,43 @@ class InspectReport:
         return self.events
 
     def summary(self) -> str:
-        # simple summary: counts per kind
-        c = Counter(e.kind for e in self.events)
+        # Aggregate stats
+        stats = {}  # kind -> {starts, ends, point, time}
+
+        for e in self.events:
+            if e.kind not in stats:
+                stats[e.kind] = {"starts": 0, "ends": 0, "point": 0, "time": 0.0}
+
+            s = stats[e.kind]
+            if getattr(e, "phase", None) == "start":
+                s["starts"] += 1
+            elif getattr(e, "phase", None) == "end":
+                s["ends"] += 1
+                if getattr(e, "duration", None) is not None:
+                    s["time"] += e.duration
+            else:
+                s["point"] += 1
+
         lines = ["Inspect summary:"]
-        for k, v in c.most_common():
-            lines.append(f"  {k}: {v}")
+        # sort by time descending, then count
+        items = sorted(
+            stats.items(),
+            key=lambda x: (x[1]["time"], x[1]["starts"] + x[1]["point"]),
+            reverse=True,
+        )
+
+        for k, s in items:
+            total_invocations = s["starts"] + s["point"]
+            if total_invocations == 0:
+                 continue
+
+            msg = f"  {k}: {total_invocations} calls"
+            if s["time"] > 0:
+                avg = s["time"] / max(s["ends"], 1)
+                msg += f", {s['time']:.4f}s total ({avg:.4f}s avg)"
+
+            lines.append(msg)
+
         return "\n".join(lines)
 
 
@@ -106,6 +150,21 @@ class _Collector:
 
 
 def inspect_run(fn: Callable[..., Any], *args, **kwargs):
+    """Run a function (or operator call) with debug tracing enabled.
+
+    Captures all `config.DebugEvent`s emitted during execution, such as
+    internal matrix multiplications, densification warnings, and solver steps.
+
+    Args:
+        fn: The function or callable (e.g., operator) to execute.
+        *args: Positional arguments for `fn`.
+        **kwargs: Keyword arguments for `fn`.
+
+    Returns:
+        A tuple `(result, report)` where:
+        - `result`: The return value of `fn(*args, **kwargs)`.
+        - `report`: An `InspectReport` containing the list of debug events.
+    """
     collector = _Collector()
     old = config._DEBUG_HOOK  # or better: add getter
     config.set_debug_hook(collector)

@@ -234,6 +234,15 @@ def _(a: IsotropicAdditiveLinearOperator, b: jax.Array) -> jax.Array:
     For A = Q Λ Q^T, we have (sI + A) = Q(sI + Λ)Q^T, so:
         x = Q diag(1/(s + λ)) Q^T b
     """
+    # Optimization for LowRank operators
+    from linox.linalg.woodbury import woodbury_solve
+    from linox.operators.lowrank import SymmetricLowRank
+
+    if isinstance(a.operator, SymmetricLowRank):
+        # (sI + U S U^T) x = b
+        # woodbury_solve(U, S, s, b)
+        return woodbury_solve(a.operator.U, a.operator.S, a.s.scalar, b)
+
     a._ensure_eigh()
     Q, S = a.Q, a.S  # cached
     s = a.s.scalar

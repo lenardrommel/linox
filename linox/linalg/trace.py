@@ -30,6 +30,7 @@ def trace(A: LinearOperatorLike, *, method: str = "exact", **kwargs) -> jax.Arra
     from linox.utils import as_linop
 
     op = as_linop(A)
+    
 
     if method == "hutchinson":
         key = kwargs.get("key")
@@ -37,11 +38,17 @@ def trace(A: LinearOperatorLike, *, method: str = "exact", **kwargs) -> jax.Arra
             msg = "Hutchinson trace requires a PRNG key."
             raise ValueError(msg)
         # Return just the estimate value
+        if kwargs.get("return_std", False):
+            return hutchinson_trace(op, **kwargs)
         return hutchinson_trace(op, **kwargs)[0]
 
     # Default / Exact
     res = ltrace(op)
-    # ltrace might return (value, std) tuple (e.g. for Identity) or just value.
+    if kwargs.get("return_std", False):
+        if isinstance(res, tuple):
+            return res
+        else:
+            return res, 0.0
     if isinstance(res, tuple):
         return res[0]
     return res

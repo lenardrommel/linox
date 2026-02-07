@@ -13,6 +13,7 @@ Usage:
 
 from __future__ import annotations
 
+import contextlib
 import os
 import time
 from dataclasses import dataclass
@@ -35,6 +36,24 @@ class DebugEvent:
     dtype: AnyType = None
     meta: dict[str, AnyType] | None = None
     t: float = 0.0
+    duration: float | None = None
+    phase: str | None = None  # "start" or "end"
+
+
+
+@contextlib.contextmanager
+def profile(kind: str, msg: str, **kwargs) -> None:
+    """Context manager to profile an operation time."""
+    t0 = time.time()
+    # emit start event
+    emit(DebugEvent(kind=kind, msg=msg, phase="start", t=t0, **kwargs))
+    try:
+        yield
+    finally:
+        t1 = time.time()
+        # emit end event with duration
+        emit(DebugEvent(kind=kind, msg=msg, phase="end", t=t1, duration=t1 - t0, **kwargs))
+
 
 
 def set_debug(value: bool) -> None:

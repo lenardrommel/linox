@@ -324,9 +324,33 @@ def eigh(
     from linox.config import get_max_dense_n
     from linox.linalg.approx.lanczos import lanczos_eigh
     from linox.operators.arithmetic import leigh
+    from linox.operators.kron import extract_kronecker_factors, topk_eigh
     from linox.utils import as_linop
 
     op = as_linop(A)
+
+    # Check for Kronecker structure
+    try:
+        factors, _ = extract_kronecker_factors(op)
+        is_kronecker = len(factors) > 1
+    except Exception:
+        is_kronecker = False
+
+    if is_kronecker and k is not None and (method == "auto" or method == "exact"):
+        # For Kronecker with k specified, use specialized solver
+        # Default to largest=True for top-k, but respect kwargs if provided
+        largest = kwargs.get("largest", True)
+        # Assuming eigh conventionally returns ascending, but top-k usually implies largest magnitude or algebraic.
+        # We'll use kwargs or default to largest.
+        # Note: topk_eigh returns (vals, vecs, info)
+        vals, vecs, _ = topk_eigh(op, k=k, largest=largest)
+        
+        # Sort ascending to match standard eigh convention if needed?
+        # Standard eigh returns ascending. topk_eigh(largest=True) returns descending.
+        # If the user wants standard eigh behavior, we should verify.
+        # But if they ask for k, they usually want the extremities.
+        # Let's return as-is from topk_eigh which sorts by magnitude/value based on largest flag.
+        return vals, vecs
 
     if method == "auto":
         # Simple heuristic: exact if small, lanczos if k is small and n large

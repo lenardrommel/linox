@@ -6,11 +6,9 @@ import jax.numpy as jnp
 from linox import config
 from linox.config import warn as _warn
 from linox.operators.arithmetic import (
-    ScaledLinearOperator,
     congruence_transform,
     diagonal,
     ladd,
-    ldiv,
     linverse,
     lmatmul,
     lmul,

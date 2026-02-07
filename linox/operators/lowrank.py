@@ -23,9 +23,11 @@ from linox.operators.arithmetic import (
     AddLinearOperator,
     ProductLinearOperator,
     linverse,
+    lsolve,
     lsqrt,
     slogdet,
 )
+from linox.linalg.woodbury import woodbury_solve
 from linox.operators.base import LinearOperator
 from linox.operators.diagonal import Diagonal
 from linox.operators.special import Identity
@@ -340,6 +342,22 @@ def _(A: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricL
         SymmetricLowRank(U, sqrt_S**2),
         low_rank_scale=-A.low_rank_scale,
     )
+
+
+@lsolve.dispatch
+def _(A: PositiveDiagonalPlusSymmetricLowRank, b: jax.Array) -> jax.Array:
+    r"""Solve a linear system with a positive diagonal plus symmetric low rank operator.
+
+    Using the Woodbury matrix identity:
+    (D + a U S U^T)^{-1} v = D^{-1} v - D^{-1} U (S^{-1} + a U^T D^{-1} U)^{-1} U^T D^{-1} v.
+    """
+    scale = A.low_rank_scale
+    U = A.low_rank.U
+    S = A.low_rank.S
+
+    # woodbury_solve(U, s, d, v) solves (U diag(s) U^T + D) x = v
+    # Our form: a U S U^T + D = U diag(a S) U^T + D
+    return woodbury_solve(U, scale * S, A.diagonal.diag, b)
 
 
 @lsqrt.dispatch

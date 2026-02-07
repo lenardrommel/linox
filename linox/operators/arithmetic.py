@@ -316,9 +316,17 @@ def iso(scalar: ScalarLike, a: LinearOperator) -> LinearOperator:
 
 @plum.dispatch
 def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
-    _warn(f"Linear operator {a} is densed for leigh computation.")
-    ev, evec = jnp.linalg.eigh(a._todense())
-    return ev, utils.as_linop(evec)
+    with config.profile(
+        kind="eigh",
+        msg=f"eigh: {type(a).__name__}",
+        op_type=type(a).__name__,
+        op_id=id(a),
+        shape=a.shape,
+        dtype=a.dtype,
+    ):
+        _warn(f"Linear operator {a} is densed for leigh computation.")
+        ev, evec = jnp.linalg.eigh(a._todense())
+        return ev, utils.as_linop(evec)
 
 
 @plum.dispatch
@@ -366,19 +374,28 @@ def svd(
         - Structure-exploiting dispatches exist for Kronecker and other special operators
         - Partial SVD uses Lanczos bidiagonalization (Golub-Kahan process)
     """
-    if k is not None:
-        # Use matrix-free partial SVD
-        from linox._algorithms._svd import svd_partial  # noqa: PLC0415
+    with config.profile(
+        kind="svd",
+        msg=f"svd: {type(a).__name__}",
+        op_type=type(a).__name__,
+        op_id=id(a),
+        shape=a.shape,
+        dtype=a.dtype,
+        meta={"k": k},
+    ):
+        if k is not None:
+            # Use matrix-free partial SVD
+            from linox._algorithms._svd import svd_partial  # noqa: PLC0415
 
-        return svd_partial(a, k, num_iters, u0)
+            return svd_partial(a, k, num_iters, u0)
 
-    # Full SVD - may densify
-    _warn(f"Linear operator {a} is densed for svd computation.")
-    return jax.scipy.linalg.svd(
-        a._todense(),
-        full_matrices=full_matrices,
-        compute_uv=compute_uv,
-    )
+        # Full SVD - may densify
+        _warn(f"Linear operator {a} is densed for svd computation.")
+        return jax.scipy.linalg.svd(
+            a._todense(),
+            full_matrices=full_matrices,
+            compute_uv=compute_uv,
+        )
 
 
 @plum.dispatch
@@ -466,24 +483,33 @@ def lsolve(a: LinearOperator, b: jax.Array, method: str = "exact", **kwargs) -> 
         b: Right hand side
         method: "exact" (dense), "lsmr", "cg".
     """
-    if method == "lsmr":
-        from linox.linalg.approx.lsmr import lsmr_solve
-        x, _ = lsmr_solve(a, b, **kwargs)
-        return x
+    with config.profile(
+        kind="solve",
+        msg=f"solve: {type(a).__name__} (method={method})",
+        op_type=type(a).__name__,
+        op_id=id(a),
+        shape=a.shape,
+        dtype=a.dtype,
+        meta={"rhs_shape": b.shape, "method": method},
+    ):
+        if method == "lsmr":
+            from linox.linalg.approx.lsmr import lsmr_solve
+            x, _ = lsmr_solve(a, b, **kwargs)
+            return x
 
-    if method in {"cg", "conjugate_gradient"}:
-        # Use JAX CG (requires a linear operator or function)
-        # jax.scipy.sparse.linalg.cg expects A to show typical behavior.
-        # LinearOperator implements @ / __matmul__.
-        x, _ = jax.scipy.sparse.linalg.cg(a, b, **kwargs)
-        return x
+        if method in {"cg", "conjugate_gradient"}:
+            # Use JAX CG (requires a linear operator or function)
+            # jax.scipy.sparse.linalg.cg expects A to show typical behavior.
+            # LinearOperator implements @ / __matmul__.
+            x, _ = jax.scipy.sparse.linalg.cg(a, b, **kwargs)
+            return x
 
-    if a.shape[-1] != _rhs_rows(b):
-        msg = f"Shape mismatch: {a.shape} and {b.shape}"
-        raise ValueError(msg)
+        if a.shape[-1] != _rhs_rows(b):
+            msg = f"Shape mismatch: {a.shape} and {b.shape}"
+            raise ValueError(msg)
 
-    _warn(f"Linear operator {a} is densed for lsolve computation.")
-    return jax.scipy.linalg.solve(a._todense(), b, assume_a="sym")
+        _warn(f"Linear operator {a} is densed for lsolve computation.")
+        return jax.scipy.linalg.solve(a._todense(), b, assume_a="sym")
 
 
 @lsolve.dispatch
@@ -883,18 +909,16 @@ def symmetrize(a: LinearOperator) -> ArithmeticType:
 
 @lmatmul.dispatch
 def _(a: LinearOperator, b: jax.Array) -> jax.Array:
-    config.emit(
-        config.DebugEvent(
-            kind="matmul",
-            msg=f"matmul: {type(a).__name__} @ array",
-            op_type=type(a).__name__,
-            op_id=id(a),
-            shape=getattr(a, "shape", None),
-            dtype=getattr(a, "dtype", None),
-            meta={"rhs_shape": b.shape, "rhs_dtype": str(b.dtype)},
-        )
-    )
-    return a._matmul(b)
+    with config.profile(
+        kind="matmul",
+        msg=f"matmul: {type(a).__name__} @ array",
+        op_type=type(a).__name__,
+        op_id=id(a),
+        shape=getattr(a, "shape", None),
+        dtype=getattr(a, "dtype", None),
+        meta={"rhs_shape": b.shape, "rhs_dtype": str(b.dtype)},
+    ):
+        return a._matmul(b)
 
 
 @lmatmul.dispatch
@@ -1374,7 +1398,8 @@ class InverseLinearOperator(LinearOperator):
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self.operator,)
-        aux_data = {"method": self.method, "solver_options": self.solver_options}
+
+        aux_data = {"method": self.method, "solver_options": self.solver_options} if self.method != "exact" else {}
         return children, aux_data
 
     @classmethod

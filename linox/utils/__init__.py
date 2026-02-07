@@ -13,6 +13,11 @@ from .validation import (
     validate,
 )
 
+from .debug import (
+    inspect_run,
+    InspectReport,
+)
+
 __all__ = [
     "ValidationError",
     "allclose",
@@ -22,4 +27,6 @@ __all__ = [
     "as_shape",
     "todense",
     "validate",
+    "inspect_run",
+    "InspectReport",
 ]

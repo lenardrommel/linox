@@ -216,7 +216,7 @@ def _validate_numerical(
     # Generate random probes
     key1, key2 = jax.random.split(key)
     X = jax.random.normal(key1, (n, num_probes), dtype=op.dtype)
-    Y = jax.random.normal(key2, (n, num_probes), dtype=op.dtype)
+    jax.random.normal(key2, (n, num_probes), dtype=op.dtype)
 
     # Check finite output
     AX = op @ X
