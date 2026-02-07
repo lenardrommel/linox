@@ -5,10 +5,9 @@ import jax.numpy as jnp
 import pytest
 
 import linox
-from linox._eigen import EigenD
-from linox._linear_operator import LinearOperator
-from linox._matrix import Diagonal, Matrix
-from linox._matrix import Matrix
+from linox.operators.dense import Matrix
+from linox.operators.diagonal import Diagonal
+from linox.operators.eigen import EigenD
 from tests.test_linox_cases._matrix_cases import (
     case_add_operator,
     case_diagonal,

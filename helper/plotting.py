@@ -7,6 +7,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from tueplots import bundles
 from tueplots.constants.color import rgb
 
+from .data import Heat1dDataGenerator, Heat2dDataGenerator
+
 
 # Helpers to apply tueplots styles cleanly
 def make_tueplots_rc(
@@ -65,7 +67,6 @@ def apply_tueplots_rc(**kwargs) -> None:
     plt.rcParams.update(make_tueplots_rc(**kwargs))
 
 
-from .data import Heat1dDataGenerator, Heat2dDataGenerator
 
 
 def generate_preprocess_data_1d(

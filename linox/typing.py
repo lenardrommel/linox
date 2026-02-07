@@ -16,8 +16,8 @@ the package.
 
 # The following file follows the implementation of probnum.typing
 # see: https://github.com/probabilistic-numerics/probnum/blob/main/src/probnum/typing.py
-from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Callable, Union
+from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING, Any, Union
 
 import jax
 import jax.numpy as jnp

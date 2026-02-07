@@ -3,8 +3,6 @@
 
 import sys
 
-sys.path.insert(0, "/home/user/linox")
-
 import jax
 import jax.numpy as jnp
 
@@ -17,6 +15,10 @@ from linox._algorithms import (
     lanczos_tridiag,
     stochastic_lanczos_quadrature,
 )
+
+sys.path.insert(0, "/home/user/linox")
+
+
 
 # Test 1: Lanczos Tridiagonalization
 n = 50

@@ -30,8 +30,8 @@ from linox import (
     Kronecker,
     Matrix,
 )
-from linox._arithmetic import diagonal, linverse
-from linox._low_rank import (
+from linox.operators.arithmetic import diagonal, linverse
+from linox.operators.lowrank import (
     IsotropicScalingPlusSymmetricLowRank,
     SymmetricLowRank,
 )
@@ -44,7 +44,9 @@ from linox._low_rank import (
 class DensificationDetector:
     """Context manager that detects if todense() is called."""
 
-    def __init__(self, operator: linox.LinearOperator, allow_in_matmul: bool = True) -> None:
+    def __init__(
+        self, operator: linox.LinearOperator, allow_in_matmul: bool = True
+    ) -> None:
         self.operator = operator
         self.allow_in_matmul = allow_in_matmul
         self.todense_called = False
@@ -87,9 +89,7 @@ class DensificationDetector:
         if self.todense_called:
             stack_str = "\n  ".join(self.call_stack)
             msg = f"Early densification detected! {message}\nCall stack:\n  {stack_str}"
-            raise AssertionError(
-                msg
-            )
+            raise AssertionError(msg)
 
 
 def assert_no_early_densification(
@@ -373,7 +373,7 @@ def test_isotropic_add_cholesky_should_not_densify(spd_matrix, small_size) -> No
 
     This is currently a known issue in the codebase.
     """
-    from linox._arithmetic import lcholesky
+    from linox.operators.arithmetic import lcholesky
 
     A = Matrix(spd_matrix)
     iso_add = IsotropicAdditiveLinearOperator(0.5, A)
@@ -389,7 +389,7 @@ def test_congruence_diagonal_should_not_densify(matrix_a, spd_matrix) -> None:
 
     This is currently a known issue in the codebase.
     """
-    from linox._arithmetic import CongruenceTransform
+    from linox.operators.arithmetic import CongruenceTransform
 
     A = Matrix(matrix_a)
     B = Matrix(spd_matrix)

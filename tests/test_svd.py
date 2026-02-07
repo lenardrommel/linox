@@ -5,7 +5,7 @@ import jax.numpy as jnp
 
 import linox
 from linox import Matrix
-from linox._algorithms._svd import lanczos_bidiag, svd_partial
+from linox.linalg.spectral import lanczos_bidiag, svd_partial
 
 
 class TestLanczosBidiagonalization:

@@ -1,200 +1,34 @@
-# __init__.py
+"""linox: Linear operators in JAX."""
+from . import api
 
-r"""`linox`: Linear operators in JAX.
-
-This package provides a collection of linear operators for JAX, including:
-
-- Basic operators: :class:`Matrix`, :class:`Identity`, :class:`Diagonal`,
-    :class:`Scalar`, :class:`Zero`, :class:`Ones`
-- Block operators: :class:`BlockMatrix`, :class:`BlockMatrix2x2`, :class:`BlockDiagonal`
-- Low rank operators: :class:`LowRank`, :class:`SymmetricLowRank`,
-    :class:`IsotropicScalingPlusSymmetricLowRank`,
-    :class:`PositiveDiagonalPlusSymmetricLowRank`
-- Special operators: :class:`Kronecker`, :class:`Permutation`, :class:`EigenD`
-
-Common operations:
-- Arithmetic: :func:`linverse`, :func:`lsqrt`, :func:`transpose`
-- Properties: :func:`is_square`, :func:`is_symmetric`, :func:`is_hermitian`
-- Transformations: :func:`congruence_transform`, :func:`diagonal`, :func:`symmetrize`
-
-All operators support lazy evaluation and can be combined to form complex linear
-transformations.
-"""
-
-import warnings
-
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=".*'repr' attribute.*Field.*has no effect.*",
+# Version infompatibility aliases (deprecated)
+from .api import *
+from .api import (
+    eigh as leigh,  # log as llog, exp as lexp, pow as lpow # if these names existed
 )
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=".*'frozen' attribute.*Field.*has no effect.*",
+from .api import eye as identity  # maybe?
+from .api import inv as linverse
+from .api import pinv as lpinverse
+from .api import solve as lsolve
+from .api import sqrt as lsqrt
+from .api import trace as ltrace
+from .api import _broadcast_shapes  # for backwards compat
+
+# Backward compatibility imports for kernel operators
+from .operators.kernel import (
+    ArrayKernel,
+    Kernel,
+    KernelLinearOperator,
+    ToeplitzKernel,
+    kernel_operator,
 )
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
-# Import functions from _arithmetic module
-from ._arithmetic import (
-    AddLinearOperator,
-    InverseLinearOperator,
-    ProductLinearOperator,
-    PseudoInverseLinearOperator,
-    ScaledLinearOperator,
-    TransposedLinearOperator,
-    # New API (0.0.2+) - functions without "l" prefix
-    add,
-    cholesky,
-    # Common operations and utilities
-    congruence_transform,
-    det,
-    diagonal,
-    eigh,
-    inverse,
-    is_hermitian,
-    is_square,
-    is_symmetric,
-    kron,
-    # Deprecated API (will be removed in 0.0.3) - functions with "l" prefix
-    lcholesky,
-    ldet,
-    leigh,
-    lexp,
-    linverse,
-    llog,
-    lpinverse,
-    lpow,
-    lpsolve,
-    lqr,
-    lsolve,
-    lsqrt,
-    ltrace,
-    matmul,
-    mul,
-    neg,
-    pinverse,
-    psolve,
-    qr,
-    slogdet,
-    solve,
-    sqrt,
-    sub,
-    svd,
-    symmetrize,
-    transpose,
-)
 
-# Import classes from other modules
-from ._block import BlockDiagonal, BlockMatrix, BlockMatrix2x2
-from ._eigen import EigenD
-from ._isotropicadd import IsotropicAdditiveLinearOperator
-from ._kernel import ArrayKernel, ToeplitzKernel, kernel_operator
-from ._kronecker import (
-    Kronecker,
-    KroneckerSelectedEigenvectors,
-    KroneckerSelectedEigenvectorsTranspose,
-    extract_kronecker_factors,
-    topk_eigh,
-)
-from ._linear_operator import LinearOperator
-from ._low_rank import (
-    IsotropicScalingPlusSymmetricLowRank,
-    LowRank,
-    PositiveDiagonalPlusSymmetricLowRank,
-    SymmetricLowRank,
-)
-from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
-from ._permutation import Permutation
-from ._toeplitz import Toeplitz
-from ._graph import inspect_run
-from .config import is_debug, set_debug
-from .utils import allclose, todense
+# Define __all__ combining api and local exports
+__all__ = [*api.__all__, "kernel_operator", "ArrayKernel", "KernelLinearOperator", "Kernel", "ToeplitzKernel", "leigh", "identity", "linverse", "lpinverse", "lsolve", "lsqrt", "ltrace"]
 
-# Explicitly declare public API
-__all__ = [
-    # Linear Operator Classes
-    "AddLinearOperator",
-    "ArrayKernel",
-    "ToeplitzKernel",
-    "kernel_operator",
-    "BlockDiagonal",
-    "BlockMatrix",
-    "BlockMatrix2x2",
-    "Diagonal",
-    "EigenD",
-    "Identity",
-    "InverseLinearOperator",
-    "IsotropicAdditiveLinearOperator",
-    "IsotropicScalingPlusSymmetricLowRank",
-    "Kronecker",
-    "KroneckerSelectedEigenvectors",
-    "KroneckerSelectedEigenvectorsTranspose",
-    "LinearOperator",
-    "LowRank",
-    "Matrix",
-    "Ones",
-    "Permutation",
-    "PositiveDiagonalPlusSymmetricLowRank",
-    "ProductLinearOperator",
-    "PseudoInverseLinearOperator",
-    "Scalar",
-    "ScaledLinearOperator",
-    "SymmetricLowRank",
-    "Toeplitz",
-    "TransposedLinearOperator",
-    "Zero",
-    # New API (0.0.2+) - Arithmetic Operations
-    "add",
-    # Common Operations & Utilities
-    "allclose",
-    "cholesky",
-    "congruence_transform",
-    "det",
-    "diagonal",
-    "eigh",
-    "inverse",
-    # Configuration
-    "is_debug",
-    "is_hermitian",
-    "is_square",
-    "is_symmetric",
-    "kron",
-    # Deprecated (will be removed in 0.0.3)
-    "lcholesky",
-    "ldet",
-    "leigh",
-    "lexp",
-    "linverse",
-    "llog",
-    "lpinverse",
-    "lpow",
-    "lpsolve",
-    "lqr",
-    "lsolve",
-    "lsqrt",
-    "ltrace",
-    "matmul",
-    "mul",
-    "neg",
-    "pinverse",
-    "psolve",
-    "qr",
-    "set_debug",
-    "slogdet",
-    "solve",
-    "sqrt",
-    "sub",
-    "svd",
-    "symmetrize",
-    "todense",
-    "topk_eigh",
-    "extract_kronecker_factors",
-    "transpose",
-    # Configuration
-    "is_debug",
-    "set_debug",
-    # Debugging/Tracing
-    "inspect_run",
-]
+
+# Other legacy names if needed
+# from .operators._matrix import Matrix, Identity, etc are already in api

@@ -6,7 +6,7 @@ import pytest
 import pytest_cases
 
 import linox
-from linox._kronecker import (
+from linox.operators.kron import (
     Kronecker,
     KroneckerSelectedEigenvectors,
     extract_kronecker_factors,
@@ -438,7 +438,7 @@ def test_topk_eigh_with_kronecker_operator() -> None:
     kron = Kronecker(linox.Matrix(A), linox.Matrix(B))
 
     k = 5
-    eigs, vecs = topk_eigh(kron, k=k, largest=True)
+    eigs, _vecs = topk_eigh(kron, k=k, largest=True)
 
     # Verify with dense computation
     dense_kron = jnp.kron(A, B)
@@ -463,7 +463,7 @@ def test_topk_eigh_with_scaled_kronecker() -> None:
     scaled_kron = scale * kron
 
     k = 5
-    eigs, vecs = topk_eigh(scaled_kron, k=k, largest=True)
+    eigs, _vecs = topk_eigh(scaled_kron, k=k, largest=True)
 
     # Verify with dense computation
     dense_kron = scale * jnp.kron(A, B)
@@ -486,10 +486,12 @@ def test_topk_eigh_with_nested_kronecker() -> None:
     C = C @ C.T + jnp.eye(2) * 0.1
 
     # Nested: A ⊗ (B ⊗ C)
-    nested_kron = Kronecker(linox.Matrix(A), Kronecker(linox.Matrix(B), linox.Matrix(C)))
+    nested_kron = Kronecker(
+        linox.Matrix(A), Kronecker(linox.Matrix(B), linox.Matrix(C))
+    )
 
     k = 5
-    eigs, vecs = topk_eigh(nested_kron, k=k, largest=True)
+    eigs, _vecs = topk_eigh(nested_kron, k=k, largest=True)
 
     # Verify with dense computation
     dense_kron = jnp.kron(A, jnp.kron(B, C))
@@ -522,4 +524,6 @@ def test_topk_eigh_eigenvector_correctness() -> None:
         v = vecs @ e_i  # Get i-th eigenvector
         Av = dense_kron @ v
         residual = jnp.linalg.norm(Av - lam * v)
-        assert residual < 1e-5, f"Eigenpair {i}: λ={lam:.6f}, ||Av - λv|| = {residual:.2e}"
+        assert residual < 1e-5, (
+            f"Eigenpair {i}: λ={lam:.6f}, ||Av - λv|| = {residual:.2e}"
+        )

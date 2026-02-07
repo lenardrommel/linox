@@ -6,18 +6,16 @@ import pytest
 
 import linox
 from linox import utils
-from linox._graph import inspect_run
 
 jax.config.update("jax_enable_x64", True)
 linox.config.set_debug(True)
 
 
 def _get_trace(obj):
-    """
-    Accepts either:
-      - a tuple (out, trace)
-      - an object with .out and .steps
-      - a dict {"out": ..., "steps": ...}
+    """Accepts either:
+    - a tuple (out, trace)
+    - an object with .out and .steps
+    - a dict {"out": ..., "steps": ...}.
     """
     if isinstance(obj, tuple) and len(obj) == 2:
         out, trace = obj
@@ -32,9 +30,12 @@ def _get_trace(obj):
     if out is not None and steps is not None:
         return out, steps
 
-    raise AssertionError(
+    msg = (
         "inspect_run return type not understood. "
         "Expected (out, trace) or object with .out/.steps or dict."
+    )
+    raise AssertionError(
+        msg
     )
 
 
@@ -73,7 +74,7 @@ def _step_fields(step):
 
 
 @pytest.mark.parametrize("rhs_kind", ["vec", "mat"])
-def test_inspect_run_matches_matmul(rhs_kind):
+def test_inspect_run_matches_matmul(rhs_kind) -> None:
     A = jnp.array([[1.0, 2.0], [3.0, 4.0]])
     B = jnp.array([[2.0, 0.0], [0.0, 0.5]])
     linox.config.set_debug(True)
@@ -87,7 +88,7 @@ def test_inspect_run_matches_matmul(rhs_kind):
     )
 
     # --- call inspect_run (ADAPT THIS LINE) ---
-    res = linox._graph.inspect_run(op, rhs)  # or op.inspect_run(rhs)
+    res = linox.graph.inspect_run(op, rhs)  # or op.inspect_run(rhs)
 
     out, trace = _get_trace(res)
     expected = op @ rhs
@@ -98,7 +99,7 @@ def test_inspect_run_matches_matmul(rhs_kind):
     assert len(steps) >= 1
 
 
-def test_inspect_run_has_step_metadata():
+def test_inspect_run_has_step_metadata() -> None:
     op = utils.as_linop(jnp.eye(3))
     rhs = jnp.ones((3,))
 
@@ -115,10 +116,10 @@ def test_inspect_run_has_step_metadata():
     if s0["in_shape"] is not None:
         assert tuple(s0["in_shape"])[-1] == 1 or tuple(s0["in_shape"])[-1] == 3
     if s0["out_shape"] is not None:
-        assert tuple(s0["out_shape"])[0] in (3,)
+        assert next(iter(s0["out_shape"])) == 3
 
 
-def test_inspect_run_composition_shows_multiple_steps():
+def test_inspect_run_composition_shows_multiple_steps() -> None:
     A = utils.as_linop(jnp.array([[1.0, 0.0], [0.0, 2.0]]))
     B = utils.as_linop(jnp.array([[3.0, 1.0], [0.0, 1.0]]))
     C = utils.as_linop(jnp.array([[1.0, 1.0], [1.0, 0.0]]))
@@ -134,8 +135,8 @@ def test_inspect_run_composition_shows_multiple_steps():
     assert len(steps) >= 2, "Composed operator should yield multiple inspect steps"
 
 
-def test_inspect_run_handles_kronecker_nested():
-    from linox._kronecker import Kronecker
+def test_inspect_run_handles_kronecker_nested() -> None:
+    from linox.operators.kron import Kronecker
 
     A = jnp.array([[1.0, 2.0], [0.0, 1.0]])
     B = jnp.array([[2.0, 0.0], [0.0, 3.0]])
@@ -149,14 +150,14 @@ def test_inspect_run_handles_kronecker_nested():
     assert len(steps) >= 1
 
 
-def test_inspect_run_pinv_rhs_matrix_does_not_break():
+def test_inspect_run_pinv_rhs_matrix_does_not_break() -> None:
     # this catches exactly the class of bugs you hit earlier:
     # pinv(op).todense() triggers pinv @ I -> rhs is matrix.
     op = utils.as_linop(jnp.array([[1.0, 2.0], [3.0, 4.0]]))
     pinv_op = linox.lpinverse(op)
 
     I = jnp.eye(pinv_op.shape[-1], dtype=pinv_op.dtype)
-    out, trace = _get_trace(linox.inspect_run(pinv_op, I))
+    out, _trace = _get_trace(linox.inspect_run(pinv_op, I))
 
     assert out.shape == (pinv_op.shape[-2], pinv_op.shape[-1])
     assert jnp.allclose(out, pinv_op @ I, atol=1e-8)
@@ -166,16 +167,17 @@ def test_inspect_run_pinv_rhs_matrix_does_not_break():
     "op_builder",
     [
         lambda: utils.as_linop(jnp.eye(3)),
-        lambda: (utils.as_linop(jnp.eye(3)) + utils.as_linop(jnp.eye(3))),
-        lambda: (2.0 * utils.as_linop(jnp.eye(3))),
-        lambda: (utils.as_linop(jnp.eye(3)).T),
+        lambda: utils.as_linop(jnp.eye(3)) + utils.as_linop(jnp.eye(3)),
+        lambda: 2.0 * utils.as_linop(jnp.eye(3)),
+        lambda: utils.as_linop(jnp.eye(3)).T,
         lambda: linox.lpinverse(utils.as_linop(jnp.array([[1.0, 2.0], [3.0, 4.0]]))),
     ],
 )
-def test_inspect_run_supports_common_ops(op_builder):
+def test_inspect_run_supports_common_ops(op_builder) -> None:
     op = op_builder()
     rhs = jnp.ones((op.shape[-1],))
     out, trace = _get_trace(linox.inspect_run(op, rhs))
     assert jnp.allclose(out, op @ rhs, atol=1e-8)
     steps = _trace_steps(trace)
-    assert steps is not None and len(steps) >= 1
+    assert steps is not None
+    assert len(steps) >= 1

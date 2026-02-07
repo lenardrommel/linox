@@ -27,7 +27,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 import linox
-from linox._arithmetic import (
+from linox.operators.arithmetic import (
     diagonal,
     iso,
     kron,

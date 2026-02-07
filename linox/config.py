@@ -16,11 +16,13 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from linox.typing import AnyType, CallableType
+if TYPE_CHECKING:
+    from linox.typing import AnyType, CallableType
 
-_DEBUG: bool = os.getenv("LINOX_DEBUG", "0") not in ("0", "false", "False", "")
-_DEBUG_HOOK: CallableType[["DebugEvent"], None] | None = None
+_DEBUG: bool = os.getenv("LINOX_DEBUG", "0") not in {"0", "false", "False", ""}
+_DEBUG_HOOK: CallableType[[DebugEvent], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -71,3 +73,92 @@ def warn(msg: str, *, prefix: str = "Warning") -> None:
     emit(DebugEvent(kind="warn", msg=f"{prefix}: {msg}"))
     if _DEBUG:
         pass
+
+
+_MAX_DENSE_N: int = 2000
+
+
+def set_max_dense_n(n: int) -> None:
+    """Set the maximum size for automatic densification."""
+    global _MAX_DENSE_N
+    _MAX_DENSE_N = int(n)
+
+
+def get_max_dense_n() -> int:
+    """Get the maximum size for automatic densification."""
+    return _MAX_DENSE_N
+
+
+# --------------------------------------------------------------------------- #
+# Method Selection Configuration
+# --------------------------------------------------------------------------- #
+
+_WARN_ON_DENSIFY: bool = False
+_DEFAULT_METHODS: dict[str, str] = {}
+
+
+def set_warn_on_densify(value: bool) -> None:
+    """Enable or disable warnings when operations trigger densification."""
+    global _WARN_ON_DENSIFY
+    _WARN_ON_DENSIFY = bool(value)
+
+
+def get_warn_on_densify() -> bool:
+    """Return whether densification warnings are enabled."""
+    return _WARN_ON_DENSIFY
+
+
+def set_default_method(operation: str, method: str) -> None:
+    """Set the default method for a specific operation (e.g. 'eigh', 'solve')."""
+    _DEFAULT_METHODS[operation] = method
+
+
+def resolve_method(operation: str, op: AnyType, requested_method: str) -> str:
+    """Resolve the execution method based on request, config, and operator properties.
+
+    Priority:
+    1. Explicitly requested method (if not 'auto')
+    2. Configured default for this operation
+    3. 'auto' heuristics (based on size, structure, etc.)
+
+    Args:
+        operation: Name of the operation ('solve', 'eigh', 'sqrt', etc.)
+        op: The linear operator involved
+        requested_method: The method argument provided by the user
+
+    Returns:
+        The resolved method name (e.g. 'exact', 'lanczos', 'cg').
+    """
+    if requested_method != "auto":
+        return requested_method
+
+    # Check config defaults
+    if operation in _DEFAULT_METHODS:
+        return _DEFAULT_METHODS[operation]
+
+    # 'auto' heuristics
+    # Basic logic: use exact if small enough, otherwise approx
+    n = op.shape[-1]
+    if n <= _MAX_DENSE_N:
+        return "exact"
+
+    # Default approx fallbacks for large operators
+    if operation == "trace":
+        # For large operators, default to Hutchinson
+        return "hutchinson"
+    if operation == "slogdet":
+        # For large operators, default to SLQ (if implemented) or fallback
+        # Currently we might not have SLQ hooked up everywhere, so be careful.
+        # But 'slq' is the intended approx backend.
+        return "slq"
+    if operation == "inverse":
+        return "lsmr"  # Approx inverse for large scale
+    if operation == "solve":
+        return "lsmr"
+    if operation == "sqrt":
+        return "lanczos"
+    if operation == "eigh":
+        return "lanczos"
+
+    # Fallback to exact (which might fail or be slow if dense)
+    return "exact"

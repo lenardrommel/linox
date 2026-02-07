@@ -18,6 +18,11 @@ from helper.gp import (
     CombinationStrategy,
     KernelType,
 )
+from linox import (
+    Kronecker,
+    ScaledLinearOperator,
+)
+from linox._kernel import ArrayKernel
 
 try:
     from helper.plotting import (
@@ -33,11 +38,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - fallback when helper not on path
     pass
-from linox import (
-    Kronecker,
-    ScaledLinearOperator,
-)
-from linox._kernel import ArrayKernel
+
 
 try:  # Python < 3.11 compatibility
     from enum import StrEnum  # type: ignore[attr-defined]
@@ -227,9 +228,7 @@ class ModularHParams:
 
         return ModularHParams(params=params)
 
-    def print_formatted(
-        self, structure_config: StructureConfig | None = None
-    ) -> None:
+    def print_formatted(self, structure_config: StructureConfig | None = None) -> None:
         spatial_params = {
             k: v for k, v in self.params.items() if k.startswith("spatial_")
         }

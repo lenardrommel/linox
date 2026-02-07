@@ -10,7 +10,7 @@ import pytest
 import pytest_cases
 
 import linox
-from linox._arithmetic import (
+from linox.operators.arithmetic import (
     AddLinearOperator,
     CongruenceTransform,
     InverseLinearOperator,

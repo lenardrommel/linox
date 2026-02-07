@@ -7,9 +7,8 @@ import pytest
 import pytest_cases
 
 import linox as lo
-from linox import config
-from linox._graph import inspect_run
 from linox.typing import ShapeType
+from linox.utils.debug import inspect_run
 
 CaseType = tuple[lo.LinearOperator, jax.Array]
 
@@ -184,7 +183,8 @@ class DensificationError(Exception):
 
 
 def _raise_on_densify(*args, **kwargs):
-    raise DensificationError("Attempted to densify!")
+    msg = "Attempted to densify!"
+    raise DensificationError(msg)
 
 
 @pytest.mark.parametrize("n", [5000, 10000])

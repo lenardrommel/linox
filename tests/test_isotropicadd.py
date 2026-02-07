@@ -6,8 +6,12 @@ import pytest
 import pytest_cases
 
 import linox
-from linox._arithmetic import lsolve
-from linox._isotropicadd import IsotropicAdditiveLinearOperator, linverse, lpinverse
+from linox.operators.arithmetic import lsolve
+from linox.operators.isotropic import (
+    IsotropicAdditiveLinearOperator,
+    linverse,
+    lpinverse,
+)
 from linox.typing import ShapeLike, ShapeType
 from linox.utils import as_dense
 
@@ -276,7 +280,7 @@ def test_cholesky() -> None:
 # ============================================================================
 
 
-def test_lsolve_isotropic_additive_vector():
+def test_lsolve_isotropic_additive_vector() -> None:
     """Test lsolve for IsotropicAdditiveLinearOperator with vector RHS."""
     shape = (4, 4)
     linop, matrix = sample_spd_isotropic_additive(shape)
@@ -291,7 +295,7 @@ def test_lsolve_isotropic_additive_vector():
     )
 
 
-def test_lsolve_isotropic_additive_matrix():
+def test_lsolve_isotropic_additive_matrix() -> None:
     """Test lsolve for IsotropicAdditiveLinearOperator with matrix RHS."""
     shape = (4, 4)
     linop, matrix = sample_spd_isotropic_additive(shape)
@@ -306,7 +310,7 @@ def test_lsolve_isotropic_additive_matrix():
     )
 
 
-def test_lsolve_isotropic_additive_kron():
+def test_lsolve_isotropic_additive_kron() -> None:
     """Test lsolve for IsotropicAdditiveLinearOperator with Kronecker structure."""
     shape = (3, 3)
     linop, matrix = sample_spd_isotropic_additive_kron(shape)
@@ -321,7 +325,7 @@ def test_lsolve_isotropic_additive_kron():
     )
 
 
-def test_lsolve_with_linop_rhs():
+def test_lsolve_with_linop_rhs() -> None:
     """Test lsolve when RHS is a LinearOperator (should convert to dense)."""
     shape = (4, 4)
     linop, matrix = sample_spd_isotropic_additive(shape)

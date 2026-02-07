@@ -3,8 +3,6 @@
 
 import sys
 
-sys.path.insert(0, "/home/user/linox")
-
 import jax
 import jax.numpy as jnp
 
@@ -13,6 +11,10 @@ from linox import Diagonal, Identity, Matrix
 from linox._eigen import EigenD
 from linox._isotropicadd import IsotropicAdditiveLinearOperator
 from linox._kronecker import Kronecker
+
+sys.path.insert(0, "/home/user/linox")
+
+
 
 # Test 1: Diagonal
 A = Diagonal(jnp.array([1.0, 2.0, 3.0]))

@@ -100,19 +100,19 @@ def get_permutation(shape: SHAPE_TYPE) -> CASE_TYPE:
 
 
 def get_product(linop1: LinearOperator, linop2: LinearOperator) -> CASE_TYPE:
-    return linox._arithmetic.ProductLinearOperator(
+    return linox.operators.arithmetic.ProductLinearOperator(
         linop1, linop2
     ), linop1.todense() @ linop2.todense()
 
 
 def get_add(linop1: LinearOperator, linop2: LinearOperator) -> CASE_TYPE:
-    return linox._arithmetic.AddLinearOperator(
+    return linox.operators.arithmetic.AddLinearOperator(
         linop1, linop2
     ), linop1.todense() + linop2.todense()
 
 
 def get_transpose(linop1: LinearOperator) -> CASE_TYPE:
-    return linox._arithmetic.TransposedLinearOperator(linop1), linop1.todense().T
+    return linox.operators.arithmetic.TransposedLinearOperator(linop1), linop1.todense().T
 
 
 linops_options = [

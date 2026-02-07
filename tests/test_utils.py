@@ -2,7 +2,6 @@
 
 """Tests for :mod:`linox.utils`."""
 
-
 from typing import TYPE_CHECKING
 
 import jax.numpy as jnp

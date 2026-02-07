@@ -17,7 +17,7 @@ def test_diagonal_kronecker_no_densify_simple(monkeypatch) -> None:
         msg = "Kronecker.todense must not be called for diagonal"
         raise AssertionError(msg)
 
-    monkeypatch.setattr(linox._kronecker.Kronecker, "todense", fail_if_called)
+    monkeypatch.setattr(linox.operators.kron.Kronecker, "todense", fail_if_called)
 
     diag_K = linox.diagonal(K)
     expected = jnp.kron(jnp.diag(A.A), jnp.diag(B.A))
@@ -51,8 +51,8 @@ def test_diagonal_isotropic_add_scaled_product_in_kronecker_no_densify(
         msg = "Unexpected densify called during diagonal computation"
         raise AssertionError(msg)
 
-    monkeypatch.setattr(linox._kronecker.Kronecker, "todense", fail_if_called)
-    monkeypatch.setattr(linox._arithmetic.AddLinearOperator, "todense", fail_if_called)
+    monkeypatch.setattr(linox.operators.kron.Kronecker, "todense", fail_if_called)
+    monkeypatch.setattr(linox.operators.arithmetic.AddLinearOperator, "todense", fail_if_called)
 
     result = linox.diagonal(iso)
 

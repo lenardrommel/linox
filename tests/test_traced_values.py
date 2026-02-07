@@ -1,7 +1,6 @@
 # test_traced_values.py
 
 import jax
-import pytest
 from jax import numpy as jnp
 
 import linox
@@ -15,7 +14,7 @@ def create_operator():
     B_m = jax.random.uniform(key=key, shape=(shape))
     B = 1 * linox.utils.as_linop(B_m)
     C_m = jax.random.uniform(key=key, shape=(shape))
-    C = 1 * linox.utils.as_linop(C_m)
+    1 * linox.utils.as_linop(C_m)
     return A + B, A_m + B_m
 
 

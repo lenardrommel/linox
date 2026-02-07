@@ -4,11 +4,11 @@
 
 # `linox`: Linear Operators in JAX
 
-**Version:** 0.0.2
+**Version:** 0.0.3
 
 `linox` is a Python package that provides a collection of linear operators for JAX, enabling efficient and flexible linear algebra operations with lazy evaluation. This package is designed as a JAX alternative to [`probnum.linops`](https://probnum.readthedocs.io/en/latest/api/linops.html), but it is currently still under development having less and more instable features. It has no dependencies other than [JAX](https://github.com/jax-ml/jax) and [`plum`](https://github.com/beartype/plum) for multiple dispatch.
 
-**Note (v0.0.2):** The API has been updated to remove the "l" prefix from function names. Functions like `lsolve`, `linverse`, `ldet`, etc. are now available as `solve`, `inverse`, `det`, etc. The old "l"-prefixed functions are deprecated and will be removed in version 0.0.3.
+**Note (v0.0.3):** The API has been updated with unified `method=` dispatch for all functions. Functions now support `method="auto"|"exact"|"approx"` for flexible computation strategies. The old "l"-prefixed functions (e.g., `lsolve`, `linverse`) are deprecated and will be removed in version 0.0.4.
 
 <div align="center">
   <picture>

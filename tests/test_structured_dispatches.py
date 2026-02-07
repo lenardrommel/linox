@@ -14,9 +14,9 @@ import pytest
 
 import linox
 from linox import Diagonal, Identity, Matrix
-from linox._eigen import EigenD
-from linox._isotropicadd import IsotropicAdditiveLinearOperator
-from linox._kronecker import Kronecker
+from linox.operators.eigen import EigenD
+from linox.operators.isotropic import IsotropicAdditiveLinearOperator
+from linox.operators.kron import Kronecker
 
 
 class TestDiagonalDispatches:
