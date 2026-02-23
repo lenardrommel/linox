@@ -166,11 +166,13 @@ class ArrayKernel(KernelOperator):
                 f"Densifying large kernel ({n0}x{n1}). This may cause OOM. "
                 "Consider using matrix-free operations instead."
             )
-        kernel_fn = jax.vmap(
-            jax.vmap(self.kernel, in_axes=(None, 0)),
-            in_axes=(0, None),
-        )
-        return kernel_fn(self.x0, self.x1)
+
+        kernel_row_fn = jax.vmap(self.kernel, in_axes=(None, 0))
+
+        def compute_row(xi):
+            return kernel_row_fn(xi, self.x1)
+
+        return lax.map(compute_row, self.x0)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         children = (self.kernel, self.x0, self.x1)
