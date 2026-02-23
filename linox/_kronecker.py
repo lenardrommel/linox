@@ -359,7 +359,7 @@ def _(op: Kronecker) -> tuple[jax.Array, jax.Array]:
     return final_sign, final_logdet
 
 
-@diagonal.dispatch
+@diagonal.dispatch(precedence=1)
 def _(op: Kronecker) -> jax.Array:
     diag_A = jnp.asarray(diagonal(op.A))
     diag_B = jnp.asarray(diagonal(op.B))
@@ -634,6 +634,7 @@ def extract_kronecker_factors(
     Handles complex nested structures like:
     - ``Kronecker(A, Kronecker(B, C))`` → ``[A, B, C]``
     - ``ScaledLinearOperator(Kronecker(...), scalar)`` → ``([factors], scalar)``
+    - ``Kronecker(ScaledLinearOperator(A, s), B)`` → ``([A, B], s)``
 
     Args:
         op: A LinearOperator that may be a Kronecker product, possibly nested
@@ -641,34 +642,81 @@ def extract_kronecker_factors(
 
     Returns:
         factors: List of leaf LinearOperators (non-Kronecker factors).
-        scalar: The scalar multiplier if op was wrapped in ScaledLinearOperator,
-            otherwise None.
-
-    Example:
-        >>> A = Matrix(jnp.eye(3))
-        >>> B = Matrix(jnp.eye(4))
-        >>> C = Matrix(jnp.eye(5))
-        >>> kron = Kronecker(A, Kronecker(B, C))
-        >>> factors, scalar = extract_kronecker_factors(kron)
-        >>> len(factors)  # 3
+        scalar: The scalar multiplier representing the product of all scales
+            found in the hierarchy, or None if no scaling was present.
     """
     from linox._arithmetic import ScaledLinearOperator
+    from linox._kronecker import Kronecker
 
+    factors: list[LinearOperator] = []
     scalar = None
 
-    # Unwrap ScaledLinearOperator if present
-    if isinstance(op, ScaledLinearOperator):
-        scalar = op.scalar
-        op = op.operator
+    def _collect_factors(node: LinearOperator):
+        nonlocal scalar
 
-    def _collect_factors(node: LinearOperator) -> list[LinearOperator]:
-        """Recursively collect leaf factors from Kronecker tree."""
+        # Recursively unwrap all ScaledLinearOperators at this level
+        while isinstance(node, ScaledLinearOperator):
+            if scalar is None:
+                scalar = node.scalar
+            else:
+                scalar = scalar * node.scalar
+            node = node.operator
+
+        # Now check if the unwrapped node is a Kronecker product
         if isinstance(node, Kronecker):
-            return _collect_factors(node.A) + _collect_factors(node.B)
-        return [node]
+            _collect_factors(node.A)
+            _collect_factors(node.B)
+        else:
+            factors.append(node)
 
-    factors = _collect_factors(op)
+    _collect_factors(op)
+
     return factors, scalar
+
+
+# def extract_kronecker_factors(
+#     op: LinearOperator,
+# ) -> tuple[list[LinearOperator], jax.Array | None]:
+#     r"""Extract leaf factors from a (possibly nested) Kronecker structure.
+
+#     Handles complex nested structures like:
+#     - ``Kronecker(A, Kronecker(B, C))`` → ``[A, B, C]``
+#     - ``ScaledLinearOperator(Kronecker(...), scalar)`` → ``([factors], scalar)``
+
+#     Args:
+#         op: A LinearOperator that may be a Kronecker product, possibly nested
+#             or wrapped in a ScaledLinearOperator.
+
+#     Returns:
+#         factors: List of leaf LinearOperators (non-Kronecker factors).
+#         scalar: The scalar multiplier if op was wrapped in ScaledLinearOperator,
+#             otherwise None.
+
+#     Example:
+#         >>> A = Matrix(jnp.eye(3))
+#         >>> B = Matrix(jnp.eye(4))
+#         >>> C = Matrix(jnp.eye(5))
+#         >>> kron = Kronecker(A, Kronecker(B, C))
+#         >>> factors, scalar = extract_kronecker_factors(kron)
+#         >>> len(factors)  # 3
+#     """
+#     from linox._arithmetic import ScaledLinearOperator
+
+#     scalar = None
+
+#     # Unwrap ScaledLinearOperator if present
+#     if isinstance(op, ScaledLinearOperator):
+#         scalar = op.scalar
+#         op = op.operator
+
+#     def _collect_factors(node: LinearOperator) -> list[LinearOperator]:
+#         """Recursively collect leaf factors from Kronecker tree."""
+#         if isinstance(node, Kronecker):
+#             return _collect_factors(node.A) + _collect_factors(node.B)
+#         return [node]
+
+#     factors = _collect_factors(op)
+#     return factors, scalar
 
 
 def topk_eigh(

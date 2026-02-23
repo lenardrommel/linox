@@ -1,4 +1,4 @@
-# _kernel.py
+# /linox/_kernel.py
 
 from collections.abc import Callable
 
@@ -7,6 +7,7 @@ import jax.numpy as jnp
 from jax import lax
 
 from linox import config
+from linox._arithmetic import diagonal
 from linox._linear_operator import LinearOperator
 from linox._toeplitz import Toeplitz
 
@@ -283,3 +284,28 @@ class ToeplitzKernel(KernelOperator):
 
 
 jax.tree_util.register_pytree_node_class(ToeplitzKernel)
+
+
+@diagonal.dispatch
+def _(op: ArrayKernel) -> jax.Array:
+    """Compute diagonal elements of an ArrayKernel.
+
+    Uses vmap for efficiency, but falls back to lax.map if memory is constrained.
+    """
+    n = op.shape[0]
+    if n > DENSE_THRESHOLD:
+        # Use lax.map for large n to avoid OOM
+        return lax.map(lambda xs: op.kernel(xs[0], xs[1]), (op.x0, op.x1))
+    else:
+        # Use vmap for small n
+        return jax.vmap(op.kernel)(op.x0, op.x1)
+
+
+@diagonal.dispatch
+def _(op: ToeplitzKernel) -> jax.Array:
+    """Compute diagonal elements of a ToeplitzKernel.
+
+    Since ToeplitzKernel is stationary (k(x, y) = f(x-y)), the diagonal is constant.
+    """
+    val = op._toeplitz_vector[0]
+    return jnp.full((op.shape[0],), val, dtype=op.dtype)

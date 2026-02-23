@@ -28,11 +28,10 @@ import jax
 import jax.numpy as jnp
 import plum  # type: ignore  # noqa: PGH003
 
-import linox
 from linox import config, utils
 from linox._linear_operator import LinearOperator
 from linox.config import warn as _warn
-from linox.typing import ArrayLike, ScalarLike, ShapeLike
+from linox.typing import ScalarLike, ShapeLike
 
 ArithmeticType = LinearOperator | jax.Array
 
@@ -685,11 +684,13 @@ class ProductLinearOperator(LinearOperator):
         batch_shape = _broadcast_shapes([op.shape[:-2] for op in self.operator_list])
         self.__check_init__()
         result_dtype = jnp.result_type(*[op.dtype for op in self.operator_list])
-        shape = utils.as_shape((
-            *batch_shape,
-            self.operator_list[0].shape[-2],
-            self.operator_list[-1].shape[-1],
-        ))
+        shape = utils.as_shape(
+            (
+                *batch_shape,
+                self.operator_list[0].shape[-2],
+                self.operator_list[-1].shape[-1],
+            )
+        )
         super().__init__(shape=shape, dtype=result_dtype)
 
     def __check_init__(self) -> None:  # noqa: PLW3201
