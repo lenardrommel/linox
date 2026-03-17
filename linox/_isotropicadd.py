@@ -14,6 +14,7 @@ from linox._arithmetic import (
     lpinverse,
     lsolve,
     lsqrt,
+    slogdet,
 )
 from linox._linear_operator import LinearOperator
 from linox._matrix import Diagonal, Identity
@@ -198,8 +199,14 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
     a._ensure_eigh()  # noqa: SLF001
     Q, S = a.Q, a.S  # cached
     s = a.s.scalar
+
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+
     # Cholesky of A + sI = Q * sqrt(Λ + sI) where A = Q Λ Q^T
-    new_lam = utils.as_linop(jnp.diag(jnp.sqrt(S + s)))
+    new_lam = Diagonal(jnp.sqrt(eigs + s))
     return Q @ new_lam
 
 
@@ -208,11 +215,49 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
     a._ensure_eigh()  # noqa: SLF001
     Q, S = a.Q, a.S  # cached
     s = a.s.scalar
-    new_lam = utils.as_linop(jnp.diag(jnp.sqrt(S + s)))
+
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+
+    new_lam = Diagonal(jnp.sqrt(eigs + s))
     return Q @ new_lam @ Q.T
 
 
-# we need a log-determinant function here
+@slogdet.dispatch
+def _(a: IsotropicAdditiveLinearOperator) -> tuple[jax.Array, jax.Array]:
+    r"""Sign and log-determinant of sI + A via eigendecomposition.
+
+    For A = Q Λ Q^T with full eigenbasis:
+        det(sI + A) = prod(λ_i + s)
+        log|det| = sum(log|λ_i + s|)
+
+    If leigh(A) returns a truncated eigenbasis (k < n), the complement
+    subspace contributes (n - k) eigenvalues equal to s:
+        log|det| = sum(log|λ_i + s|) + (n - k) * log|s|
+    """
+    a._ensure_eigh()  # noqa: SLF001
+    S = a.S  # cached eigenvalues
+    s = a.s.scalar
+
+    if isinstance(S, LinearOperator):
+        eigs = diagonal(S)
+    else:
+        eigs = S
+
+    shifted = eigs + s
+    sign = jnp.prod(jnp.sign(shifted))
+    logdet = jnp.sum(jnp.log(jnp.abs(shifted)))
+
+    # Handle truncated eigendecomposition: complement subspace has eigenvalue s
+    n = a.shape[0]
+    k = eigs.shape[0]
+    complement_size = n - k
+    logdet = logdet + complement_size * jnp.log(jnp.abs(s))
+    sign = sign * jnp.sign(s) ** complement_size
+
+    return sign, logdet
 
 
 @lsolve.dispatch
