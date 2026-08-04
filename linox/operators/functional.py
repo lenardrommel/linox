@@ -35,37 +35,26 @@ class MatrixFunctionLinearOperator(LinearOperator):
         super().__init__(shape=operator.shape, dtype=dtype)
 
     def _matmul(self, x: jax.Array) -> jax.Array:
-        # Determine method if auto
         method = self.method
         if method == "auto":
-            # Use lanczos if symmetric, else arnoldi
-            # Assuming is_symmetric property exists and is populated
             method = "lanczos" if getattr(self.operator, "is_symmetric", False) else "arnoldi"
 
         if method == "lanczos":
-            # Batched handling? lanczos_matrix_function expects vector v.
-            # If x is matrix (n, k), map over columns.
-            if x.ndim > 1 and x.shape[1] > 1:
-                return jax.vmap(lambda col: lanczos_matrix_function(
-                    self.operator, col, self.func, self.num_iters
-                ), in_axes=1, out_axes=1)(x)
+            fn = lambda col: lanczos_matrix_function(
+                self.operator, col, self.func, self.num_iters
+            )
+        elif method == "arnoldi":
+            fn = lambda col: arnoldi_matrix_function(
+                self.operator, col, self.func, self.num_iters
+            )
+        else:
+            msg = f"Unknown MatrixFunction method: {method}"
+            raise ValueError(msg)
 
-            return lanczos_matrix_function(
-                self.operator, x.squeeze(), self.func, self.num_iters
-            ).reshape(x.shape)
+        if x.ndim > 1 and x.shape[1] > 1:
+            return jax.lax.map(fn, x.T).T
 
-        if method == "arnoldi":
-            if x.ndim > 1 and x.shape[1] > 1:
-                return jax.vmap(lambda col: arnoldi_matrix_function(
-                    self.operator, col, self.func, self.num_iters
-                ), in_axes=1, out_axes=1)(x)
-
-            return arnoldi_matrix_function(
-                self.operator, x.squeeze(), self.func, self.num_iters
-            ).reshape(x.shape)
-
-        msg = f"Unknown MatrixFunction method: {method}"
-        raise ValueError(msg)
+        return fn(x.squeeze()).reshape(x.shape)
 
     def _todense(self) -> jax.Array:
         # Fallback to dense evaluation
