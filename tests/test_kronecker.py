@@ -527,3 +527,83 @@ def test_topk_eigh_eigenvector_correctness() -> None:
         assert residual < 1e-5, (
             f"Eigenpair {i}: λ={lam:.6f}, ||Av - λv|| = {residual:.2e}"
         )
+
+
+# ============================================================================
+# Large Kronecker lsolve regression tests (issue: api.solve LSMR bypass)
+# ============================================================================
+
+
+def test_solve_large_kronecker() -> None:
+    """Test that lsolve works for Kronecker products larger than _MAX_DENSE_N.
+
+    Regression test: api.solve used to fall back to LSMR for operators with
+    shape > 2000, bypassing the efficient plum-dispatched Kronecker solver.
+    """
+    key = jax.random.PRNGKey(42)
+    k1, k2, k3 = jax.random.split(key, 3)
+
+    # Create factors whose Kronecker product exceeds _MAX_DENSE_N=2000
+    A = jax.random.normal(k1, (32, 32))
+    A = A @ A.T + jnp.eye(32)
+    B = jax.random.normal(k2, (64, 64))
+    B = B @ B.T + jnp.eye(64)
+
+    kron = Kronecker(linox.Matrix(A), linox.Matrix(B))
+    assert kron.shape[0] == 2048  # > _MAX_DENSE_N
+
+    rhs = jax.random.normal(k3, (2048,))
+    result = linox.lsolve(kron, rhs)
+    expected = jnp.linalg.solve(jnp.kron(A, B), rhs)
+    assert jnp.allclose(result, expected, atol=1e-4), (
+        f"lsolve error: {jnp.max(jnp.abs(result - expected))}"
+    )
+
+
+def test_solve_large_scaled_kronecker() -> None:
+    """Test lsolve for ScaledLinearOperator wrapping a large Kronecker."""
+    key = jax.random.PRNGKey(42)
+    k1, k2, k3 = jax.random.split(key, 3)
+
+    A = jax.random.normal(k1, (32, 32))
+    A = A @ A.T + jnp.eye(32)
+    B = jax.random.normal(k2, (64, 64))
+    B = B @ B.T + jnp.eye(64)
+
+    scale = 2.5
+    kron = Kronecker(linox.Matrix(A), linox.Matrix(B))
+    scaled = scale * kron
+
+    rhs = jax.random.normal(k3, (2048,))
+    result = linox.lsolve(scaled, rhs)
+    expected = jnp.linalg.solve(scale * jnp.kron(A, B), rhs)
+    assert jnp.allclose(result, expected, atol=1e-4), (
+        f"lsolve error: {jnp.max(jnp.abs(result - expected))}"
+    )
+
+
+def test_solve_large_nested_kronecker() -> None:
+    """Test lsolve for nested Kronecker: Kron(Kron(A, B), C) with size > 2000.
+
+    This is the exact pattern used in OSP-Laplace: Kron(K_u, K_x, K_t).
+    """
+    key = jax.random.PRNGKey(42)
+    k1, k2, k3, k4 = jax.random.split(key, 4)
+
+    A = jax.random.normal(k1, (8, 8))
+    A = A @ A.T + jnp.eye(8)
+    B = jax.random.normal(k2, (16, 16))
+    B = B @ B.T + jnp.eye(16)
+    C = jax.random.normal(k3, (16, 16))
+    C = C @ C.T + jnp.eye(16)
+
+    # Nested: Kron(Kron(A, B), C) → shape (2048, 2048)
+    nested = Kronecker(Kronecker(linox.Matrix(A), linox.Matrix(B)), linox.Matrix(C))
+    assert nested.shape[0] == 2048
+
+    rhs = jax.random.normal(k4, (2048,))
+    result = linox.lsolve(nested, rhs)
+    expected = jnp.linalg.solve(jnp.kron(jnp.kron(A, B), C), rhs)
+    assert jnp.allclose(result, expected, atol=1e-4), (
+        f"lsolve error: {jnp.max(jnp.abs(result - expected))}"
+    )

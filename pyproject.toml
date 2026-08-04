@@ -3,7 +3,7 @@ name = "linox"
 description = "Linear operators in JAX."
 readme = "README.md"
 requires-python = ">=3.10"
-dynamic = ["version"]
+version = "0.0.3"
 
 authors = [
   { name = "Tobias Weber", email = "t.weber@uni-tuebingen.de" },

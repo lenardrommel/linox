@@ -1436,6 +1436,12 @@ def _(a: InverseLinearOperator) -> LinearOperator:
     return a.operator
 
 
+@lsqrt.dispatch
+def _(a: InverseLinearOperator) -> LinearOperator:
+    # For PSD A: (A^{-1})^{1/2} = (A^{1/2})^{-1}
+    return linverse(lsqrt(a.operator))
+
+
 @ldet.dispatch
 def ldet(a: InverseLinearOperator) -> jax.Array:
     """Compute the determinant of a linear operator."""

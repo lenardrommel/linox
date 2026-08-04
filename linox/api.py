@@ -336,6 +336,37 @@ def logdet(a: LinearyOperatorLike) -> jax.Array:
     return _logdet(ensure_linop(a))
 
 
+def _has_structured_solver(op: LinearOperator) -> bool:
+    """Check if the operator type has a specialized efficient lsolve dispatch.
+
+    Structured operators (Kronecker, ScaledLinearOperator wrapping structured,
+    etc.) have plum-dispatched solvers that are more efficient than iterative
+    methods like LSMR and don't require densification.
+    """
+    from linox.operators.factor import CholeskyFactor, PSDFromFactor, Triangular
+    from linox.operators.isotropic import IsotropicAdditiveLinearOperator
+    from linox.operators.lowrank import PositiveDiagonalPlusSymmetricLowRank
+    from linox.operators.toeplitz import Toeplitz
+
+    _STRUCTURED_TYPES = (
+        Kronecker,
+        Toeplitz,
+        PositiveDiagonalPlusSymmetricLowRank,
+        IsotropicAdditiveLinearOperator,
+        Triangular,
+        CholeskyFactor,
+        PSDFromFactor,
+    )
+
+    if isinstance(op, _STRUCTURED_TYPES):
+        return True
+    if isinstance(op, ScaledLinearOperator):
+        return _has_structured_solver(op.operator)
+    if isinstance(op, InverseLinearOperator):
+        return _has_structured_solver(op.operator)
+    return False
+
+
 def solve(
     a: LinearyOperatorLike, b: jax.Array, method: str = "auto", **kwargs
 ) -> jax.Array:
@@ -351,7 +382,7 @@ def solve(
 
     m = config.resolve_method("solve", op, method)
 
-    if m == "exact":
+    if m == "exact" or _has_structured_solver(op):
         return _lsolve_impl(op, b, **kwargs)
     if m == "lsmr":
         from linox.linalg.approx.lsmr import lsmr_solve
@@ -407,6 +438,12 @@ def sqrt(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> LinearOperat
     if m == "exact":
         return _lsqrt_impl(op)
     if m == "lanczos":
+        # Try exact structured dispatch first; fall back to Lanczos only
+        # if no structured implementation exists.
+        try:
+            return _lsqrt_impl(op)
+        except NotImplementedError:
+            pass
         return _functions_module.sqrt(op, method="lanczos", **kwargs)
 
     return _lsqrt_impl(op)
