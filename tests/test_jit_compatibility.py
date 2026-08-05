@@ -503,5 +503,101 @@ class TestJITEdgeCases:
         assert jnp.allclose(result, expected)
 
 
+# =============================================================================
+# Operators as JIT Arguments (pytree registration)
+# =============================================================================
+
+
+class TestJITOperatorArguments:
+    """Test passing operators as arguments to JIT-compiled functions.
+
+    These tests verify that operators are properly registered as JAX pytree
+    nodes, so they can be passed *into* JIT rather than only constructed
+    *inside* JIT.
+    """
+
+    def test_matrix_as_jit_arg(self, key):
+        """Matrix operator can be passed as a JIT argument."""
+        @jax.jit
+        def apply(op, x):
+            return op @ x
+
+        A = Matrix(jax.random.normal(key, (5, 5)))
+        x = jnp.ones((5, 1))
+        result = apply(A, x)
+        expected = A.A @ x
+        assert jnp.allclose(result, expected)
+
+    def test_diagonal_as_jit_arg(self, key):
+        """Diagonal operator can be passed as a JIT argument."""
+        @jax.jit
+        def apply(op, x):
+            return op @ x
+
+        D = Diagonal(jax.random.normal(key, (5,)))
+        x = jnp.ones((5, 1))
+        result = apply(D, x)
+        expected = D.diag[:, None] * x
+        assert jnp.allclose(result, expected)
+
+    def test_identity_as_jit_arg(self):
+        """Identity operator can be passed as a JIT argument."""
+        @jax.jit
+        def apply(op, x):
+            return op @ x
+
+        I = Identity((3,))
+        x = jnp.ones((3, 1))
+        result = apply(I, x)
+        assert jnp.allclose(result, x)
+
+    def test_kronecker_as_jit_arg(self, key):
+        """Kronecker product of Matrix operators can be passed as a JIT arg."""
+        @jax.jit
+        def solve(op, rhs):
+            return linox.lsolve(op, rhs)
+
+        A = Matrix(jax.random.normal(key, (3, 3)) + 3 * jnp.eye(3))
+        B = Matrix(jax.random.normal(key, (4, 4)) + 3 * jnp.eye(4))
+        K = Kronecker(A, B)
+        rhs = jnp.ones((12, 1))
+        result = solve(K, rhs)
+        assert result.shape == (12, 1)
+        assert not jnp.isnan(result).any()
+
+    def test_scaled_kronecker_as_jit_arg(self, key):
+        """ScaledLinearOperator wrapping Kronecker (OSP covariance pattern)."""
+        @jax.jit
+        def solve(op, rhs):
+            return linox.lsolve(op, rhs)
+
+        A = linox.ScaledLinearOperator(
+            Matrix(jax.random.normal(key, (3, 3)) + 3 * jnp.eye(3)), 2.0,
+        )
+        B = linox.ScaledLinearOperator(
+            Matrix(jax.random.normal(key, (4, 4)) + 3 * jnp.eye(4)), 0.5,
+        )
+        K = Kronecker(A, B)
+        rhs = jnp.ones((12, 1))
+        result = solve(K, rhs)
+        assert result.shape == (12, 1)
+        assert not jnp.isnan(result).any()
+
+    def test_value_and_grad_with_operator_arg(self, key):
+        """value_and_grad through operator passed as argument (OSP training)."""
+        def loss(params, op, rhs):
+            pred = params["w"] * rhs
+            residual = pred - rhs
+            left = linox.lsolve(op, residual)
+            return 0.5 * jnp.sum(residual * left)
+
+        A = Matrix(jnp.eye(3))
+        params = {"w": jnp.array(2.0)}
+        rhs = jnp.ones((3, 1))
+        (val, grads) = jax.value_and_grad(loss)(params, A, rhs)
+        assert not jnp.isnan(val)
+        assert not jnp.isnan(grads["w"])
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -257,3 +257,6 @@ def _(d: CircularlySymmetricDiagonal) -> CircularlySymmetricDiagonal:
         jnp.sqrt(d.W),
         None if d.b is None else jnp.sqrt(d.b),
     )
+
+
+jax.tree_util.register_pytree_node_class(Diagonal)

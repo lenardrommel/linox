@@ -143,3 +143,6 @@ def _(a: Matrix, b: Matrix) -> Matrix:
 def _(A: LinearOperator) -> LinearOperator:
     msg = "The square root of a general linear operator is not defined."
     raise NotImplementedError(msg)
+
+
+jax.tree_util.register_pytree_node_class(Matrix)

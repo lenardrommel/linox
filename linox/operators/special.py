@@ -535,3 +535,9 @@ def _(a: Ones, b: Ones) -> Zero:
     return Zero(
         jnp.broadcast_shapes(a.shape, b.shape), dtype=jnp.result_type(a.dtype, b.dtype)
     )
+
+
+jax.tree_util.register_pytree_node_class(Identity)
+jax.tree_util.register_pytree_node_class(Scalar)
+jax.tree_util.register_pytree_node_class(Zero)
+jax.tree_util.register_pytree_node_class(Ones)
