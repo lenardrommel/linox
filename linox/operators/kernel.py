@@ -192,9 +192,13 @@ class ArrayKernel(KernelOperator):
         return kernel_fn(x0, x1)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
-        """Flatten for JAX pytree registration."""
-        children = (self.kernel, self.x0, self.x1)
-        aux_data = {"chunk_size": self.chunk_size}
+        """Flatten for JAX pytree registration.
+
+        The kernel function is static (placed in aux_data) so that the
+        operator can be passed through ``jax.jit``.
+        """
+        children = (self.x0, self.x1)
+        aux_data = {"kernel": self.kernel, "chunk_size": self.chunk_size}
         return children, aux_data
 
     @classmethod
@@ -204,8 +208,8 @@ class ArrayKernel(KernelOperator):
         children: tuple[any, ...],
     ) -> "ArrayKernel":
         """Unflatten for JAX pytree registration."""
-        kernel, x0, x1 = children
-        return cls(kernel=kernel, x0=x0, x1=x1, chunk_size=aux_data["chunk_size"])
+        x0, x1 = children
+        return cls(kernel=aux_data["kernel"], x0=x0, x1=x1, chunk_size=aux_data["chunk_size"])
 
 
 jax.tree_util.register_pytree_node_class(ArrayKernel)
@@ -279,9 +283,13 @@ class ToeplitzKernel(KernelOperator):
         return self._toeplitz_op._todense()
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
-        """Flatten for JAX pytree registration."""
-        children = (self.kernel, self.x0)
-        aux_data = {"chunk_size": self.chunk_size}
+        """Flatten for JAX pytree registration.
+
+        The kernel function is static (placed in aux_data) so that the
+        operator can be passed through ``jax.jit``.
+        """
+        children = (self.x0,)
+        aux_data = {"kernel": self.kernel, "chunk_size": self.chunk_size}
         return children, aux_data
 
     @classmethod
@@ -291,8 +299,8 @@ class ToeplitzKernel(KernelOperator):
         children: tuple[any, ...],
     ) -> "ToeplitzKernel":
         """Unflatten for JAX pytree registration."""
-        kernel, x0 = children
-        return cls(kernel=kernel, x0=x0, chunk_size=aux_data["chunk_size"])
+        (x0,) = children
+        return cls(kernel=aux_data["kernel"], x0=x0, chunk_size=aux_data["chunk_size"])
 
 
 jax.tree_util.register_pytree_node_class(ToeplitzKernel)

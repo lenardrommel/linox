@@ -599,5 +599,87 @@ class TestJITOperatorArguments:
         assert not jnp.isnan(grads["w"])
 
 
+# =============================================================================
+# Kernel and IsotropicAdditive Operators as JIT Arguments
+# =============================================================================
+
+
+class TestJITKernelOperators:
+    """Test kernel-based operators as JIT arguments.
+
+    Regression tests for kernel function placement in pytree children
+    vs aux_data (GitHub issue #8).
+    """
+
+    def test_array_kernel_as_jit_arg(self):
+        """ArrayKernel can be passed as a JIT argument."""
+        from linox.operators.kernel import ArrayKernel
+
+        kernel_fn = lambda x, y: jnp.exp(-jnp.sum((x - y) ** 2))
+        x0 = jnp.linspace(0, 1, 10).reshape(-1, 1)
+        ak = ArrayKernel(kernel_fn, x0)
+
+        @jax.jit
+        def apply(op, v):
+            return op @ v
+
+        v = jnp.ones((10, 1))
+        result = apply(ak, v)
+        assert result.shape == (10, 1)
+        assert jnp.isfinite(result).all()
+
+    def test_toeplitz_kernel_as_jit_arg(self):
+        """ToeplitzKernel can be passed as a JIT argument."""
+        from linox.operators.kernel import ToeplitzKernel
+
+        kernel_fn = lambda x, y: jnp.exp(-jnp.sum((x - y) ** 2))
+        x0 = jnp.linspace(0, 1, 16).reshape(-1, 1)
+        tk = ToeplitzKernel(kernel_fn, x0)
+
+        @jax.jit
+        def apply(op, v):
+            return op @ v
+
+        v = jnp.ones((16, 1))
+        result = apply(tk, v)
+        assert result.shape == (16, 1)
+        assert jnp.isfinite(result).all()
+
+    def test_isotropic_additive_as_jit_arg(self, key):
+        """IsotropicAdditiveLinearOperator can be passed as a JIT argument."""
+        from linox.operators.isotropic import IsotropicAdditiveLinearOperator
+
+        A = Matrix(jax.random.normal(key, (5, 5)))
+        A = A @ A.T  # make symmetric PSD
+        iso = IsotropicAdditiveLinearOperator(jnp.array(0.1), A)
+
+        @jax.jit
+        def solve(op, rhs):
+            return linox.lsolve(op, rhs)
+
+        rhs = jnp.ones((5, 1))
+        result = solve(iso, rhs)
+        assert result.shape == (5, 1)
+        assert jnp.isfinite(result).all()
+
+    def test_kernel_pytree_leaves_are_arrays(self):
+        """Kernel operators should only have array leaves (no functions)."""
+        from linox.operators.kernel import ArrayKernel, ToeplitzKernel
+
+        kernel_fn = lambda x, y: jnp.exp(-jnp.sum((x - y) ** 2))
+        x0 = jnp.linspace(0, 1, 8).reshape(-1, 1)
+
+        for Op, args in [
+            (ArrayKernel, (kernel_fn, x0)),
+            (ToeplitzKernel, (kernel_fn, x0)),
+        ]:
+            op = Op(*args)
+            leaves = jax.tree_util.tree_leaves(op)
+            for leaf in leaves:
+                assert isinstance(leaf, jnp.ndarray), (
+                    f"{Op.__name__} has non-array pytree leaf: {type(leaf)}"
+                )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

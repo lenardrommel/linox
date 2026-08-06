@@ -206,6 +206,19 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
     def _todense(self) -> jax.Array:
         return self._s._todense() + self._A._todense()
 
+    def tree_flatten(self) -> tuple[tuple, dict]:
+        children = (self._s.scalar, self._A)
+        aux_data = {}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        s, A = children
+        return cls(s, A)
+
+
+jax.tree_util.register_pytree_node_class(IsotropicAdditiveLinearOperator)
+
 
 @lcholesky.dispatch
 def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
