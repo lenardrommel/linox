@@ -170,6 +170,13 @@ class LinearOperator:
             TransposedLinearOperator,
         )
 
+        # Prefer a subclass's structured transpose (e.g. Diagonal -> itself,
+        # Sym/PSD -> itself) so the operator's structure survives `.T`. The
+        # base implementation returns a dense array rather than an operator,
+        # in which case fall back to the lazy wrapper.
+        transposed = self.transpose()
+        if isinstance(transposed, LinearOperator):
+            return transposed
         return TransposedLinearOperator(self)
 
     ########################################################################
@@ -188,8 +195,13 @@ class LinearOperator:
 
         return ladd(self, other)
 
-    def __radd__(self, other: "LinearOperator") -> "LinearOperator":
-        return self.__add__(other, self)
+    def __radd__(self, other: BinaryOperandType) -> "LinearOperator":
+        from .arithmetic import ladd
+
+        # Addition is commutative, so reuse the forward dispatch: it carries
+        # the (LinearOperator, Array) methods that the reversed argument order
+        # would not resolve.
+        return ladd(self, other)
 
     def __sub__(self, other: BinaryOperandType) -> "LinearOperator":
         from .arithmetic import lsub

@@ -268,7 +268,7 @@ def kron(a: LinearyOperatorLike, b: LinearyOperatorLike) -> LinearOperator:
 
 def block_diag(*opers: LinearyOperatorLike) -> LinearOperator:
     """Construct a block diagonal operator from input operators."""
-    return BlockDiagonal([ensure_linop(op) for op in opers])
+    return BlockDiagonal(*(ensure_linop(op) for op in opers))
 
 
 def bmat(blocks: list[list[LinearyOperatorLike]]) -> LinearOperator:
@@ -303,6 +303,12 @@ def trace(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> jax.Array:
     op = ensure_linop(a)
     m = config.resolve_method("trace", op, method)
 
+    # `auto` picks Hutchinson for large operators, but that needs a PRNG key.
+    # Without one, fall back to the exact path rather than failing a plain
+    # `trace(a)` call purely because the operator is big.
+    if m == "hutchinson" and method == "auto" and kwargs.get("key") is None:
+        m = "exact"
+
     if m == "hutchinson":
         return _trace_module.trace(op, method="hutchinson", **kwargs)
     return _trace_module.trace(op, **kwargs)
@@ -327,6 +333,12 @@ def slogdet(
 
     op = ensure_linop(a)
     m = config.resolve_method("slogdet", op, method)
+
+    # As in `trace`: SLQ needs a PRNG key, so an `auto` resolution that lands
+    # there without one falls back to the exact path.
+    if m == "slq" and method == "auto" and kwargs.get("key") is None:
+        m = "exact"
+
     return _slogdet(op, method=m, **kwargs)
 
 
@@ -426,24 +438,31 @@ def svd(a: LinearyOperatorLike, **kwargs) -> tuple[jax.Array, jax.Array, jax.Arr
 
 
 def sqrt(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> LinearOperator:
-    """Matrix square root.
+    """Matrix square root factor.
+
+    Returns an operator ``S`` satisfying ``S @ S.T == a``. Note this is a
+    *factor*, not necessarily the symmetric principal square root: the exact
+    path returns whatever structured factorisation is available for the
+    operator (a Cholesky factor for a dense :class:`Matrix`, the elementwise
+    root for a :class:`Diagonal`, and so on). Request ``method="lanczos"``
+    to get the principal square root ``a**(1/2)`` via a Krylov method.
 
     Args:
         a: Linear operator.
-        method: "exact" or "lanczos"/"newton".
+        method: One of ``"auto"``, ``"exact"``, ``"approx"``, ``"lanczos"``.
     """
     op = ensure_linop(a)
     m = config.resolve_method("sqrt", op, method)
 
-    if m == "exact":
-        return _lsqrt_impl(op)
-    if m == "lanczos":
-        # Try exact structured dispatch first; fall back to Lanczos only
-        # if no structured implementation exists.
-        try:
-            return _lsqrt_impl(op)
-        except NotImplementedError:
-            pass
+    if m in {"lanczos", "approx"}:
+        # An explicit approximate request is honoured as given. Only when
+        # `auto` resolution picked the Krylov path do we prefer a structured
+        # exact factorisation if one happens to exist.
+        if method == "auto":
+            try:
+                return _lsqrt_impl(op)
+            except NotImplementedError:
+                pass
         return _functions_module.sqrt(op, method="lanczos", **kwargs)
 
     return _lsqrt_impl(op)

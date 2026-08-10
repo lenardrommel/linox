@@ -394,7 +394,7 @@ def svd(
     ):
         if k is not None:
             # Use matrix-free partial SVD
-            from linox._algorithms._svd import svd_partial
+            from linox.linalg.spectral import svd_partial
 
             return svd_partial(a, k, num_iters, u0)
 
@@ -687,7 +687,7 @@ def lexp(
         # Return lazy operator
         _warn("lexp without vector returns lazy operator - evaluation may be expensive")
         # For now, densify (future: could implement lazy MatrixFunctionOperator)
-        return jnp.linalg.matrix_exp(a.todense())
+        return jax.scipy.linalg.expm(a.todense())
 
     # Compute exp(A)v using Krylov methods
     if method == "lanczos":
@@ -1492,7 +1492,9 @@ class PseudoInverseLinearOperator(LinearOperator):
         self.tol = tol
 
     def transpose(self) -> LinearOperator:
-        return PseudoInverseLinearOperator(self.operator).transpose()
+        # (A^+)^T == (A^T)^+ -- transpose the operand, not the pseudo-inverse
+        # of self, which recurses forever.
+        return PseudoInverseLinearOperator(self.operator.transpose(), tol=self.tol)
 
     def _todense(self) -> jax.Array:
         r"""# TODO:

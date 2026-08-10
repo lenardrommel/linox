@@ -9,7 +9,7 @@ import linox
 import pytest
 import pytest_cases
 from linox import utils
-from linox.typing import ScalarLike, ShapeLike
+from linox._types import ScalarLike, ShapeLike
 
 from tests.test_kernel import case_kernel
 from tests.test_linox_cases._matrix_cases import (

@@ -5,7 +5,7 @@ import linox
 import pytest
 import pytest_cases
 from jax import numpy as jnp
-from linox.typing import ShapeLike, ShapeType
+from linox._types import ShapeLike, ShapeType
 from linox.utils import as_dense
 
 CaseType = tuple[linox.LinearOperator, jax.Array]

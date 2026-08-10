@@ -299,9 +299,14 @@ def svd_partial(
     S = S_small[:k]
     Vt_small = Vt_small[:k, :]
 
-    # Project back to original space
-    U = U_bi @ U_small
-    Vt = Vt_small @ V_bi.T
+    # Project back to original space.
+    #
+    # The Golub-Kahan recurrence produces `A^T U_bi = V_bi B`, i.e.
+    # `A ~= U_bi @ B.T @ V_bi.T`. Substituting `B = U_small S Vt_small` gives
+    # `A ~= (U_bi @ Vt_small.T) S (U_small.T @ V_bi.T)`, so the left/right
+    # factors of the small SVD attach to the *opposite* Krylov basis.
+    U = U_bi @ Vt_small.T
+    Vt = (V_bi @ U_small).T
 
     return U, S, Vt
 

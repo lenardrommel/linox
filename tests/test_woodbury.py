@@ -125,3 +125,40 @@ def test_positive_diag_plus_lowrank_woodbury_integration():
     x_pd = lsolve(pd_op, v)
     
     assert jnp.allclose(x_expected, x_pd, atol=1e-5)
+
+
+def test_woodbury_solve_matrix_rhs() -> None:
+    """Regression: the diagonal must divide the RHS row-wise, not column-wise.
+
+    `v / d` broadcasts along the last axis, so a square RHS silently computed
+    `v[i, j] / d[j]` and a non-square one raised.
+    """
+    n, r = 5, 2
+    key = jax.random.PRNGKey(0)
+    U = jax.random.normal(key, (n, r))
+    s = jnp.ones(r)
+    d = jnp.arange(1.0, n + 1)
+    A = jnp.diag(d) + U @ jnp.diag(s) @ U.T
+
+    for rhs in (
+        jnp.ones(n),                                # vector
+        jnp.ones((n, 2)),                           # fewer columns than rows
+        jax.random.normal(key, (n, n)),             # square: the silent-wrong case
+        jax.random.normal(key, (n, 7)),             # more columns than rows
+    ):
+        x = woodbury_solve(U, s, d, rhs)
+        assert x.shape == rhs.shape
+        assert jnp.linalg.norm(A @ x - rhs) < 1e-10
+
+
+def test_woodbury_chol_solve_matrix_rhs() -> None:
+    n, r = 5, 2
+    key = jax.random.PRNGKey(1)
+    L = jax.random.normal(key, (n, r))
+    d = jnp.arange(1.0, n + 1)
+    A = jnp.diag(d) + L @ L.T
+
+    for rhs in (jnp.ones(n), jax.random.normal(key, (n, 3)), jax.random.normal(key, (n, n))):
+        x = woodbury_chol_solve(L, d, rhs)
+        assert x.shape == rhs.shape
+        assert jnp.linalg.norm(A @ x - rhs) < 1e-10

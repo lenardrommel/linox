@@ -7,6 +7,16 @@ from linox._types import ArrayLike, ScalarLike
 from linox.operators.dense import Matrix
 
 
+def _row_broadcast(d: jax.Array, v: jax.Array) -> jax.Array:
+    """Reshape a diagonal ``d`` of shape ``(n,)`` to divide ``v`` row-wise.
+
+    ``v`` may be a vector ``(n,)`` or a matrix of right-hand sides ``(n, k)``.
+    Plain ``v / d`` broadcasts along the *last* axis, which silently computes
+    ``v[i, j] / d[j]`` for a square ``v`` and raises otherwise.
+    """
+    return d.reshape(-1, *((1,) * (v.ndim - 1)))
+
+
 def woodbury_solve(U: Matrix, s: ArrayLike, d: ScalarLike | ArrayLike, v: ArrayLike):
     """Woodbury matrix identity implementation for solving specifically system of PSD plus diagonal matrix.
     A = L L^T + D
@@ -22,9 +32,10 @@ def woodbury_solve(U: Matrix, s: ArrayLike, d: ScalarLike | ArrayLike, v: ArrayL
       Solution of the linear system.
     """
     d = jnp.asarray(d)
+    v = jnp.asarray(v)
     is_scalar_d = d.ndim == 0
 
-    D_inv_v = v / d
+    D_inv_v = v / d if is_scalar_d else v / _row_broadcast(d, v)
     D_inv_U = U / d if is_scalar_d else U / d[:, None]
 
     # Capacitance matrix: C = diag(1/s) + U^T D^{-1} U
@@ -51,8 +62,9 @@ def woodbury_chol_solve(L: Matrix, d: ScalarLike | ArrayLike, v: ArrayLike):
     -------
       Solution of the linear system.
     """
-    D_inv_v = v / d
     d = jnp.asarray(d)
+    v = jnp.asarray(v)
+    D_inv_v = v / (_row_broadcast(d, v) if d.ndim > 0 else d)
     D_inv_L = L / (d[:, None] if d.ndim > 0 else d)
     eye = jnp.eye(L.shape[-1])
     return D_inv_v - D_inv_L @ jax.scipy.linalg.cho_solve(

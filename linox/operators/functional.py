@@ -68,10 +68,10 @@ class MatrixFunctionLinearOperator(LinearOperator):
         # JAX doesn't have partial funm generically for dense except via eig/eigh
         # jax.scipy.linalg.expm exists, but not logm/sqrtm in JAX core cleanly on all backends?
         # We'll use diagonalization assumption for now.
-        w, V = jax.linalg.eig(A_dense)
+        w, V = jnp.linalg.eig(A_dense)
         return V @ jnp.diag(self.func(w)) @ jnp.linalg.inv(V)
 
-    def _transpose(self) -> LinearOperator:
+    def transpose(self) -> LinearOperator:
         # f(A)^T = f(A^T) ?
         # If A is symmetric, A=A^T, f(A) symmetric.
         # If A normal, yes.
