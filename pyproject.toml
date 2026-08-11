@@ -42,7 +42,17 @@ exclude = ["site*", "tests*", "docs*"]
 # Optional: keep these for "pip install linox[docs]" etc when you publish (extras are public API)
 [project.optional-dependencies]
 docs = ["mkdocs-material", "mkdocstrings[python]"]
-test = ["pytest", "pytest-cov", "pytest-cases", "hypothesis", "tox-uv"]
+# pytest is capped below 9: pytest-cases 3.10.1 (the latest) calls
+# `IdMaker(...)` with pytest 8's signature and dies on pytest 9 with
+# "IdMaker.__init__() takes 7 positional arguments but 8 were given",
+# before collecting a single test. Lift the cap once pytest-cases supports 9.
+test = [
+  "pytest>=8,<9",
+  "pytest-cov",
+  "pytest-cases",
+  "hypothesis",
+  "tox-uv",
+]
 dev = ["pre-commit", "pyright", "jupyterlab", "isort>=7.0.0", "ruff"]
 
 [dependency-groups]
@@ -50,7 +60,9 @@ lint = ["ruff>=0.15.0"]
 
 
 test = [
-  "pytest",
+  # See the note on the `test` extra above: pytest-cases does not support
+  # pytest 9 yet.
+  "pytest>=8,<9",
   "pytest-cov",
   "pytest-cases",
   "hypothesis",
