@@ -51,15 +51,21 @@ class TestFailureIsReported:
 
     def test_return_info_reports_failure(self, singular) -> None:
         op, b = singular
-        _x, info = linox.solve(op, b, throw=False, return_info=True)
+        x, info = linox.solve(op, b, throw=False, return_info=True)
 
         assert isinstance(info, Solution)
         assert int(info.result) in FAILURE_RESULTS
         assert not info.successful
-        # The residual is what detects the common case, where the output is
-        # finite and enormous rather than NaN and a finiteness check alone
-        # would miss it.
-        assert info.stats["residual"] > 1e-2
+
+        if int(info.result) == RESULTS.singular:
+            # The finite-but-enormous case: the residual is what detects it,
+            # since a finiteness check alone would miss it entirely.
+            assert jnp.all(jnp.isfinite(x))
+            assert info.stats["residual"] > 1e-2
+        else:
+            # The nonfinite case: detected directly, and the residual is
+            # itself NaN, so there is nothing meaningful to compare it against.
+            assert not jnp.all(jnp.isfinite(x))
 
 
 class TestSuccessIsUnaffected:
