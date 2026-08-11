@@ -222,18 +222,33 @@ def lanczos_matrix_function(
     if beta.size > 0:
         T = T + jnp.diag(beta, k=1) + jnp.diag(beta, k=-1)
 
-    # Apply function to tridiagonal matrix
     eigvals, eigvecs = jnp.linalg.eigh(T)
-    fT = eigvecs @ jnp.diag(func(eigvals)) @ eigvecs.T
 
-    # Extract first row
-    e1 = jnp.zeros(num_iters)
-    e1 = e1.at[0].set(1.0)
+    # Only the first column of f(T) is ever used, and it is the Gauss
+    # quadrature sum  sum_i (e1^T u_i) f(theta_i) u_i.  Forming f(T) in full
+    # and then multiplying by e1 is both wasteful and numerically fragile.
+    #
+    # Fragile because Lanczos *breaks down* once the Krylov space is
+    # exhausted: for an operator with a degenerate spectrum (Identity being
+    # the extreme case) beta hits zero after one step, and the remaining rows
+    # of T are numerical noise whose eigenvalues sit at or below zero. Those
+    # spurious modes carry essentially no quadrature weight, but evaluating
+    # `func` on them produces +/-inf for functions like log, and the
+    # subsequent `0 * inf` turns the entire result into NaN.
+    #
+    # So: drop the modes that carry no weight, and never evaluate `func` on
+    # their eigenvalues at all -- substituting a safe value inside the
+    # `where` rather than masking afterwards, since `jnp.where` still
+    # evaluates both branches.
+    weights = eigvecs[0, :]
+    eps = jnp.finfo(eigvals.dtype).eps
+    significant = jnp.abs(weights) > eps * jnp.maximum(jnp.max(jnp.abs(weights)), 1.0)
 
-    # Project back
-    result = v_norm * (Q @ (fT @ e1))
+    safe_eigvals = jnp.where(significant, eigvals, jnp.ones_like(eigvals))
+    contributions = jnp.where(significant, weights * func(safe_eigvals), 0.0)
 
-    return result
+    # Project back: v_norm * Q @ (f(T) e1)
+    return v_norm * (Q @ (eigvecs @ contributions))
 
 
 def lanczos_eigh(

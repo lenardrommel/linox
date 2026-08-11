@@ -30,29 +30,36 @@ def well_posed():
     return Matrix(X @ X.T + jnp.eye(6)), jnp.ones(6)
 
 
+# A singular direct solve fails in one of two ways depending on the platform's
+# LAPACK: usually finite-but-enormous values (caught by the residual check), but
+# sometimes outright inf/NaN. Both are correct failure reports, so assert on
+# "failed", not on which flavour.
+FAILURE_RESULTS = {RESULTS.singular, RESULTS.nonfinite_output}
+
+
 class TestFailureIsReported:
     def test_singular_raises_by_default(self, singular) -> None:
         op, b = singular
         with pytest.raises(LinearSolveError) as excinfo:
             linox.solve(op, b)
-        assert excinfo.value.result == RESULTS.singular
+        assert excinfo.value.result in FAILURE_RESULTS
 
     def test_throw_false_returns_the_array(self, singular) -> None:
         op, b = singular
         x = linox.solve(op, b, throw=False)
         assert x.shape == (6,)
 
-    def test_return_info_reports_singular(self, singular) -> None:
+    def test_return_info_reports_failure(self, singular) -> None:
         op, b = singular
-        x, info = linox.solve(op, b, throw=False, return_info=True)
+        _x, info = linox.solve(op, b, throw=False, return_info=True)
 
         assert isinstance(info, Solution)
-        assert int(info.result) == RESULTS.singular
+        assert int(info.result) in FAILURE_RESULTS
         assert not info.successful
-        # The residual is what actually detects this: the output is finite and
-        # enormous rather than NaN, so a finiteness check alone would miss it.
+        # The residual is what detects the common case, where the output is
+        # finite and enormous rather than NaN and a finiteness check alone
+        # would miss it.
         assert info.stats["residual"] > 1e-2
-        assert jnp.all(jnp.isfinite(x))
 
 
 class TestSuccessIsUnaffected:

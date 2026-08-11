@@ -151,3 +151,48 @@ def test_unknown_method_is_rejected():
 
     with pytest.raises(ValueError, match="Unknown method"):
         solve(A, jnp.ones(6), method="totally-bogus-method")
+
+
+def test_lanczos_matrix_function_survives_breakdown():
+    """Lanczos breaks down when the Krylov space is exhausted.
+
+    For a degenerate spectrum (Identity is the extreme case) beta hits zero
+    after one step and the remaining rows of the tridiagonal matrix are
+    numerical noise whose eigenvalues sit at or below zero. Evaluating `log`
+    on those produced -inf, and the subsequent `0 * inf` turned the whole
+    result into NaN. This surfaced as a platform-dependent failure: the
+    spurious eigenvalues land at ~1e-6 on some BLAS builds and at exactly 0 on
+    others.
+    """
+    from linox import Diagonal, Identity
+    from linox.linalg.approx.slq import slq_logdet
+
+    key = jax.random.PRNGKey(0)
+
+    for op, expected in [
+        (Identity(10), 0.0),
+        (Diagonal(jnp.ones(10)), 0.0),
+        (Diagonal(2.0 * jnp.ones(8)), 8 * jnp.log(2.0)),
+    ]:
+        # num_iters deliberately exceeds the Krylov dimension (which is 1).
+        for m in (5, 20, 30):
+            est, _std = slq_logdet(op, key, num_samples=5, m=m)
+            assert jnp.isfinite(est), f"{op} with m={m} produced {est}"
+            assert jnp.abs(est - expected) < 1e-6
+
+
+def test_lanczos_matrix_function_still_accurate_on_full_spectrum():
+    """The breakdown guard must not degrade the ordinary case."""
+    from linox.linalg.approx.lanczos import lanczos_matrix_function
+
+    key = jax.random.PRNGKey(0)
+    n = 40
+    X = jax.random.normal(key, (n, n))
+    A_mat = X @ X.T + n * jnp.eye(n)
+    v = jax.random.normal(key, (n,))
+
+    w, V = jnp.linalg.eigh(A_mat)
+    expected = V @ jnp.diag(jnp.sqrt(w)) @ V.T @ v
+    got = lanczos_matrix_function(Matrix(A_mat), v, jnp.sqrt, 30)
+
+    assert jnp.linalg.norm(got - expected) / jnp.linalg.norm(expected) < 1e-10
