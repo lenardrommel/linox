@@ -27,7 +27,7 @@ import jax.random as random
 import matplotlib.pyplot as plt
 import numpy as np
 import optax
-from optax import tree_utils as otu
+from optax import tree_utils as out
 
 import linox as lo
 
@@ -409,7 +409,7 @@ def run_optimization(
         loss, grad = value_and_grad_fn(params)
 
         # Update history
-        grad_norm = otu.tree_norm(grad)
+        grad_norm = out.tree_norm(grad)
         history["nll"].append(float(loss))
         history["grad_norm"].append(float(grad_norm))
 

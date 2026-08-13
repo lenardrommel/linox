@@ -56,9 +56,7 @@ def _(op: Kronecker) -> OperatorIR:
 
 @analyze.dispatch
 def _(op: IsotropicAdditiveLinearOperator) -> OperatorIR:
-    return IsotropicShiftIR(
-        tags=_get_tags(op), shift=float(op.scalar), base=op.operator
-    )
+    return IsotropicShiftIR(tags=_get_tags(op), shift=float(op.scalar), base=op.operator)
 
 
 @analyze.dispatch

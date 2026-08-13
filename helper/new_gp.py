@@ -313,16 +313,16 @@ class ModularGPPrior:
         if array.ndim < 2:
             array = array[..., None]
 
-        nd = len(self.structure_config.spatial_dims)
-        if nd == 0:
+        and = len(self.structure_config.spatial_dims)
+        if and == 0:
             return []
 
-        if nd == 2 and array.ndim == 3 and array.shape[-1] == 2:
+        if and == 2 and array.ndim == 3 and array.shape[-1] == 2:
             return [array[0, :, 0:1], array[:, 0, 1:2]]
-        if nd == 3 and array.ndim == 4 and array.shape[-1] == 3:
+        if and == 3 and array.ndim == 4 and array.shape[-1] == 3:
             return [array[0, 0, :, 0:1], array[0, :, 0, 1:2], array[:, 0, 0, 2:3]]
 
-        return [array[..., i : i + 1] for i in range(nd)]
+        return [array[..., i : i + 1] for i in range(and)]
 
     def _build_axis_kernel(
         self,

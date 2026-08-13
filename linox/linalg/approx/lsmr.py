@@ -155,7 +155,7 @@ def lsmr_solve(
     References
     ----------
     .. [1] D. C.-L. Fong and M. A. Saunders, "LSMR: An iterative algorithm for
-           sparse least-squares problems," SIAM J. Sci. Comput., 2011.
+           sparse least-squares problems," SIAM J. Sci. Compute., 2011.
     .. [2] https://github.com/pnkraemer/matfree
     """
     b = jnp.asarray(b)
@@ -289,9 +289,7 @@ def lsmr_solve(
             return u_val, v, alpha
 
         # Conditional execution
-        u, v, alpha = lax.cond(
-            beta_new > 0, update_v_alpha, no_update, (u_new, beta_new)
-        )
+        u, v, alpha = lax.cond(beta_new > 0, update_v_alpha, no_update, (u_new, beta_new))
         beta = beta_new
 
         # Construct rotation Qhat_{k,2k+1}

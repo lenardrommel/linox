@@ -23,7 +23,7 @@ import jax.numpy as jnp
 import jax.random as random
 import matplotlib.pyplot as plt
 import optax
-from optax import tree_utils as otu
+from optax import tree_utils as out
 
 import linox as lo
 
@@ -198,7 +198,7 @@ def run_optimization(params, u0_train, uT_train, max_iter=50):
 
     for i in range(max_iter):
         l, g = val_grad(params)
-        gn = otu.tree_norm(g)
+        gn = out.tree_norm(g)
 
         if i % 10 == 0 or i == max_iter - 1:
              print(f"  {i:4d} | {float(l):12.4e} | {float(gn):12.4e}")

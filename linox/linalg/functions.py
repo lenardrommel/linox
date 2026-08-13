@@ -43,7 +43,7 @@ def stochastic_lanczos_quadrature(
     distribution: str = "rademacher",
     reortho: bool = True,
 ) -> tuple[jax.Array, jax.Array]:
-    """Estimate trace(f(A)) using stochastic Lanczos quadrature (SLQ).
+    """Estimate trace(f(A)) using stochastic Lanczos quadrature (SQL).
 
     Combines Hutchinson trace estimation with Lanczos matrix function
     approximation to efficiently estimate trace(f(A)) for large symmetric
@@ -144,12 +144,14 @@ def stochastic_lanczos_quadrature(
 
     return trace_estimate, trace_std
 
+
 # --- Operator Wrappers ---
 
 
 def MatrixFunction(A, func, **kwargs):
     """Create a lazy matrix function operator."""
     from linox.operators.functional import MatrixFunctionLinearOperator
+
     return MatrixFunctionLinearOperator(A, func, **kwargs)
 
 

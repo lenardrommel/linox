@@ -50,16 +50,10 @@ class BlockMatrix(LinearOperator):
         # Determine the dtype
         dtype = self._blocks[0][0].dtype
         for i, j in product(range(len(self._blocks)), range(len(self._blocks[0]))):
-            assert (
-                self._blocks[i][j].dtype == dtype
-            ), "All blocks must have the same dtype."
+            assert self._blocks[i][j].dtype == dtype, "All blocks must have the same dtype."
             expected_shape = (self._blocks[i][0].shape[0], self._blocks[0][j].shape[1])
             if self._blocks[i][j].shape != expected_shape:
-                msg = (
-                    f"Shape error in block [{i}, {j}]: "
-                    f"Expected shape {expected_shape}, "
-                    f"got shape {self._blocks[i, j].shape}."
-                )
+                msg = f"Shape error in block [{i}, {j}]: Expected shape {expected_shape}, got shape {self._blocks[i, j].shape}."
                 raise ValueError(msg)
 
             # Compute the total shape of the block matrix
@@ -95,10 +89,7 @@ class BlockMatrix(LinearOperator):
         for i in range(self._block_shape[0]):
             row_wise_results.append(
                 jnp.sum(
-                    jnp.array([
-                        block @ cur_x
-                        for block, cur_x in zip(self.blocks[i], arr_split, strict=False)
-                    ]),
+                    jnp.array([block @ cur_x for block, cur_x in zip(self.blocks[i], arr_split, strict=False)]),
                     axis=0,
                 )
             )
@@ -108,20 +99,14 @@ class BlockMatrix(LinearOperator):
 
     def _todense(self) -> jax.Array:
         """Convert the block matrix to a dense matrix."""
-        blocks = [
-            [None for _ in range(self._block_shape[1])]
-            for _ in range(self._block_shape[0])
-        ]
+        blocks = [[None for _ in range(self._block_shape[1])] for _ in range(self._block_shape[0])]
         for i, j in np.ndindex(self._block_shape):
             blocks[i][j] = self._blocks[i][j]._todense()
         return jnp.block(blocks)
 
     def transpose(self) -> "BlockMatrix":
         """Transpose the block matrix."""
-        blocks_t = [
-            [self._blocks[i][j].transpose() for i in range(self._block_shape[0])]
-            for j in range(self._block_shape[1])
-        ]
+        blocks_t = [[self._blocks[i][j].transpose() for i in range(self._block_shape[0])] for j in range(self._block_shape[1])]
 
         return BlockMatrix(blocks_t)
 
@@ -193,13 +178,9 @@ class BlockMatrix2x2(LinearOperator):
         self.C = utils.as_linop(C)
         self.D = utils.as_linop(D)
 
-        dtype = reduce(
-            jnp.promote_types, (self.A.dtype, self.B.dtype, self.C.dtype, self.D.dtype)
-        )
+        dtype = reduce(jnp.promote_types, (self.A.dtype, self.B.dtype, self.C.dtype, self.D.dtype))
 
-        super().__init__(
-            shape=(A.shape[0] + D.shape[0], A.shape[1] + D.shape[1]), dtype=dtype
-        )
+        super().__init__(shape=(A.shape[0] + D.shape[0], A.shape[1] + D.shape[1]), dtype=dtype)
 
     def _split_input(self, arr: jnp.ndarray) -> jnp.ndarray:
         return jnp.split(arr, [self.A.shape[1]], axis=-2)
@@ -270,16 +251,12 @@ class BlockDiagonal(LinearOperator):
             raise ValueError(msg)
 
         self.blocks = [utils.as_linop(block) for block in blocks]
-        self._all_blocks_square = all(
-            block.shape[0] == block.shape[1] for block in blocks
-        )
+        self._all_blocks_square = all(block.shape[0] == block.shape[1] for block in blocks)
 
         dtype = reduce(jnp.promote_types, (block.dtype for block in blocks))
         shape_0 = sum(block.shape[0] for block in blocks)
         shape_1 = sum(block.shape[1] for block in blocks)
-        self.split_indices = tuple(
-            jnp.array([block.shape[1] for block in blocks]).cumsum()[:-1]
-        )
+        self.split_indices = tuple(jnp.array([block.shape[1] for block in blocks]).cumsum()[:-1])
 
         super().__init__((shape_0, shape_1), dtype)
 
@@ -288,10 +265,7 @@ class BlockDiagonal(LinearOperator):
 
     def _matmul(self, x: jax.Array) -> jax.Array:
         res = jnp.concatenate(
-            [
-                block @ cur_x
-                for block, cur_x in zip(self.blocks, self._split_input(x), strict=False)
-            ],
+            [block @ cur_x for block, cur_x in zip(self.blocks, self._split_input(x), strict=False)],
             axis=-2,
         )
         return res

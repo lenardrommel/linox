@@ -6,7 +6,7 @@ from linox import Matrix
 from linox.api import slogdet, solve, sqrt
 
 
-def test_slq_logdet_approx():
+def test_sql_logdet_approx():
     key = jax.random.PRNGKey(0)
     n = 50
     # Symmetric positive definite matrix
@@ -17,11 +17,11 @@ def test_slq_logdet_approx():
 
     true_logdet = jnp.sum(jnp.log(diag))
 
-    sign, approx = slogdet(A, method="slq", key=key, num_samples=30, m=20)
+    sign, approx = slogdet(A, method="sql", key=key, num_samples=30, m=20)
 
     assert sign == 1.0
     rel_err = jnp.abs(approx - true_logdet) / true_logdet
-    # SLQ is stochastic, 20% err is a safe bound for small samples
+    # SQL is stochastic, 20% err is a safe bound for small samples
     assert rel_err < 0.2
 
 def test_lsmr_solve():
@@ -165,7 +165,7 @@ def test_lanczos_matrix_function_survives_breakdown():
     others.
     """
     from linox import Diagonal, Identity
-    from linox.linalg.approx.slq import slq_logdet
+    from linox.linalg.approx.sql import sql_logdet
 
     key = jax.random.PRNGKey(0)
 
@@ -176,7 +176,7 @@ def test_lanczos_matrix_function_survives_breakdown():
     ]:
         # num_iters deliberately exceeds the Krylov dimension (which is 1).
         for m in (5, 20, 30):
-            est, _std = slq_logdet(op, key, num_samples=5, m=m)
+            est, _std = sql_logdet(op, key, num_samples=5, m=m)
             assert jnp.isfinite(est), f"{op} with m={m} produced {est}"
             assert jnp.abs(est - expected) < 1e-6
 

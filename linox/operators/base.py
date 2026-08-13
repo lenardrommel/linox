@@ -123,9 +123,7 @@ class LinearOperator:
         return False
 
     def __repr__(self) -> str:
-        return (
-            f"<{self.__class__.__name__} with shape={self.shape}, dtype={self.dtype}>"
-        )
+        return f"<{self.__class__.__name__} with shape={self.shape}, dtype={self.dtype}>"
 
     def graph(self, **kwargs):
         """Return this operator's structure as a tree of :class:`LinOpNode`."""
@@ -165,7 +163,6 @@ class LinearOperator:
     def _matmul(self, other: jnp.ndarray) -> jnp.ndarray:
         return self._todense() @ other
 
-
     def transpose(self) -> "LinearOperator":
         """Return the transpose of this operator."""
         return self._todense().swapaxes(-1, -2)
@@ -195,9 +192,7 @@ class LinearOperator:
 
         return lneg(self)
 
-    def __add__(
-        self, other: "LinearOperator"
-    ) -> "LinearOperator":  # Here the package uses a BinaryOperandType
+    def __add__(self, other: "LinearOperator") -> "LinearOperator":  # Here the package uses a BinaryOperandType
         from .arithmetic import ladd
 
         return ladd(self, other)
@@ -237,6 +232,7 @@ class LinearOperator:
 
     def __matmul__(self, other: BinaryOperandType) -> "LinearOperator":
         from .arithmetic import lmatmul
+
         flatten = False
         operand = other
         if isinstance(other, (jax.Array, np.ndarray)):
@@ -261,15 +257,11 @@ class LinearOperator:
     def __rmatmul__(self, other: BinaryOperandType) -> "LinearOperator":
         from linox.operators.arithmetic import lmatmul
 
-
         # lazy evaluation
         isLazyEvaluation = True
 
         if other.shape[-1] != self.shape[-2]:
-            msg = (
-                f"expected other.shape[-1] to be {other.shape[-1]}, "
-                f"got {self.shape[-2]} instead."
-            )
+            msg = f"expected other.shape[-1] to be {other.shape[-1]}, got {self.shape[-2]} instead."
             raise ValueError(msg)
 
         if len(other.shape) > 2:
@@ -281,11 +273,7 @@ class LinearOperator:
             isLazyEvaluation = False
 
         res = lmatmul(other, self)
-        return (
-            res
-            if isLazyEvaluation
-            else (res[0, :] if isinstance(res, jnp.ndarray) else res._todense()[0])
-        )
+        return res if isLazyEvaluation else (res[0, :] if isinstance(res, jnp.ndarray) else res._todense()[0])
 
     def __call__(self, arr: BinaryOperandType) -> "LinearOperator":
         """Apply this operator, equivalent to ``self @ arr``."""

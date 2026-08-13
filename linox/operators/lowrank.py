@@ -47,9 +47,7 @@ class LowRank(LinearOperator):
         V: Right factor matrix (optional, defaults to U)
     """
 
-    def __init__(
-        self, U: jax.Array, S: jax.Array | None = None, V: jax.Array | None = None
-    ) -> None:
+    def __init__(self, U: jax.Array, S: jax.Array | None = None, V: jax.Array | None = None) -> None:
         # Check shapes
         if S is not None:
             assert U.shape[-1] == S.shape[-1]
@@ -299,10 +297,7 @@ class PositiveDiagonalPlusSymmetricLowRank(AddLinearOperator):
     def _id_plus_low_rank(self) -> IsotropicScalingPlusSymmetricLowRank:
         """1 + a (D^{-1/2} U) S (D^{-1/2} U)^T = D^{-1/2} (D + a U S U^T) D^{-1/2}."""
         U, sqrt_S, _ = jnp.linalg.svd(
-            (
-                (self.low_rank.U * jnp.sqrt(self.low_rank.S))
-                / jnp.sqrt(self._diagonal.diag[:, None])
-            ),
+            ((self.low_rank.U * jnp.sqrt(self.low_rank.S)) / jnp.sqrt(self._diagonal.diag[:, None])),
             full_matrices=False,
             compute_uv=True,
         )
@@ -347,9 +342,7 @@ def _(A: PositiveDiagonalPlusSymmetricLowRank) -> PositiveDiagonalPlusSymmetricL
 
     D_inv = linverse(A.diagonal)
 
-    schur = A.low_rank_scale * A.low_rank.U.T @ D_inv @ A.low_rank.U + jnp.diag(
-        1 / A.low_rank.S
-    )
+    schur = A.low_rank_scale * A.low_rank.U.T @ D_inv @ A.low_rank.U + jnp.diag(1 / A.low_rank.S)
     schur_eigvals, schur_eigvecs = jnp.linalg.eigh(schur)
 
     # Compute eigendecomposition of (D^{-1} U schur^{-1/2}) (D^{-1} U schur^{-1/2})^T

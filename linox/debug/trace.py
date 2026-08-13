@@ -32,7 +32,7 @@ class TraceReport:
             for ev in self.dense_ops[:10]:
                 s.append(f"  {ev.msg} (Shape: {ev.shape})")
             if len(self.dense_ops) > 10:
-                s.append(f"  ... (+{len(self.dense_ops)-10} more)")
+                s.append(f"  ... (+{len(self.dense_ops) - 10} more)")
         return "\n".join(s)
 
 
@@ -58,7 +58,7 @@ class TraceContext:
         # Usually hooks are exclusive or chained manually.
         # For now, simplistic exclusive (with manual chain if needed, but not implemented).
         if self._prev_hook:
-             self._prev_hook(event)
+            self._prev_hook(event)
 
     @property
     def report(self) -> TraceReport:

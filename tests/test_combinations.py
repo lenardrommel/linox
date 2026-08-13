@@ -155,13 +155,13 @@ def _kronecker_strategy(
         (op1, dense1), (op2, dense2) = pair
         return linox.Kronecker(op1, op2), jnp.kron(dense1, dense2)
 
-    small_strat = st.one_of(
+    small_strategy = st.one_of(
         _matrix_strategy(k),
         _diagonal_strategy(k),
         st.just((linox.Identity((k,), dtype=DTYPE), jnp.eye(k, dtype=DTYPE))),
     )
 
-    return st.tuples(small_strat, small_strat).map(_build_kron)
+    return st.tuples(small_strategy, small_strategy).map(_build_kron)
 
 
 def _block_diagonal_strategy(
@@ -231,7 +231,7 @@ def _block_matrix_2x2_strategy(
         return op, dense
 
     # Create simple strategies for each block
-    A_strat = st.one_of(
+    A_strategy = st.one_of(
         _diagonal_strategy(n1),
         arrays(np.float32, (n1, n1), elements=SMALL_FLOATS).map(
             lambda arr: (
@@ -240,19 +240,19 @@ def _block_matrix_2x2_strategy(
             )
         ),
     )
-    B_strat = arrays(np.float32, (n1, n2), elements=SMALL_FLOATS).map(
+    B_strategy = arrays(np.float32, (n1, n2), elements=SMALL_FLOATS).map(
         lambda arr: (
             linox.Matrix(jnp.asarray(arr, dtype=DTYPE)),
             jnp.asarray(arr, dtype=DTYPE),
         )
     )
-    C_strat = arrays(np.float32, (n2, n1), elements=SMALL_FLOATS).map(
+    C_strategy = arrays(np.float32, (n2, n1), elements=SMALL_FLOATS).map(
         lambda arr: (
             linox.Matrix(jnp.asarray(arr, dtype=DTYPE)),
             jnp.asarray(arr, dtype=DTYPE),
         )
     )
-    D_strat = st.one_of(
+    D_strategy = st.one_of(
         _diagonal_strategy(n2),
         arrays(np.float32, (n2, n2), elements=SMALL_FLOATS).map(
             lambda arr: (
@@ -262,7 +262,7 @@ def _block_matrix_2x2_strategy(
         ),
     )
 
-    return st.tuples(A_strat, B_strat, C_strat, D_strat).map(_build_2x2)
+    return st.tuples(A_strategy, B_strategy, C_strategy, D_strategy).map(_build_2x2)
 
 
 def _base_operator_strategy(

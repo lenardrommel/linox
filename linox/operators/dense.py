@@ -66,9 +66,7 @@ class Matrix(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(
-        cls, aux_data: dict[str, any], children: tuple[any, ...]
-    ) -> "Matrix":
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Matrix":
         """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         (A,) = children
@@ -97,7 +95,7 @@ def _(a: Matrix, b: Matrix) -> Matrix:
 
 
 @lmul.dispatch
-def _(a: float, b: Matrix) -> Matrix: # Fixed type hint from ScalarType to float/complex potentially, but keeping simple for now
+def _(a: float, b: Matrix) -> Matrix:  # Fixed type hint from ScalarType to float/complex potentially, but keeping simple for now
     return Matrix(a * b.A)
 
 

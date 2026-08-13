@@ -1,6 +1,5 @@
 """Lazy matrix functions ``f(A)`` of a linear operator."""
 
-
 from collections.abc import Callable
 
 import jax
@@ -44,16 +43,12 @@ class MatrixFunctionLinearOperator(LinearOperator):
         if method == "lanczos":
 
             def fn(col):
-                return lanczos_matrix_function(
-                    self.operator, col, self.func, self.num_iters
-                )
+                return lanczos_matrix_function(self.operator, col, self.func, self.num_iters)
 
         elif method == "arnoldi":
 
             def fn(col):
-                return arnoldi_matrix_function(
-                    self.operator, col, self.func, self.num_iters
-                )
+                return arnoldi_matrix_function(self.operator, col, self.func, self.num_iters)
         else:
             msg = f"Unknown MatrixFunction method: {method}"
             raise ValueError(msg)
@@ -68,8 +63,8 @@ class MatrixFunctionLinearOperator(LinearOperator):
         A_dense = self.operator.todense()
         # For symmetric A, use eigh
         if getattr(self.operator, "is_symmetric", False):
-             w, V = jax.scipy.linalg.eigh(A_dense)
-             return V @ jnp.diag(self.func(w)) @ V.T
+            w, V = jax.scipy.linalg.eigh(A_dense)
+            return V @ jnp.diag(self.func(w)) @ V.T
 
         # General case (requires scipy on CPU usually, or approx)
         # JAX doesn't have partial funm generically for dense except via eig/eigh
@@ -84,6 +79,4 @@ class MatrixFunctionLinearOperator(LinearOperator):
         # If A is symmetric, A=A^T, f(A) symmetric.
         # If A normal, yes.
         # Approximation: return MatrixFunction(A.T, func)
-        return MatrixFunctionLinearOperator(
-            self.operator.T, self.func, self.method, self.num_iters, self.dtype
-        )
+        return MatrixFunctionLinearOperator(self.operator.T, self.func, self.method, self.num_iters, self.dtype)

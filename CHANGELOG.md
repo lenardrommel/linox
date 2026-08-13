@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Approximate methods integration**:
   - Lanczos methods for eigenvalue problems and matrix functions
   - Hutchinson trace estimation with configurable probes
-  - Stochastic Lanczos Quadrature (SLQ) for log-determinant
+  - Stochastic Lanczos Quadrature (SQL) for log-determinant
   - LSMR iterative solver for large sparse systems
 - **Introspection system**:
   - `analyze(op)` — Analyze operator structure and return `OperatorIR`

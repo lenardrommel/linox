@@ -25,7 +25,7 @@ from .linalg.approx.lanczos import (
     lanczos_tridiag,
 )
 from .linalg.approx.lsmr import lsmr_solve
-from .linalg.approx.slq import slq, slq_logdet
+from .linalg.approx.sql import sql, sql_logdet
 from .linalg.functions import stochastic_lanczos_quadrature
 from .linalg.solution import RESULTS, LinearSolveError, Solution
 from .linalg.solution import RESULTS as _RESULTS
@@ -109,7 +109,7 @@ from .utils.validation import ValidationError, validate
 
 # Type aliases
 ArrayLike = jax.Array | Any
-LinearyOperatorLike = LinearOperator | ArrayLike
+LinearlyOperatorLike = LinearOperator | ArrayLike
 Int = int
 
 
@@ -205,8 +205,8 @@ __all__ = [
     "qr",
     "set_debug",
     "slogdet",
-    "slq",
-    "slq_logdet",
+    "sql",
+    "sql_logdet",
     "solve",
     "sqrt",
     "stochastic_lanczos_quadrature",
@@ -236,7 +236,7 @@ def as_linop(a: Any) -> LinearOperator:
     return _array_module.as_linop(a)
 
 
-def todense(a: LinearyOperatorLike) -> jax.Array:
+def todense(a: LinearlyOperatorLike) -> jax.Array:
     """Convert operator to dense matrix."""
     return _array_module.todense(a)
 
@@ -292,32 +292,32 @@ def diag(v: jax.Array) -> LinearOperator:
 # --- Structure / Arithmetic wrappers ---
 
 
-def transpose(a: LinearyOperatorLike) -> LinearOperator:
+def transpose(a: LinearlyOperatorLike) -> LinearOperator:
     """Return the transpose of a linear operator."""
     return ensure_linop(a).T
 
 
-def inv(a: LinearyOperatorLike) -> LinearOperator:
+def inv(a: LinearlyOperatorLike) -> LinearOperator:
     """Compute the inverse of a linear operator (lazy)."""
     return Inverse(ensure_linop(a))
 
 
-def pinv(a: LinearyOperatorLike) -> LinearOperator:
+def pinv(a: LinearlyOperatorLike) -> LinearOperator:
     """Compute the pseudo-inverse of a linear operator (lazy)."""
     return PseudoInverse(ensure_linop(a))
 
 
-def kron(a: LinearyOperatorLike, b: LinearyOperatorLike) -> LinearOperator:
+def kron(a: LinearlyOperatorLike, b: LinearlyOperatorLike) -> LinearOperator:
     """Compute the Kronecker product of two linear operators."""
     return Kronecker(ensure_linop(a), ensure_linop(b))
 
 
-def block_diag(*opers: LinearyOperatorLike) -> LinearOperator:
+def block_diag(*opers: LinearlyOperatorLike) -> LinearOperator:
     """Construct a block diagonal operator from input operators."""
     return BlockDiagonal(*(ensure_linop(op) for op in opers))
 
 
-def bmat(blocks: list[list[LinearyOperatorLike]]) -> LinearOperator:
+def bmat(blocks: list[list[LinearlyOperatorLike]]) -> LinearOperator:
     """Construct a block matrix from a list of lists of operators."""
     linop_blocks = [[ensure_linop(op) for op in row] for row in blocks]
     return BlockMatrix(linop_blocks)
@@ -330,16 +330,14 @@ def toeplitz(c: jax.Array, r: jax.Array | None = None) -> LinearOperator:
     """
     if r is not None:
         msg = "Asymmetric Toeplitz not yet supported via simple wrapper."
-        raise NotImplementedError(
-            msg
-        )
+        raise NotImplementedError(msg)
     return Toeplitz(c)
 
 
 # --- Linear Algebra Functions (Canonical Wrappers) ---
 
 
-def trace(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> jax.Array:
+def trace(a: LinearlyOperatorLike, method: str = "auto", **kwargs) -> jax.Array:
     """Compute the trace of a linear operator.
 
     Args:
@@ -360,37 +358,37 @@ def trace(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> jax.Array:
     return _trace_module.trace(op, **kwargs)
 
 
-def det(a: LinearyOperatorLike) -> jax.Array:
+def det(a: LinearlyOperatorLike) -> jax.Array:
     """Compute determinant."""
     from linox.linalg.determinants import det as _det
+
     return _det(ensure_linop(a))
 
 
-def slogdet(
-    a: LinearyOperatorLike, method: str = "auto", **kwargs
-) -> tuple[jax.Array, jax.Array]:
+def slogdet(a: LinearlyOperatorLike, method: str = "auto", **kwargs) -> tuple[jax.Array, jax.Array]:
     """Compute sign and log of determinant.
 
     Args:
         a: Linear operator.
-        method: Computation method ("auto", "exact", "slq").
+        method: Computation method ("auto", "exact", "sql").
     """
     from linox.linalg.determinants import slogdet as _slogdet
 
     op = ensure_linop(a)
     m = config.resolve_method("slogdet", op, method)
 
-    # As in `trace`: SLQ needs a PRNG key, so an `auto` resolution that lands
+    # As in `trace`: SQL needs a PRNG key, so an `auto` resolution that lands
     # there without one falls back to the exact path.
-    if m == "slq" and method == "auto" and kwargs.get("key") is None:
+    if m == "sql" and method == "auto" and kwargs.get("key") is None:
         m = "exact"
 
     return _slogdet(op, method=m, **kwargs)
 
 
-def logdet(a: LinearyOperatorLike) -> jax.Array:
+def logdet(a: LinearlyOperatorLike) -> jax.Array:
     """Compute log of determinant."""
     from linox.linalg.determinants import logdet as _logdet
+
     return _logdet(ensure_linop(a))
 
 
@@ -440,7 +438,7 @@ _ITERATIVE_RESIDUAL_RTOL = 1e-2
 
 
 def solve(
-    a: LinearyOperatorLike,
+    a: LinearlyOperatorLike,
     b: jax.Array,
     method: str = "auto",
     *,
@@ -530,14 +528,12 @@ def _lsmr_result(istop: jax.Array) -> jax.Array:
     """Map an LSMR termination code onto a :class:`RESULTS` value."""
     result = jnp.int32(_RESULTS.successful)
     for code, outcome in _LSMR_RESULT_FROM_ISTOP.items():
-        result = jnp.where(
-            jnp.asarray(istop) == code, jnp.int32(outcome), result
-        )
+        result = jnp.where(jnp.asarray(istop) == code, jnp.int32(outcome), result)
     return result
 
 
 def eigh(
-    a: LinearyOperatorLike,
+    a: LinearlyOperatorLike,
     k: Int | None = None,
     subset_by_index: tuple[Int, Int] | None = None,
     method: str = "auto",
@@ -552,12 +548,10 @@ def eigh(
         method: "exact" or "lanczos".
     """
     m = config.resolve_method("eigh", ensure_linop(a), method)
-    return _spectral_module.eigh(
-        ensure_linop(a), k=k, subset_by_index=subset_by_index, method=m, **kwargs
-    )
+    return _spectral_module.eigh(ensure_linop(a), k=k, subset_by_index=subset_by_index, method=m, **kwargs)
 
 
-def svd(a: LinearyOperatorLike, **kwargs) -> tuple[jax.Array, jax.Array, jax.Array]:
+def svd(a: LinearlyOperatorLike, **kwargs) -> tuple[jax.Array, jax.Array, jax.Array]:
     """Singular Value Decomposition."""
     return _svd_impl(ensure_linop(a), **kwargs)
 
@@ -565,7 +559,7 @@ def svd(a: LinearyOperatorLike, **kwargs) -> tuple[jax.Array, jax.Array, jax.Arr
 # --- Element-wise / Function Application ---
 
 
-def sqrt(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> LinearOperator:
+def sqrt(a: LinearlyOperatorLike, method: str = "auto", **kwargs) -> LinearOperator:
     """Matrix square root factor.
 
     Returns an operator ``S`` satisfying ``S @ S.T == a``. Note this is a
@@ -596,17 +590,17 @@ def sqrt(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> LinearOperat
     return _lsqrt_impl(op)
 
 
-def log(a: LinearyOperatorLike, **kwargs) -> LinearOperator:
+def log(a: LinearlyOperatorLike, **kwargs) -> LinearOperator:
     """Matrix logarithm."""
     return _functions_module.log(ensure_linop(a), **kwargs)
 
 
-def exp(a: LinearyOperatorLike, **kwargs) -> LinearOperator:
+def exp(a: LinearlyOperatorLike, **kwargs) -> LinearOperator:
     """Matrix exponential."""
     return _functions_module.exp(ensure_linop(a), **kwargs)
 
 
-def pow(a: LinearyOperatorLike, p: float, **kwargs) -> LinearOperator:
+def pow(a: LinearlyOperatorLike, p: float, **kwargs) -> LinearOperator:
     """Matrix power."""
     return _functions_module.pow(ensure_linop(a), p, **kwargs)
 
@@ -621,7 +615,7 @@ linverse = linverse
 # --- Implementation details for wrappers ---
 
 
-def inverse(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> LinearOperator:
+def inverse(a: LinearlyOperatorLike, method: str = "auto", **kwargs) -> LinearOperator:
     """Compute the inverse of a linear operator.
 
     Args:
@@ -642,7 +636,7 @@ def inverse(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> LinearOpe
     return InverseLinearOperator(op, method=m, solver_options=kwargs)
 
 
-def pinverse(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> LinearOperator:
+def pinverse(a: LinearlyOperatorLike, method: str = "auto", **kwargs) -> LinearOperator:
     """Compute the pseudo-inverse of a linear operator."""
     op = ensure_linop(a)
     # Similar method resolution could apply

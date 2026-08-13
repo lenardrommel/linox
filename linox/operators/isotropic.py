@@ -178,9 +178,7 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
         if self._A.shape[-1] != self._A.shape[-2]:
             msg = "A must be a square matrix."
             raise ValueError(msg)
-        self._s = ScaledLinearOperator(
-            Identity(self._A.shape[0], dtype=self._A.dtype), s
-        )
+        self._s = ScaledLinearOperator(Identity(self._A.shape[0], dtype=self._A.dtype), s)
         self._Q = None
         self._S = None
         self._projector = None
@@ -247,9 +245,7 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
         """Orthogonal complement projector I - Q Q^T (cached)."""
         self._ensure_eigh()
         if self._complement is None:
-            self._complement = (
-                Identity(self.shape[0], dtype=self._A.dtype) - self.projector
-            )
+            self._complement = Identity(self.shape[0], dtype=self._A.dtype) - self.projector
         return self._complement
 
     def _matmul(self, arr: jax.Array):
@@ -407,9 +403,7 @@ def _(
     s = a.s.scalar
 
     # Recursively compute trace of A
-    trace_A, std_A = ltrace(
-        a.operator, key=key, num_samples=num_samples, distribution=distribution
-    )
+    trace_A, std_A = ltrace(a.operator, key=key, num_samples=num_samples, distribution=distribution)
 
     trace_value = s * n + trace_A
     trace_std = std_A  # std of constant + random variable = std of random variable

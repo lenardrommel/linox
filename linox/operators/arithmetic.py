@@ -35,6 +35,7 @@ from linox.operators.base import LinearOperator
 
 ArithmeticType = LinearOperator | jax.Array
 
+
 # TODO: Move to utils
 def _deprecated_l_prefix(func_name: str):
     """Create deprecation warning for functions with 'l' prefix."""
@@ -43,8 +44,7 @@ def _deprecated_l_prefix(func_name: str):
         @wraps(func)
         def wrapper(*args, **kwargs):
             warnings.warn(
-                f"'{func_name}' is deprecated and will be removed in linox 0.0.3. "
-                f"Use '{func_name[1:]}' instead.",
+                f"'{func_name}' is deprecated and will be removed in linox 0.0.3. Use '{func_name[1:]}' instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -64,12 +64,14 @@ def _rhs_rows(b: jax.Array) -> int:
     msg = f"Unsupported rhs ndim: {b.ndim}"
     raise ValueError(msg)
 
+
 # TODO: Move to utils
 def _as_2d_rhs(b: jax.Array) -> tuple[jax.Array, bool]:
     """Return (b2d, squeeze) where b2d has shape (..., m, k)."""
     if b.ndim == 1:
         return b[:, None], True
     return b, False
+
 
 # TODO: Move to utils
 def x_in_y(x: LinearOperator, Y: tuple[type, ...]) -> bool:
@@ -78,12 +80,14 @@ def x_in_y(x: LinearOperator, Y: tuple[type, ...]) -> bool:
         return isinstance(x.operator, Y)
     return isinstance(x, Y)
 
+
 # TODO: Move to utils
 def get_scale_and_op(x: LinearOperator) -> tuple[jax.Array, LinearOperator]:
     """Return (scale, op) for x."""
     if isinstance(x, ScaledLinearOperator):
         return x.scalar, x.operator
     return jnp.array(1.0, dtype=x.dtype), x
+
 
 # TODO: Move to utils
 def smart_add(*operators: LinearOperator) -> LinearOperator:
@@ -160,27 +164,19 @@ def smart_add(*operators: LinearOperator) -> LinearOperator:
         diag_op = None
         lr_op = None
 
-        if isinstance(op1, Diagonal) and isinstance(
-            op2, (SymmetricLowRank, ScaledLinearOperator)
-        ):
+        if isinstance(op1, Diagonal) and isinstance(op2, (SymmetricLowRank, ScaledLinearOperator)):
             if isinstance(op2, SymmetricLowRank):
                 diag_op, lr_op = op1, op2
                 alpha = 1.0
-            elif isinstance(op2, ScaledLinearOperator) and isinstance(
-                op2.operator, SymmetricLowRank
-            ):
+            elif isinstance(op2, ScaledLinearOperator) and isinstance(op2.operator, SymmetricLowRank):
                 diag_op, lr_op = op1, op2.operator
                 alpha = op2.scalar
 
-        elif isinstance(op2, Diagonal) and isinstance(
-            op1, (SymmetricLowRank, ScaledLinearOperator)
-        ):
+        elif isinstance(op2, Diagonal) and isinstance(op1, (SymmetricLowRank, ScaledLinearOperator)):
             if isinstance(op1, SymmetricLowRank):
                 diag_op, lr_op = op2, op1
                 alpha = 1.0
-            elif isinstance(op1, ScaledLinearOperator) and isinstance(
-                op1.operator, SymmetricLowRank
-            ):
+            elif isinstance(op1, ScaledLinearOperator) and isinstance(op1.operator, SymmetricLowRank):
                 diag_op, lr_op = op2, op1.operator
                 alpha = op1.scalar
 
@@ -190,9 +186,7 @@ def smart_add(*operators: LinearOperator) -> LinearOperator:
             # We can check min(diag) > 0 ideally, or just optimistically use it
             # and let it fail/warn if negative?
             # For now, simplistic check or valid assumption.
-            return PositiveDiagonalPlusSymmetricLowRank(
-                diag_op, lr_op, low_rank_scale=alpha
-            )
+            return PositiveDiagonalPlusSymmetricLowRank(diag_op, lr_op, low_rank_scale=alpha)
 
     # Default fallback
     return AddLinearOperator(*non_zero_ops)
@@ -251,7 +245,7 @@ def smart_matmul(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     # We check if b is the transpose of a (by structure or property)
     # A.T matches b?
     # Note: explicit .T on Matrix creates a NEW object, so 'is' check fails.
-    # But TranposedLinearOperator(A) matches.
+    # But TransposedLinearOperator(A) matches.
     # For Matrix, we might need to check underlying array (expensive?).
     # For now, handle TransposedLinearOperator structure.
     # Case 1: A @ A.T
@@ -471,13 +465,11 @@ def lsvd(
         Inspired by matfree library (https://github.com/pnkraemer/matfree).
     """
     warnings.warn(
-        "lsvd is deprecated and will be removed in a future version. "
-        "Use svd(a, k=k) instead.",
+        "lsvd is deprecated and will be removed in a future version. Use svd(a, k=k) instead.",
         DeprecationWarning,
         stacklevel=2,
     )
     return svd(a, k=k, num_iters=num_iters, u0=u0)
-
 
 
 @plum.dispatch
@@ -490,8 +482,7 @@ def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
         R: Upper triangular matrix.
     """
     warnings.warn(
-        "lqr is deprecated and will be removed in a future version. "
-        "Use qr(a) instead.",
+        "lqr is deprecated and will be removed in a future version. Use qr(a) instead.",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -519,6 +510,7 @@ def lsolve(a: LinearOperator, b: jax.Array, method: str = "exact", **kwargs) -> 
     ):
         if method == "lsmr":
             from linox.linalg.approx.lsmr import lsmr_solve
+
             x, _ = lsmr_solve(a, b, **kwargs)
             return x
 
@@ -1122,9 +1114,7 @@ class AddLinearOperator(LinearOperator):
 
     def __init__(self, *operator_list: ArithmeticType) -> None:
         self.operator_list = [
-            utils.as_linop(o)
-            if isinstance(op, AddLinearOperator)
-            else utils.as_linop(op)
+            utils.as_linop(o) if isinstance(op, AddLinearOperator) else utils.as_linop(op)
             for op in operator_list
             for o in (op.operator_list if isinstance(op, AddLinearOperator) else [op])
         ]
@@ -1191,9 +1181,7 @@ def _(a: "ProductLinearOperator") -> jax.Array:
         diags = []
         for op in a.operator_list:
             if isinstance(op, ScaledLinearOperator):
-                diags.append(
-                    jnp.asarray(op.scalar) * jnp.asarray(diagonal(op.operator))
-                )
+                diags.append(jnp.asarray(op.scalar) * jnp.asarray(diagonal(op.operator)))
             else:
                 diags.append(jnp.asarray(diagonal(op)))
         return reduce(operator.mul, diags)
@@ -1221,33 +1209,27 @@ class ProductLinearOperator(LinearOperator):
 
     def __init__(self, *operator_list: LinearOperator) -> None:
         self.operator_list = [
-            utils.as_linop(o)
-            if isinstance(op, ProductLinearOperator)
-            else utils.as_linop(op)
+            utils.as_linop(o) if isinstance(op, ProductLinearOperator) else utils.as_linop(op)
             for op in operator_list
-            for o in (
-                op.operator_list if isinstance(op, ProductLinearOperator) else [op]
-            )
+            for o in (op.operator_list if isinstance(op, ProductLinearOperator) else [op])
         ]
         batch_shape = _broadcast_shapes([op.shape[:-2] for op in self.operator_list])
         self.__check_init__()
         result_dtype = jnp.result_type(*[op.dtype for op in self.operator_list])
-        shape = utils.as_shape((
-            *batch_shape,
-            self.operator_list[0].shape[-2],
-            self.operator_list[-1].shape[-1],
-        ))
+        shape = utils.as_shape(
+            (
+                *batch_shape,
+                self.operator_list[0].shape[-2],
+                self.operator_list[-1].shape[-1],
+            )
+        )
         super().__init__(shape=shape, dtype=result_dtype)
 
     def __check_init__(self) -> None:
         for i, op1 in enumerate(self.operator_list[:-1]):
             op2 = self.operator_list[i + 1]
             if op1.shape[-1] != op2.shape[-2]:
-                msg = (
-                    f"Shape mismatch: Cannot multiply linear operators with shapes "
-                    f"operator 1: ({op1.shape}) "
-                    f"operator 2: ({op2.shape})"
-                )
+                msg = f"Shape mismatch: Cannot multiply linear operators with shapes operator 1: ({op1.shape}) operator 2: ({op2.shape})"
                 raise ValueError(msg)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
@@ -1255,9 +1237,7 @@ class ProductLinearOperator(LinearOperator):
 
     def transpose(self) -> "ProductLinearOperator":
         """Return the transpose of this operator."""
-        return ProductLinearOperator(
-            *(op.transpose() for op in reversed(self.operator_list))
-        )
+        return ProductLinearOperator(*(op.transpose() for op in reversed(self.operator_list)))
 
     def _todense(self) -> jax.Array:
         return reduce(
@@ -1275,9 +1255,7 @@ class ProductLinearOperator(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(
-        cls, aux_data: dict[str, any], children: tuple[any, ...]
-    ) -> "ProductLinearOperator":
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "ProductLinearOperator":
         """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         return cls(*children)
@@ -1416,13 +1394,12 @@ class InverseLinearOperator(LinearOperator):
 
         if self.method == "lsmr":
             from linox.linalg.approx.lsmr import lsmr_solve
+
             x, _ = lsmr_solve(self.operator, arr, **self.solver_options)
             return x
 
         if self.method in {"cg", "conjugate_gradient"}:
-            x, _ = jax.scipy.sparse.linalg.cg(
-                self.operator, arr, **self.solver_options
-            )
+            x, _ = jax.scipy.sparse.linalg.cg(self.operator, arr, **self.solver_options)
             return x
 
         # Fallback

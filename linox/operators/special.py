@@ -179,7 +179,7 @@ def _(
     """Matrix exponential of identity: exp(I) = e * I."""
     if v is None:
         # Return lazy operator: e * I
-        return Scalar(jnp.exp(1.0).astype(a.dtype), 1.0) # Actually Scalar constructor expects scalar value.
+        return Scalar(jnp.exp(1.0).astype(a.dtype), 1.0)  # Actually Scalar constructor expects scalar value.
         # Wait, Scalar constructor is `Scalar(scalar)`. It infers shape from nothing? No, Scalar(scalar) has shape=().
         # Scalar operator represents alpha * I.
         # The Scalar class definition below takes `scalar`.
@@ -231,7 +231,7 @@ def _(
 # --------------------------------------------------------------------------- #
 
 
-# Special behavior for the diagonal, i.e. reutrn jnp.diag(self.diag)
+# Special behavior for the diagonal, i.e. return jnp.diag(self.diag)
 class Scalar(LinearOperator):
     r"""A linear operator defined via a scalar.
 
@@ -252,7 +252,7 @@ class Scalar(LinearOperator):
         return self.scalar * vector
 
     def _todense(self) -> jax.Array:
-        return self.scalar # Scalar todense returns the scalar array? Or should it expand?
+        return self.scalar  # Scalar todense returns the scalar array? Or should it expand?
         # _matrix.py said `return self`. Wait, self is the operator. returning self in _todense is weird unless it means the scalar value?
         # Ah, lines 622 in _matrix.py: `return self`. This looks like a bug in original code or self.scalar?
         # Wait, if I return self (the LinearOperator instance), that's definitely wrong for `todense`.
@@ -377,9 +377,7 @@ class Zero(LinearOperator):
 
     def transpose(self) -> "Zero":
         """Return transposed zero operator."""
-        return Zero(
-            shape=(*self.shape[:-2], self.shape[-1], self.shape[-2]), dtype=self.dtype
-        )
+        return Zero(shape=(*self.shape[:-2], self.shape[-1], self.shape[-2]), dtype=self.dtype)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         """Flatten for JAX pytree registration."""
@@ -492,9 +490,7 @@ class Ones(LinearOperator):
 
     def transpose(self) -> "Ones":
         """Return transposed ones operator."""
-        return Ones(
-            shape=(*self.shape[:-2], self.shape[-1], self.shape[-2]), dtype=self.dtype
-        )
+        return Ones(shape=(*self.shape[:-2], self.shape[-1], self.shape[-2]), dtype=self.dtype)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         """Flatten for JAX pytree registration."""
@@ -532,9 +528,7 @@ def _(a: Matrix, b: Ones) -> Matrix:
 
 @lsub.dispatch(precedence=1)
 def _(a: Ones, b: Ones) -> Zero:
-    return Zero(
-        jnp.broadcast_shapes(a.shape, b.shape), dtype=jnp.result_type(a.dtype, b.dtype)
-    )
+    return Zero(jnp.broadcast_shapes(a.shape, b.shape), dtype=jnp.result_type(a.dtype, b.dtype))
 
 
 jax.tree_util.register_pytree_node_class(Identity)

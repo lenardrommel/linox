@@ -52,11 +52,7 @@ class Permutation(LinearOperator):
 
     def __init__(self, perm: ArrayLike, perm_inv: ArrayLike | None = None) -> None:
         self._perm = jnp.asarray(perm, dtype=jnp.int32)
-        self._perm_inv = (
-            jnp.asarray(perm_inv, dtype=jnp.int32)
-            if perm_inv is not None
-            else jnp.argsort(self._perm, axis=-1)
-        )
+        self._perm_inv = jnp.asarray(perm_inv, dtype=jnp.int32) if perm_inv is not None else jnp.argsort(self._perm, axis=-1)
         perm_size = self._perm.shape[-1]
         super().__init__(
             shape=(*self._perm.shape[:-1], perm_size, perm_size),

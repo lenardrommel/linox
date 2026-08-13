@@ -71,6 +71,4 @@ def woodbury_chol_solve(L: Matrix, d: ScalarLike | ArrayLike, v: ArrayLike):
     D_inv_v = v / (_row_broadcast(d, v) if d.ndim > 0 else d)
     D_inv_L = L / (d[:, None] if d.ndim > 0 else d)
     eye = jnp.eye(L.shape[-1])
-    return D_inv_v - D_inv_L @ jax.scipy.linalg.cho_solve(
-        (jnp.linalg.cholesky(eye + L.T @ D_inv_L), True), L.T @ D_inv_v
-    )
+    return D_inv_v - D_inv_L @ jax.scipy.linalg.cho_solve((jnp.linalg.cholesky(eye + L.T @ D_inv_L), True), L.T @ D_inv_v)

@@ -1,4 +1,5 @@
 """Linox Operators."""
+
 from .arithmetic import (
     AddLinearOperator,
     CongruenceTransform,

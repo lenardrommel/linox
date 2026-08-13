@@ -59,9 +59,7 @@ class Toeplitz(LinearOperator):
         n = self.shape[0]
         if vector.shape[-2] != n:
             msg = f"Dimension mismatch: expected size {n} at axis -2, got {vector.shape[-2]}"
-            raise ValueError(
-                msg
-            )
+            raise ValueError(msg)
 
         # Embed first row into circulant row: [v, 0, v[-1:0:-1]]
         # But for symmetric Toeplitz: [v, v[n-1:0:-1]] ?

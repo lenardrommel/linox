@@ -60,25 +60,12 @@ _MESSAGES: dict[RESULTS, str] = {
         "pass `throw=False` to accept the result as-is."
     ),
     RESULTS.breakdown: (
-        "The iterative solver broke down (a division by a near-zero quantity). "
-        "This usually means the operator is singular or badly conditioned."
+        "The iterative solver broke down (a division by a near-zero quantity). This usually means the operator is singular or badly conditioned."
     ),
-    RESULTS.stagnation: (
-        "The iterative solver stagnated: it stopped making progress before "
-        "reaching the requested tolerance."
-    ),
-    RESULTS.conlim: (
-        "The estimated condition number exceeded the solver's limit, so the "
-        "result cannot be trusted."
-    ),
-    RESULTS.nonfinite_input: (
-        "The right-hand side or operator contained NaN or infinity. The "
-        "problem lies upstream of this solve."
-    ),
-    RESULTS.nonfinite_output: (
-        "The solve produced NaN or infinite values, which usually means the "
-        "operator is singular or badly conditioned."
-    ),
+    RESULTS.stagnation: ("The iterative solver stagnated: it stopped making progress before reaching the requested tolerance."),
+    RESULTS.conlim: ("The estimated condition number exceeded the solver's limit, so the result cannot be trusted."),
+    RESULTS.nonfinite_input: ("The right-hand side or operator contained NaN or infinity. The problem lies upstream of this solve."),
+    RESULTS.nonfinite_output: ("The solve produced NaN or infinite values, which usually means the operator is singular or badly conditioned."),
 }
 
 
@@ -135,9 +122,7 @@ def residual_result(
     a finiteness check alone misses it. Costs one extra matvec, which is cheap
     next to the factorisation it is validating.
     """
-    residual = jnp.linalg.norm(
-        jnp.asarray(operator @ solution) - rhs
-    ) / jnp.maximum(jnp.linalg.norm(rhs), jnp.finfo(jnp.asarray(rhs).dtype).tiny)
+    residual = jnp.linalg.norm(jnp.asarray(operator @ solution) - rhs) / jnp.maximum(jnp.linalg.norm(rhs), jnp.finfo(jnp.asarray(rhs).dtype).tiny)
 
     nonfinite = ~jnp.all(jnp.isfinite(jnp.asarray(solution)))
     failed = nonfinite | (residual > rtol)

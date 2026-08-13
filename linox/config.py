@@ -42,7 +42,6 @@ class DebugEvent:
     phase: str | None = None  # "start" or "end"
 
 
-
 @contextlib.contextmanager
 def profile(kind: str, msg: str, **kwargs) -> None:
     """Context manager to profile an operation time."""
@@ -55,7 +54,6 @@ def profile(kind: str, msg: str, **kwargs) -> None:
         t1 = time.time()
         # emit end event with duration
         emit(DebugEvent(kind=kind, msg=msg, phase="end", t=t1, duration=t1 - t0, **kwargs))
-
 
 
 def set_debug(value: bool) -> None:
@@ -139,7 +137,7 @@ def set_default_method(operation: str, method: str) -> None:
 #: bugs (e.g. ``sqrt(a, method="lanczos")`` quietly returning the exact result).
 VALID_METHODS: dict[str, frozenset[str]] = {
     "trace": frozenset({"auto", "exact", "hutchinson"}),
-    "slogdet": frozenset({"auto", "exact", "slq"}),
+    "slogdet": frozenset({"auto", "exact", "sql"}),
     "solve": frozenset({"auto", "exact", "lsmr", "cg", "conjugate_gradient"}),
     "inverse": frozenset({"auto", "exact", "approx", "lsmr", "cg"}),
     "sqrt": frozenset({"auto", "exact", "approx", "lanczos"}),
@@ -158,10 +156,7 @@ def validate_method(operation: str, requested_method: str) -> str:
     """
     valid = VALID_METHODS.get(operation)
     if valid is not None and requested_method not in valid:
-        msg = (
-            f"Unknown method {requested_method!r} for operation {operation!r}. "
-            f"Valid methods are: {', '.join(sorted(valid))}."
-        )
+        msg = f"Unknown method {requested_method!r} for operation {operation!r}. Valid methods are: {', '.join(sorted(valid))}."
         raise ValueError(msg)
     return requested_method
 
@@ -208,10 +203,10 @@ def resolve_method(operation: str, op: AnyType, requested_method: str) -> str:
         # For large operators, default to Hutchinson
         return "hutchinson"
     if operation == "slogdet":
-        # For large operators, default to SLQ (if implemented) or fallback
-        # Currently we might not have SLQ hooked up everywhere, so be careful.
-        # But 'slq' is the intended approx backend.
-        return "slq"
+        # For large operators, default to SQL (if implemented) or fallback
+        # Currently we might not have SQL hooked up everywhere, so be careful.
+        # But 'sql' is the intended approx backend.
+        return "sql"
     if operation == "inverse":
         return "lsmr"  # Approx inverse for large scale
     if operation == "solve":

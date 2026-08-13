@@ -163,7 +163,7 @@ The underlying functions live in `linox.operators.arithmetic` (`ladd`, `lsub`,
 ### Matrix Functions
 - **`lanczos_matrix_function`**: Compute f(A)v using Lanczos for symmetric A
 - **`arnoldi_matrix_function`**: Compute f(A)v using Arnoldi for general A
-- **`stochastic_lanczos_quadrature`**: Estimate trace(f(A)) using SLQ
+- **`stochastic_lanczos_quadrature`**: Estimate trace(f(A)) using SQL
 
 ### High-Level API
 - **`ltrace(A)`**: Estimate trace of any linear operator
