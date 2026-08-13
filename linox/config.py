@@ -132,6 +132,38 @@ def set_default_method(operation: str, method: str) -> None:
     _DEFAULT_METHODS[operation] = method
 
 
+#: Method names each operation accepts. Anything outside these sets is a typo
+#: on the caller's part, and silently falling back to the default hides real
+#: bugs (e.g. ``sqrt(a, method="lanczos")`` quietly returning the exact result).
+VALID_METHODS: dict[str, frozenset[str]] = {
+    "trace": frozenset({"auto", "exact", "hutchinson"}),
+    "slogdet": frozenset({"auto", "exact", "slq"}),
+    "solve": frozenset({"auto", "exact", "lsmr", "cg", "conjugate_gradient"}),
+    "inverse": frozenset({"auto", "exact", "approx", "lsmr", "cg"}),
+    "sqrt": frozenset({"auto", "exact", "approx", "lanczos"}),
+    "eigh": frozenset({"auto", "exact", "approx", "lanczos"}),
+    "pinverse": frozenset({"auto", "exact"}),
+}
+
+
+def validate_method(operation: str, requested_method: str) -> str:
+    """Check ``requested_method`` against the methods ``operation`` supports.
+
+    Raises
+    ------
+    ValueError
+        If the method is not one this operation understands.
+    """
+    valid = VALID_METHODS.get(operation)
+    if valid is not None and requested_method not in valid:
+        msg = (
+            f"Unknown method {requested_method!r} for operation {operation!r}. "
+            f"Valid methods are: {', '.join(sorted(valid))}."
+        )
+        raise ValueError(msg)
+    return requested_method
+
+
 def resolve_method(operation: str, op: AnyType, requested_method: str) -> str:
     """Resolve the execution method based on request, config, and operator properties.
 
@@ -148,7 +180,14 @@ def resolve_method(operation: str, op: AnyType, requested_method: str) -> str:
     Returns
     -------
         The resolved method name (e.g. 'exact', 'lanczos', 'cg').
+
+    Raises
+    ------
+    ValueError
+        If ``requested_method`` is not valid for ``operation``.
     """
+    validate_method(operation, requested_method)
+
     if requested_method != "auto":
         return requested_method
 

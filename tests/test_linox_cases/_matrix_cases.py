@@ -16,7 +16,7 @@ from linox.operators.arithmetic import (
 )
 from linox.operators.diagonal import _batch_jnp_diag
 from linox.operators.isotropic import IsotropicAdditiveLinearOperator
-from linox.typing import ShapeType
+from linox._types import ShapeType
 
 DType = jnp.float32
 CaseType = tuple[LinearOperator, jax.Array]

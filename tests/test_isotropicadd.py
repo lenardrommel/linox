@@ -11,7 +11,7 @@ from linox.operators.isotropic import (
     linverse,
     lpinverse,
 )
-from linox.typing import ShapeLike, ShapeType
+from linox._types import ShapeLike, ShapeType
 from linox.utils import as_dense
 
 DType = jnp.float32

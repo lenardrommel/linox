@@ -27,6 +27,44 @@ from linox.operators.special import Identity
 jax.config.update("jax_enable_x64", True)
 
 
+def _reject_if_provably_non_symmetric(A: LinearOperator) -> None:
+    """Raise if ``A`` can be cheaply shown to be non-symmetric.
+
+    Every spectral shortcut on :class:`IsotropicAdditiveLinearOperator` goes
+    through ``jnp.linalg.eigh``, which reads only the lower triangle. Handing
+    it a non-symmetric operand therefore returns a wrong answer *silently* --
+    ``todense()`` and ``solve()`` end up disagreeing about the same operator.
+
+    This check is deliberately best-effort. It only inspects operators that
+    already hold a concrete dense array, so it never materialises a lazy or
+    matrix-free operand and never fires under ``jax.jit`` (where the entries
+    are tracers). For those cases symmetry remains an unchecked promise --
+    use :func:`linox.is_symmetric` to verify explicitly.
+    """
+    if getattr(A, "is_symmetric", False):
+        return
+
+    array = getattr(A, "A", None)
+    if array is None or not isinstance(array, jnp.ndarray) or array.ndim < 2:
+        return
+
+    try:
+        symmetric = bool(jnp.allclose(array, jnp.swapaxes(array, -1, -2)))
+    except jax.errors.ConcretizationTypeError:
+        # Traced entries: no concrete answer available, so make no claim.
+        return
+
+    if not symmetric:
+        msg = (
+            "IsotropicAdditiveLinearOperator (s*I + A) requires a symmetric A: "
+            "its spectral shortcuts use eigh, which reads only the lower "
+            "triangle and would silently return wrong inverses and solves. "
+            "Symmetrise A first (e.g. linox.symmetrize(A)), or build the sum "
+            "explicitly with AddLinearOperator to keep the general path."
+        )
+        raise ValueError(msg)
+
+
 class IsotropicAdditiveLinearOperator(AddLinearOperator):
     r"""Isotropic additive linear operator for matrices of the form.
 
@@ -102,7 +140,14 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
         Scalar added to the diagonal (isotropic shift). May be wrapped into a
         scalar ``ScaledLinearOperator(Identity, s)``.
     A : LinearOperator
-        Symmetric linear operator (square). Non-symmetric inputs raise ``ValueError``.
+        Symmetric linear operator (square). Symmetry is required but only
+        *best-effort* checked: a non-symmetric operand raises ``ValueError``
+        when it already holds a concrete dense array, but the check is skipped
+        for lazy/matrix-free operands and under ``jax.jit`` (where entries are
+        tracers) rather than force a materialisation. In those cases symmetry
+        is an unchecked promise, and violating it makes every spectral
+        shortcut here silently wrong -- verify with :func:`linox.is_symmetric`
+        if unsure.
 
     -------
 
@@ -142,6 +187,11 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
 
     def _ensure_eigh(self) -> None:
         if (self._S is None) or (self._Q is None):
+            # Guard here rather than in __init__: `_matmul`/`_todense` compute
+            # s*I + A correctly for any square A, and `smart_add` rewrites
+            # every `Identity + op` sum into this class. Only the eigh-based
+            # shortcuts require symmetry, so only they need to refuse.
+            _reject_if_provably_non_symmetric(self._A)
             self._S, self._Q = leigh(self._A)
             # invalidate derived caches
             self._projector = None

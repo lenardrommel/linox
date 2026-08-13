@@ -8,7 +8,12 @@
 
 `linox` is a Python package that provides a collection of linear operators for JAX, enabling efficient and flexible linear algebra operations with lazy evaluation. This package is designed as a JAX alternative to [`probnum.linops`](https://probnum.readthedocs.io/en/latest/api/linops.html), but it is currently still under development having less and more instable features. It has no dependencies other than [JAX](https://github.com/jax-ml/jax) and [`plum`](https://github.com/beartype/plum) for multiple dispatch.
 
-**Note (v0.0.3):** The API has been updated with unified `method=` dispatch for all functions. Functions now support `method="auto"|"exact"|"approx"` for flexible computation strategies. The old "l"-prefixed functions (e.g., `lsolve`, `linverse`) are deprecated and will be removed in version 0.0.4.
+**Note (v0.0.3):** The API has been updated with unified `method=` dispatch for all functions. Functions now support `method="auto"|"exact"|"approx"` for flexible computation strategies, and an unrecognised `method=` now raises instead of silently falling back to the default. The old "l"-prefixed functions (e.g., `lsolve`, `linverse`) are deprecated and will be removed in version 0.0.4.
+
+`solve` now reports failure: a singular system raises `LinearSolveError` rather
+than returning a finite but meaningless answer. Pass `throw=False` for the old
+behaviour, or `return_info=True` to inspect the outcome — see
+[Linear System Solvers](#linear-system-solvers).
 
 <div align="center">
   <picture>
@@ -72,6 +77,22 @@
 - `psolve(A, b)`: Solve using pseudo-inverse for singular/rectangular systems
 - `lu_factor(A)`: LU factorization
 - `lu_solve(A, b)`: Solve using LU factorization
+- `lsmr_solve(A, b)`: Matrix-free least-squares solver (LSMR)
+
+`solve` reports failure rather than returning a wrong answer. A singular system
+raises by default instead of handing back finite garbage:
+
+```python
+x = linox.solve(A, b)                          # raises LinearSolveError if singular
+x = linox.solve(A, b, throw=False)             # accept whatever the solver produced
+x, info = linox.solve(A, b, return_info=True)  # inspect the outcome yourself
+info.result        # RESULTS.successful | RESULTS.singular | ...
+info.stats         # {'residual': ..., 'istop': ..., 'itn': ...}
+```
+
+Under `jax.jit` the outcome is a traced value, so it cannot be raised at trace
+time; the failure is reported by a runtime callback, and `info.result` is
+available to branch on inside the computation.
 
 ### Matrix Decompositions
 - `eigh(A)`: Eigendecomposition for Hermitian matrices
@@ -94,13 +115,23 @@
 - `kron(A, B)`: Kronecker product
 - `iso(s, A)`: Create isotropic additive operator `s*I + A`
 
-### Arithmetic Operators
-- `add(A, B)`: Add two operators
-- `sub(A, B)`: Subtract operators
-- `mul(scalar, A)`: Scalar multiplication
-- `matmul(A, B)`: Matrix multiplication
-- `neg(A)`: Negate operator
-- `div(A, B)`: Division (for diagonal operators)
+### Arithmetic
+
+Use the Python operators directly — they dispatch to the structure-aware
+implementations, so composing operators stays lazy:
+
+```python
+A + B      # AddLinearOperator (rewritten to a structured form where possible)
+A - B
+2.0 * A    # ScaledLinearOperator
+A @ B      # ProductLinearOperator
+A @ v      # matvec
+-A
+A.T        # preserves structure: Diagonal.T is a Diagonal, PSD(A).T is a PSD
+```
+
+The underlying functions live in `linox.operators.arithmetic` (`ladd`, `lsub`,
+`lmul`, `lmatmul`, `lneg`, `ldiv`) if you need to dispatch on them explicitly.
 
 ### Property Checks
 - `is_square(A)`: Check if operator is square

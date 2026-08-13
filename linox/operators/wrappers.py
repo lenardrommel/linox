@@ -90,11 +90,11 @@ class Sym(LinearOperator):
         """Return the PSD status of the wrapped operator."""
         return getattr(self.wrapped, "is_psd", False)
 
-    def _matmat(self, x: jax.Array) -> jax.Array:
+    def _matmul(self, other: jax.Array) -> jax.Array:
         """Compute matrix-matrix product by delegating to wrapped operator."""
-        return self.wrapped @ x
+        return self.wrapped @ other
 
-    def _transpose(self) -> LinearOperator:
+    def transpose(self) -> LinearOperator:
         """Return self, since symmetric operators equal their transpose."""
         return self
 
@@ -180,11 +180,11 @@ class PSD(LinearOperator):
         """Return True, indicating this operator is declared PSD."""
         return True
 
-    def _matmat(self, x: jax.Array) -> jax.Array:
+    def _matmul(self, other: jax.Array) -> jax.Array:
         """Compute matrix-matrix product by delegating to wrapped operator."""
-        return self.wrapped @ x
+        return self.wrapped @ other
 
-    def _transpose(self) -> LinearOperator:
+    def transpose(self) -> LinearOperator:
         """Return self, since PSD operators are symmetric."""
         return self
 

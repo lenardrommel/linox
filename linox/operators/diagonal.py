@@ -41,8 +41,14 @@ class Diagonal(LinearOperator):
         if isinstance(diag, Diagonal):
             diag = diag.diag
         self.diag = jnp.asarray(diag)
+        # Read the shape off the converted array, not the raw argument, so
+        # list/tuple inputs work.
         super().__init__(
-            shape=(*diag.shape[:-1], diag.shape[-1], diag.shape[-1]),
+            shape=(
+                *self.diag.shape[:-1],
+                self.diag.shape[-1],
+                self.diag.shape[-1],
+            ),
             dtype=self.diag.dtype,
         )
 

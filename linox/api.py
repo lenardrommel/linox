@@ -13,6 +13,25 @@ from .config import is_debug, set_debug
 from .linalg import functions as _functions_module
 from .linalg import spectral as _spectral_module
 from .linalg import trace as _trace_module
+from .linalg.approx.arnoldi import arnoldi_iteration, arnoldi_matrix_function
+from .linalg.approx.hutchinson import (
+    hutchinson_diagonal,
+    hutchinson_trace,
+    hutchinson_trace_and_diagonal,
+)
+from .linalg.approx.lanczos import (
+    lanczos_eigh,
+    lanczos_matrix_function,
+    lanczos_tridiag,
+)
+from .linalg.approx.lsmr import lsmr_solve
+from .linalg.approx.slq import slq, slq_logdet
+from .linalg.functions import stochastic_lanczos_quadrature
+from .linalg.solution import RESULTS, LinearSolveError, Solution
+from .linalg.solution import RESULTS as _RESULTS
+from .linalg.solution import check_result as _check_result
+from .linalg.solution import residual_result as _residual_result
+from .linalg.spectral import lanczos_bidiag, svd_partial
 
 # Arithmetic operators (for export compatibility)
 from .operators.arithmetic import (
@@ -22,6 +41,7 @@ from .operators.arithmetic import (
     PseudoInverseLinearOperator,
     ScaledLinearOperator,
     TransposedLinearOperator,
+    cholesky,
     congruence_transform,
     diagonal,
     is_hermitian,
@@ -36,6 +56,10 @@ from .operators.arithmetic import (
     lpow,
     lpsolve,
     lqr,
+    lu_factor,
+    lu_solve,
+    psolve,
+    qr,
     symmetrize,
 )
 from .operators.arithmetic import InverseLinearOperator as Inverse  # Alias for inv()
@@ -56,7 +80,7 @@ from .operators.dense import Matrix
 from .operators.diagonal import Diagonal
 from .operators.eigen import EigenD
 from .operators.isotropic import IsotropicAdditiveLinearOperator
-from .operators.kron import Kronecker
+from .operators.kron import Kronecker, KroneckerSelectedEigenvectors, topk_eigh
 from .operators.lowrank import (
     IsotropicScalingPlusSymmetricLowRank,
     LowRank,
@@ -75,7 +99,12 @@ from .operators.wrappers import (
     assume_symmetric,
 )
 from .utils import array as _array_module
-from .utils.array import _broadcast_shapes, allclose
+from .utils.array import allclose
+
+# Not part of the public API; re-exported only because `linox._broadcast_shapes`
+# was importable in earlier releases.
+from .utils.array import _broadcast_shapes as _broadcast_shapes  # noqa: F401
+from .utils.debug import inspect_run, linop_graph
 from .utils.validation import ValidationError, validate
 
 # Type aliases
@@ -86,6 +115,7 @@ Int = int
 
 __all__ = [
     "PSD",
+    "RESULTS",
     "SPD",
     # Arithmetic Classes
     "AddLinearOperator",
@@ -99,8 +129,10 @@ __all__ = [
     "IsotropicAdditiveLinearOperator",
     "IsotropicScalingPlusSymmetricLowRank",
     "Kronecker",
+    "KroneckerSelectedEigenvectors",
     # Core Classes
     "LinearOperator",
+    "LinearSolveError",
     "LowRank",
     # Classes Exported (Compatibility/Typing)
     "Matrix",
@@ -111,6 +143,7 @@ __all__ = [
     "PseudoInverseLinearOperator",
     "Scalar",
     "ScaledLinearOperator",
+    "Solution",
     "Sym",
     "SymmetricLowRank",
     "Toeplitz",
@@ -118,7 +151,6 @@ __all__ = [
     # Utils / Debug / Misc
     "ValidationError",
     "Zero",
-    "_broadcast_shapes",
     "allclose",
     "as_linop",
     "assume_psd",
@@ -174,6 +206,29 @@ __all__ = [
     "transpose",
     "validate",
     "zeros",
+    # Matrix-free algorithms
+    "arnoldi_iteration",
+    "arnoldi_matrix_function",
+    "cholesky",
+    "hutchinson_diagonal",
+    "hutchinson_trace",
+    "hutchinson_trace_and_diagonal",
+    "inspect_run",
+    "lanczos_bidiag",
+    "lanczos_eigh",
+    "lanczos_matrix_function",
+    "lanczos_tridiag",
+    "linop_graph",
+    "lsmr_solve",
+    "lu_factor",
+    "lu_solve",
+    "psolve",
+    "qr",
+    "slq",
+    "slq_logdet",
+    "stochastic_lanczos_quadrature",
+    "svd_partial",
+    "topk_eigh",
 ]
 
 
@@ -268,7 +323,7 @@ def kron(a: LinearyOperatorLike, b: LinearyOperatorLike) -> LinearOperator:
 
 def block_diag(*opers: LinearyOperatorLike) -> LinearOperator:
     """Construct a block diagonal operator from input operators."""
-    return BlockDiagonal([ensure_linop(op) for op in opers])
+    return BlockDiagonal(*(ensure_linop(op) for op in opers))
 
 
 def bmat(blocks: list[list[LinearyOperatorLike]]) -> LinearOperator:
@@ -303,6 +358,12 @@ def trace(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> jax.Array:
     op = ensure_linop(a)
     m = config.resolve_method("trace", op, method)
 
+    # `auto` picks Hutchinson for large operators, but that needs a PRNG key.
+    # Without one, fall back to the exact path rather than failing a plain
+    # `trace(a)` call purely because the operator is big.
+    if m == "hutchinson" and method == "auto" and kwargs.get("key") is None:
+        m = "exact"
+
     if m == "hutchinson":
         return _trace_module.trace(op, method="hutchinson", **kwargs)
     return _trace_module.trace(op, **kwargs)
@@ -327,6 +388,12 @@ def slogdet(
 
     op = ensure_linop(a)
     m = config.resolve_method("slogdet", op, method)
+
+    # As in `trace`: SLQ needs a PRNG key, so an `auto` resolution that lands
+    # there without one falls back to the exact path.
+    if m == "slq" and method == "auto" and kwargs.get("key") is None:
+        m = "exact"
+
     return _slogdet(op, method=m, **kwargs)
 
 
@@ -367,33 +434,115 @@ def _has_structured_solver(op: LinearOperator) -> bool:
     return False
 
 
+# LSMR termination codes that mean "converged"; see `linox.linalg.approx.lsmr`.
+# 0 means the loop exited on the iteration cap, 3 means the conditioning limit
+# was hit -- neither is a usable answer.
+_LSMR_RESULT_FROM_ISTOP = {
+    0: _RESULTS.max_steps_reached,
+    3: _RESULTS.conlim,
+}
+
+#: Relative-residual threshold for iterative solvers that report no status of
+#: their own. Deliberately loose -- it is a "this is obviously not a solution"
+#: guard, not a convergence criterion.
+_ITERATIVE_RESIDUAL_RTOL = 1e-2
+
+
 def solve(
-    a: LinearyOperatorLike, b: jax.Array, method: str = "auto", **kwargs
-) -> jax.Array:
+    a: LinearyOperatorLike,
+    b: jax.Array,
+    method: str = "auto",
+    *,
+    throw: bool = True,
+    return_info: bool = False,
+    residual_rtol: float = 1e-5,
+    **kwargs,
+) -> jax.Array | tuple[jax.Array, Solution]:
     """Solve linear system Ax = b.
 
     Args:
         a: Linear operator.
         b: Right-hand side vector/matrix.
         method: Solver method ("exact", "lsmr", "cg", "auto").
+        throw: Raise :class:`~linox.linalg.solution.LinearSolveError` when the
+            solve fails (the default). Pass ``False`` to accept whatever the
+            solver produced. Under ``jax.jit`` the outcome is a tracer and
+            cannot be raised at trace time, so the failure is reported by a
+            runtime callback instead -- branch on ``info.result`` if you need
+            to handle it inside the computation.
+        return_info: Also return a :class:`~linox.linalg.solution.Solution`
+            carrying the outcome code and solver diagnostics.
+        residual_rtol: Relative residual above which a square solve is judged
+            to have failed. A singular direct solve typically returns finite,
+            enormous values rather than NaN, so the residual is the only
+            reliable detector.
+
+    Returns
+    -------
+        ``x``, or ``(x, info)`` when ``return_info=True``.
+
+    Raises
+    ------
+    LinearSolveError
+        If the solve failed and ``throw=True``.
     """
     op = ensure_linop(a)
     b = jnp.asarray(b)
 
     m = config.resolve_method("solve", op, method)
 
-    if m == "exact" or _has_structured_solver(op):
-        return _lsolve_impl(op, b, **kwargs)
-    if m == "lsmr":
-        from linox.linalg.approx.lsmr import lsmr_solve
-        x, _ = lsmr_solve(op, b, **kwargs)
-        return x
-    if m in {"cg", "conjugate_gradient"}:
-        x, _ = jax.scipy.sparse.linalg.cg(op, b, **kwargs)
-        return x
+    stats: dict[str, jax.Array] = {}
+    result: _RESULTS | jax.Array | None = None
+    # Tolerance for the residual sanity check, or None to skip it because the
+    # solver reported its own outcome.
+    check_rtol: float | None = residual_rtol
 
-    # If auto resolution returned something else or we fell through
-    return _lsolve_impl(op, b, **kwargs)
+    if m == "exact" or _has_structured_solver(op):
+        x = _lsolve_impl(op, b, **kwargs)
+    elif m == "lsmr":
+        from linox.linalg.approx.lsmr import lsmr_solve
+
+        x, info = lsmr_solve(op, b, **kwargs)
+        stats = dict(info)
+        # LSMR reports its own termination code, and stops at *its* tolerance
+        # rather than machine precision. Second-guessing that with a tighter
+        # residual threshold would flag perfectly good converged solves.
+        result = _lsmr_result(info["istop"])
+        check_rtol = None
+    elif m in {"cg", "conjugate_gradient"}:
+        x, _ = jax.scipy.sparse.linalg.cg(op, b, **kwargs)
+        # jax's CG returns no convergence information, so fall back to a loose
+        # sanity check: tight enough to catch a singular system (whose relative
+        # residual is O(1)), loose enough not to flag a converged CG that
+        # simply stopped at its own tolerance.
+        check_rtol = _ITERATIVE_RESIDUAL_RTOL
+    else:
+        x = _lsolve_impl(op, b, **kwargs)
+
+    # Residual check for square systems. Rectangular ones legitimately have a
+    # nonzero residual (that is least squares, not failure), so skip them.
+    if check_rtol is not None and is_square(op):
+        result, residual = _residual_result(op, x, b, rtol=check_rtol)
+        stats = {**stats, "residual": residual}
+
+    if result is None:
+        result = _RESULTS.successful
+
+    _check_result(result, throw=throw, detail=f"operator: {op}")
+
+    if return_info:
+        return x, Solution(value=x, result=result, stats=stats)
+    return x
+
+
+def _lsmr_result(istop: jax.Array) -> jax.Array:
+    """Map an LSMR termination code onto a :class:`RESULTS` value."""
+    result = jnp.int32(_RESULTS.successful)
+    for code, outcome in _LSMR_RESULT_FROM_ISTOP.items():
+        result = jnp.where(
+            jnp.asarray(istop) == code, jnp.int32(outcome), result
+        )
+    return result
 
 
 def eigh(
@@ -426,24 +575,31 @@ def svd(a: LinearyOperatorLike, **kwargs) -> tuple[jax.Array, jax.Array, jax.Arr
 
 
 def sqrt(a: LinearyOperatorLike, method: str = "auto", **kwargs) -> LinearOperator:
-    """Matrix square root.
+    """Matrix square root factor.
+
+    Returns an operator ``S`` satisfying ``S @ S.T == a``. Note this is a
+    *factor*, not necessarily the symmetric principal square root: the exact
+    path returns whatever structured factorisation is available for the
+    operator (a Cholesky factor for a dense :class:`Matrix`, the elementwise
+    root for a :class:`Diagonal`, and so on). Request ``method="lanczos"``
+    to get the principal square root ``a**(1/2)`` via a Krylov method.
 
     Args:
         a: Linear operator.
-        method: "exact" or "lanczos"/"newton".
+        method: One of ``"auto"``, ``"exact"``, ``"approx"``, ``"lanczos"``.
     """
     op = ensure_linop(a)
     m = config.resolve_method("sqrt", op, method)
 
-    if m == "exact":
-        return _lsqrt_impl(op)
-    if m == "lanczos":
-        # Try exact structured dispatch first; fall back to Lanczos only
-        # if no structured implementation exists.
-        try:
-            return _lsqrt_impl(op)
-        except NotImplementedError:
-            pass
+    if m in {"lanczos", "approx"}:
+        # An explicit approximate request is honoured as given. Only when
+        # `auto` resolution picked the Krylov path do we prefer a structured
+        # exact factorisation if one happens to exist.
+        if method == "auto":
+            try:
+                return _lsqrt_impl(op)
+            except NotImplementedError:
+                pass
         return _functions_module.sqrt(op, method="lanczos", **kwargs)
 
     return _lsqrt_impl(op)

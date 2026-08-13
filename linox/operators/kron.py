@@ -138,8 +138,12 @@ class Kronecker(LinearOperator):
         return Kronecker(self.A.transpose(), self.B.transpose())
 
     def trace(self) -> jax.Array:
-        """Compute trace of Kronecker product."""
-        return jnp.trace(self.A) * jnp.trace(self.B)
+        """Compute trace of Kronecker product: tr(A (x) B) = tr(A) tr(B)."""
+        # `self.A` / `self.B` are LinearOperators, so take their diagonals
+        # through the dispatch rather than calling `jnp.trace` on them.
+        return jnp.sum(jnp.asarray(diagonal(self.A)), axis=-1) * jnp.sum(
+            jnp.asarray(diagonal(self.B)), axis=-1
+        )
 
 
 @linverse.dispatch
@@ -358,11 +362,10 @@ def _(op: Kronecker) -> Kronecker:
 
 
 @ldet.dispatch
-def _(op: Kronecker) -> ProductLinearOperator:
-    return ProductLinearOperator([
-        ldet(op.A) ** op.B.shape[0],
-        ldet(op.B) ** op.A.shape[0],
-    ])
+def _(op: Kronecker) -> jax.Array:
+    # det(A (x) B) = det(A)^nB * det(B)^nA -- a product of two *scalars*, not
+    # a composition of operators.
+    return ldet(op.A) ** op.B.shape[-1] * ldet(op.B) ** op.A.shape[-1]
 
 
 @slogdet.dispatch
@@ -432,9 +435,7 @@ def _(
         return Kronecker(exp_A, exp_B)
     # For Kronecker product, we can use the vec-trick
     # But for simplicity, fall back to general algorithm
-    from linox._algorithms._matrix_functions import (
-        lanczos_matrix_function,
-    )
+    from linox.linalg.approx.lanczos import lanczos_matrix_function
 
     return lanczos_matrix_function(op, v, jnp.exp, num_iters, reortho=True)
 
@@ -453,18 +454,14 @@ def _(
     """
     if v is None:
         # Fall back to general algorithm
-        from linox._algorithms._matrix_functions import (
-            lanczos_matrix_function,
-        )
         from linox.config import warn as _warn
 
         _warn(
             "Computing log(A ⊗ B) using dense method - no efficient structured formula available"
         )
-        return utils.as_linop(jnp.linalg.matrix_exp(op.todense()))
-    from linox._algorithms._matrix_functions import (
-        lanczos_matrix_function,
-    )
+        eigvals, eigvecs = jnp.linalg.eigh(op.todense())
+        return utils.as_linop(eigvecs @ jnp.diag(jnp.log(eigvals)) @ eigvecs.T)
+    from linox.linalg.approx.lanczos import lanczos_matrix_function
 
     return lanczos_matrix_function(op, v, jnp.log, num_iters, reortho=True)
 
@@ -485,9 +482,7 @@ def _(
         pow_B = lpow(op.B, power=power, v=None, num_iters=num_iters, method=method)
         return Kronecker(pow_A, pow_B)
     # Can use structure, but for simplicity use general algorithm
-    from linox._algorithms._matrix_functions import (
-        lanczos_matrix_function,
-    )
+    from linox.linalg.approx.lanczos import lanczos_matrix_function
 
     def power_func(eigvals):
         return eigvals**power
@@ -541,28 +536,20 @@ class KroneckerSelectedEigenvectors(LinearOperator):
         self._factor_dims = [Q.shape[0] for Q in factor_vecs]
         self._n_total = int(jnp.prod(jnp.array(self._factor_dims)))
 
-        # TRIAL
         sel_np = np.asarray(selected_indices, dtype=np.int32)  # (k, d)
 
-        # self._gathered = []
-        # for i in range(self._d):
-        #     idx_for_factor = jnp.array(
-        #         [self._sort_indices[i][sel[i]] for sel in selected_indices]
-        #     )
-        #     self._gathered.append(self._factor_vecs[i][:, idx_for_factor])
-
-        # dtype = factor_vecs[0].dtype
-        # super().__init__((self._n_total, self._k), dtype)
+        # `factor_vecs` arrive with their columns ALREADY permuted into
+        # eigenvalue-sorted order (see `topk_eigh`), and `selected_indices`
+        # index into that same sorted order. Re-applying `sort_indices` here
+        # would permute a second time and select the wrong columns entirely --
+        # in practice the bottom of the spectrum instead of the top.
+        # `sort_indices` is retained only so callers can recover the mapping
+        # back to each factor's original eigenvector ordering.
         self._gathered = []
         for i in range(self._d):
-            # idx_sorted: (k,)
+            # idx_sorted: (k,) -- indices into the already-sorted columns
             idx_sorted = jnp.asarray(sel_np[:, i])
-
-            # idx_orig = order[idx_sorted] in one shot (no Python loop!)
-            idx_orig = jnp.take(self._sort_indices[i], idx_sorted, mode="clip")
-
-            # gather columns
-            self._gathered.append(self._factor_vecs[i][:, idx_orig])
+            self._gathered.append(self._factor_vecs[i][:, idx_sorted])
 
         dtype = factor_vecs[0].dtype
         super().__init__((self._n_total, self._k), dtype)
