@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `linox003` is the current integration branch -- `main` is frozen, so
+    # merges land here and would otherwise never be built. Keep `main` listed
+    # so this keeps working once that changes.
+    branches: [main, linox003]
   pull_request:
   workflow_dispatch:
 
