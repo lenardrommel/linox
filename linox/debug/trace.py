@@ -22,7 +22,7 @@ class TraceReport:
             self.summary[event.kind] += 1
             if event.kind == "densify":
                 self.dense_ops.append(event)
-    
+
     def __str__(self) -> str:
         s = ["Trace Report:"]
         for k, v in self.summary.items():
@@ -54,7 +54,7 @@ class TraceContext:
 
     def _hook(self, event: DebugEvent):
         self.events.append(event)
-        # Chain previous hook if it existed? 
+        # Chain previous hook if it existed?
         # Usually hooks are exclusive or chained manually.
         # For now, simplistic exclusive (with manual chain if needed, but not implemented).
         if self._prev_hook:

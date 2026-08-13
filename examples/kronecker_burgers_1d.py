@@ -180,12 +180,12 @@ def rbf_kernel(X1: jax.Array, X2: jax.Array, lengthscale: jax.Array) -> jax.Arra
 
 def function_kernel(U1: jax.Array, U2: jax.Array, lengthscale: jax.Array) -> jax.Array:
     """Linear/Dot Product kernel (L2 inner product).
-    
+
     k(u, v) = <u, v> / lengthscale^2
     """
     # Compute pairwise inner products
     dot_prod = jnp.matmul(U1, U2.T)
-    
+
     # Normalize by lengthscale (acting as a variance/scale factor combined with output_scale)
     # Usually Linear kernel is just <x, y>. We keep lengthscale for API consistency.
     return dot_prod + lengthscale**2
@@ -223,7 +223,7 @@ def build_kronecker_kernel(
     # Build individual kernels
     K_func = function_kernel(u0_train, u0_train, ls_func)
     K_func = K_func + jitter * jnp.eye(n_func)
-    
+
     # Apply output scale to function kernel
     K_func = output_scale * K_func
 
@@ -550,11 +550,11 @@ def main() -> None:
     print("\n--- Data Standardization ---")
     print(f"  Mean: {float(u_mean):.4f}")
     print(f"  Std:  {float(u_std):.4f}")
-    
+
     u_train_norm = (u_train - u_mean) / u_std
     # Note: We don't standardize u0_train (inputs), only targets (u_train)
     # But u0_train is used in the kernel. Using raw u0 is fine as it's input features.
-    
+
     # Initialize parameters
     params = init_params(ls_func=0.01, ls_x=0.1, ls_t=0.5, noise_var=0.1, output_scale=0.10)
 

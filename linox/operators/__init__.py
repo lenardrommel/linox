@@ -71,5 +71,3 @@ __all__ = [
     "assume_spd",
     "assume_symmetric",
 ]
-
-

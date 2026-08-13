@@ -98,7 +98,7 @@ def smart_add(*operators: LinearOperator) -> LinearOperator:
         SymmetricLowRank,
     )
     from linox.operators.special import Identity, Scalar, Zero
-    
+
     # 1. Flatten AddLinearOperators
     flat_ops = []
     for op in operators:

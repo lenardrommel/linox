@@ -17,4 +17,3 @@
 
 ## Utilities
 ::: linox.utils
-

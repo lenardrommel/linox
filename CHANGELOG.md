@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Debug tracing**: `linox.debug.trace()` context manager for performance analysis and debugging
 - **New operators**:
   - `Triangular` — Triangular matrix operator
-  - `CholeskyFactor` — Cholesky factor operator  
+  - `CholeskyFactor` — Cholesky factor operator
   - `PSDFromFactor` — PSD operator from factorization
 - **Auto-rewrites**:
   - `Scalar * Identity + A` → `IsotropicAdditiveLinearOperator(s, A)` for efficient spectral transforms

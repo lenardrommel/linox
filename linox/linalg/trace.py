@@ -30,7 +30,7 @@ def trace(A: LinearOperatorLike, *, method: str = "exact", **kwargs) -> jax.Arra
     from linox.utils import as_linop
 
     op = as_linop(A)
-    
+
     return_std = kwargs.pop("return_std", False)
 
     if method == "hutchinson":

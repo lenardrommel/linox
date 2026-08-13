@@ -349,7 +349,7 @@ def eigh(
         # We'll use kwargs or default to largest.
         # Note: topk_eigh returns (vals, vecs, info)
         vals, vecs, _ = topk_eigh(op, k=k, largest=largest)
-        
+
         # Sort ascending to match standard eigh convention if needed?
         # Standard eigh returns ascending. topk_eigh(largest=True) returns descending.
         # If the user wants standard eigh behavior, we should verify.

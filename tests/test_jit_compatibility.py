@@ -147,7 +147,7 @@ class TestJITCompositeOperators:
         A_data = jax.random.normal(k1, (5, 5))
         B_data = jax.random.normal(k2, (5, 5))
         x = jnp.ones(5)
-        
+
         result = product_ops(A_data, B_data, x)
         expected = A_data @ B_data @ x
         assert jnp.allclose(result, expected)
@@ -174,7 +174,7 @@ class TestJITBlockOperators:
         A_data = jax.random.normal(k1, (3, 3))
         B_data = jax.random.normal(k2, (4, 4))
         x = jnp.ones(12)
-        
+
         result = kron_matmul(A_data, B_data, x)
         expected = jnp.kron(A_data, B_data) @ x
         assert jnp.allclose(result, expected, rtol=1e-5)
@@ -185,7 +185,7 @@ class TestJITBlockOperators:
     )
     def test_block_diagonal_jit(self, key):
         """Test BlockDiagonal under jit.
-        
+
         NOTE: This test is expected to fail because BlockDiagonal computes
         split_indices using jnp.cumsum during initialization, which creates
         tracers that cannot be used in jnp.split.
@@ -201,7 +201,7 @@ class TestJITBlockOperators:
         A_data = jax.random.normal(k1, (3, 3))
         B_data = jax.random.normal(k2, (4, 4))
         x = jnp.ones(7)
-        
+
         result = block_diag_matmul(A_data, B_data, x)
         expected = jnp.concatenate([A_data @ x[:3], B_data @ x[3:]])
         assert jnp.allclose(result, expected)
@@ -280,11 +280,11 @@ class TestVMAPCompatibility:
 
         A_data = jax.random.normal(key, (5, 5))
         xs = jnp.ones((10, 5))  # Batch of 10 vectors
-        
+
         # vmap over vectors (second arg)
         batched_fn = jax.vmap(partial(single_matmul, A_data))
         result = batched_fn(xs)
-        
+
         expected = jax.vmap(lambda x: A_data @ x)(xs)
         assert jnp.allclose(result, expected)
 
@@ -296,11 +296,11 @@ class TestVMAPCompatibility:
 
         x = jnp.ones(5)
         ds = jax.random.normal(key, (10, 5))  # Batch of 10 diagonals
-        
+
         # vmap over diagonals
         batched_fn = jax.vmap(lambda d: single_diag_matmul(d, x))
         result = batched_fn(ds)
-        
+
         expected = ds * x  # Broadcasting
         assert jnp.allclose(result, expected)
 
@@ -309,16 +309,16 @@ class TestVMAPCompatibility:
         k1, k2 = jax.random.split(key)
         A_data = jax.random.normal(k1, (5, 5))
         A_data = A_data @ A_data.T + 0.1 * jnp.eye(5)  # Make PSD
-        
+
         bs = jax.random.normal(k2, (10, 5))  # Batch of 10 RHS
-        
+
         def solve_single(A_data, b):
             A = Matrix(A_data)
             return linox.solve(A, b)
-        
+
         batched_solve = jax.vmap(partial(solve_single, A_data))
         result = batched_solve(bs)
-        
+
         expected = jax.vmap(lambda b: jnp.linalg.solve(A_data, b))(bs)
         assert jnp.allclose(result, expected, rtol=1e-4)
 
@@ -341,7 +341,7 @@ class TestGradientCompatibility:
         A_data = jax.random.normal(key, (5, 5))
         x = jnp.ones(5)
         target = jnp.zeros(5)
-        
+
         # Should be able to compute gradient w.r.t. A_data
         grad_A = jax.grad(loss_fn)(A_data, x, target)
         assert grad_A.shape == A_data.shape
@@ -357,7 +357,7 @@ class TestGradientCompatibility:
         A_data = jax.random.normal(key, (5, 5))
         b = jnp.ones(5)
         target = jnp.zeros(5)
-        
+
         # Should be able to compute gradient
         grad_A = jax.grad(loss_fn)(A_data, b, target)
         assert grad_A.shape == A_data.shape
@@ -373,11 +373,11 @@ class TestGradientCompatibility:
         d = jax.random.normal(key, (5,))
         x = jnp.ones(5)
         target = jnp.zeros(5)
-        
+
         grad_d = jax.grad(loss_fn)(d, x, target)
         assert grad_d.shape == d.shape
         assert not jnp.isnan(grad_d).any()
-        
+
         # Analytical gradient: 2 * (d * x - target) * x = 2 * d * x^2
         expected_grad = 2 * (d * x - target) * x
         assert jnp.allclose(grad_d, expected_grad)
@@ -390,7 +390,7 @@ class TestGradientCompatibility:
 
         A_data = jax.random.normal(key, (5, 5))
         grad_A = jax.grad(trace_loss)(A_data)
-        
+
         # Gradient of trace(A) w.r.t. A should be related to I
         # For general matrices, grad may differ from identity
         assert grad_A.shape == A_data.shape
@@ -414,7 +414,7 @@ class TestCombinedTransformations:
 
         A_data = jax.random.normal(key, (5, 5))
         xs = jnp.ones((10, 5))
-        
+
         result = batched_matmul(A_data, xs)
         expected = A_data @ xs.T  # (5, 10), then transpose
         assert jnp.allclose(result, expected.T)
@@ -431,7 +431,7 @@ class TestCombinedTransformations:
         A_data = jax.random.normal(key, (5, 5))
         x = jnp.ones(5)
         target = jnp.zeros(5)
-        
+
         grad_A = grad_loss(A_data, x, target)
         assert grad_A.shape == A_data.shape
         assert not jnp.isnan(grad_A).any()
@@ -444,11 +444,11 @@ class TestCombinedTransformations:
 
         A_data = jax.random.normal(key, (5, 5))
         xs = jax.random.normal(key, (10, 5))  # 10 samples
-        
+
         # Gradient w.r.t. x for each sample
         per_sample_grad = jax.vmap(jax.grad(lambda x: single_loss(A_data, x)))
         grads = per_sample_grad(xs)
-        
+
         assert grads.shape == xs.shape
         assert not jnp.isnan(grads).any()
 
@@ -485,7 +485,7 @@ class TestJITEdgeCases:
         d = jax.random.normal(key, (5,))
         s = 2.0
         x = jnp.ones(5)
-        
+
         result = nested_ops(A_data, d, s, x)
         expected = (s * A_data + jnp.diag(d)) @ x
         assert jnp.allclose(result, expected)

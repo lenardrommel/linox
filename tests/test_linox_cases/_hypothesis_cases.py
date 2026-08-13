@@ -14,7 +14,7 @@ def _valid_shapes(min_dim=1, max_dim=5):
 @st.composite
 def linear_operators(draw, shape=None, depth=1):
     """Recursive strategy to generate random LinearOperators.
-    
+
     Args:
         draw: Hypothesis draw function.
         shape: Tuple[int, int], optional shape for the operator.
@@ -22,7 +22,7 @@ def linear_operators(draw, shape=None, depth=1):
     """
     if shape is None:
         shape = draw(_valid_shapes())
-    
+
     n, m = shape
     if n != m:
         # Simplified: force square for now to easier handle combinations
@@ -63,12 +63,12 @@ def linear_operators(draw, shape=None, depth=1):
         for i in range(1, int(n**0.5) + 1):
              if n % i == 0:
                  factors.append((i, n // i))
-        
+
         if not factors or (len(factors) == 1 and factors[0] == (1, n)): # Prime or 1
              return draw(linear_operators(shape=shape, depth=1)) # Fallback
 
         rA, rB = draw(st.sampled_from(factors))
-        
+
         opA = draw(linear_operators(shape=(rA, rA), depth=depth-1))
         opB = draw(linear_operators(shape=(rB, rB), depth=depth-1))
         return linox.Kronecker(opA, opB)

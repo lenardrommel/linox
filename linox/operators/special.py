@@ -182,11 +182,11 @@ def _(
         return Scalar(jnp.exp(1.0).astype(a.dtype), 1.0) # Actually Scalar constructor expects scalar value.
         # Wait, Scalar constructor is `Scalar(scalar)`. It infers shape from nothing? No, Scalar(scalar) has shape=().
         # Scalar operator represents alpha * I.
-        # The Scalar class definition below takes `scalar`. 
-        # But wait, does Scalar support arbitrary shape? 
+        # The Scalar class definition below takes `scalar`.
+        # But wait, does Scalar support arbitrary shape?
         # Looking at `Scalar` below: super().__init__(shape=(), dtype=self.scalar.dtype).
         # It seems Scalar represents a scalar *number*, effectively 1x1 or broadcastable?
-        # But `Identity` is NxN. 
+        # But `Identity` is NxN.
         # If I return `Scalar(e)`, is that valid for NxN?
         # Scalar's matmul returns `scalar * vector`. It broadcasts.
         # So yes, Scalar(e) acts like e*I of any size compatible with vector.
