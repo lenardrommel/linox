@@ -1,4 +1,4 @@
-"""Stochastic Lanczos Quadrature (SQL).
+"""Stochastic Lanczos Quadrature (SLQ).
 
 Approximates trace(f(A)) using stochastic probes and Lanczos tridiagonalization.
 """
@@ -11,7 +11,7 @@ from linox.linalg.approx.lanczos import lanczos_matrix_function
 from linox.utils.array import LinearOperatorLike
 
 
-def sql(
+def slq(
     A: LinearOperatorLike,
     func_scalar: callable,  # f: scalar -> scalar (e.g. jnp.log)
     key: jax.Array,
@@ -19,7 +19,7 @@ def sql(
     m: int = 20,  # Krylov iterations
     distribution: str = "rademacher",
 ) -> tuple[jax.Array, jax.Array]:
-    """Estimate trace(f(A)) using SQL.
+    """Estimate trace(f(A)) using SLQ.
 
     trace(f(A)) ≈ (1/M) * sum_i v_i^T f(A) v_i
     v_i^T f(A) v_i ≈ ||v_i||^2 * e_1^T f(T_m) e_1
@@ -53,14 +53,14 @@ def sql(
     return jnp.mean(estimates), jnp.std(estimates, ddof=1) / jnp.sqrt(num_samples)
 
 
-def sql_logdet(
+def slq_logdet(
     A: LinearOperatorLike,
     key: jax.Array,
     num_samples: int = 10,
     m: int = 20,
 ) -> tuple[jax.Array, jax.Array]:
-    """Estimate log-determinant using SQL.
+    """Estimate log-determinant using SLQ.
 
     logdet(A) = trace(log(A))
     """
-    return sql(A, jnp.log, key, num_samples, m)
+    return slq(A, jnp.log, key, num_samples, m)

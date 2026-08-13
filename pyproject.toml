@@ -89,6 +89,10 @@ default-groups = ["dev"]
 
 [tool.ruff]
 line-length = 150
+# pre-commit passes explicit file paths, and ruff only applies `exclude`
+# during its own file discovery unless this is set. Without it the hook lints
+# `tests/`, `examples/` and `helper/` despite the exclusions below.
+force-exclude = true
 # `examples/` are demonstration scripts and `helper/` is the GP demo package
 # that ships alongside them -- neither is public API, and holding them to the
 # docstring rules produced 75 findings with no reader to benefit.
@@ -111,3 +115,11 @@ ignore = [
 convention = "numpy"
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D", "E741"]
+
+
+[tool.typos.default.extend-words]
+# Stochastic Lanczos Quadrature. Without this, typos "corrects" every SLQ to
+# SQL -- it once renamed the module, the exports and the documented
+# `method="slq"` string across 11 files.
+slq = "slq"
+SLQ = "SLQ"

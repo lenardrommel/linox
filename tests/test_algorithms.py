@@ -21,7 +21,7 @@ from linox.linalg.approx.lanczos import (
     lanczos_tridiag,
 )
 from linox.linalg.approx.lsmr import lsmr_solve
-from linox.linalg.approx.sql import sql
+from linox.linalg.approx.slq import slq
 from linox.linalg.trace import (
     hutchinson_diagonal,
     hutchinson_trace,
@@ -237,7 +237,7 @@ class TestMatrixFunctions:
 
 
 class TestStochasticLanczosQuadrature:
-    """Tests for stochastic Lanczos quadrature (SQL)."""
+    """Tests for stochastic Lanczos quadrature (SLQ)."""
 
     def test_sql_logdet_identity(self) -> None:
         """Test log-determinant estimation on identity."""
@@ -245,7 +245,7 @@ class TestStochasticLanczosQuadrature:
         A = Matrix(jnp.eye(n))
         key = jax.random.PRNGKey(0)
 
-        logdet_est, logdet_std = sql(
+        logdet_est, logdet_std = slq(
             A, jnp.log, key, num_samples=100, m=5
         )
 
@@ -260,7 +260,7 @@ class TestStochasticLanczosQuadrature:
         A = Matrix(jnp.diag(diag_vals))
         key = jax.random.PRNGKey(0)
 
-        logdet_est, logdet_std = sql(
+        logdet_est, logdet_std = slq(
             A, jnp.log, key, num_samples=100, m=20
         )
 
@@ -274,7 +274,7 @@ class TestStochasticLanczosQuadrature:
         A = Matrix(-jnp.eye(n))  # -I
         key = jax.random.PRNGKey(0)
 
-        trace_est, trace_std = sql(
+        trace_est, trace_std = slq(
             A, jnp.exp, key, num_samples=50, m=5
         )
 

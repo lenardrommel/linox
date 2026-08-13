@@ -25,7 +25,7 @@ from .linalg.approx.lanczos import (
     lanczos_tridiag,
 )
 from .linalg.approx.lsmr import lsmr_solve
-from .linalg.approx.sql import sql, sql_logdet
+from .linalg.approx.slq import slq, slq_logdet
 from .linalg.functions import stochastic_lanczos_quadrature
 from .linalg.solution import RESULTS, LinearSolveError, Solution
 from .linalg.solution import RESULTS as _RESULTS
@@ -205,8 +205,8 @@ __all__ = [
     "qr",
     "set_debug",
     "slogdet",
-    "sql",
-    "sql_logdet",
+    "slq",
+    "slq_logdet",
     "solve",
     "sqrt",
     "stochastic_lanczos_quadrature",
@@ -370,16 +370,16 @@ def slogdet(a: LinearlyOperatorLike, method: str = "auto", **kwargs) -> tuple[ja
 
     Args:
         a: Linear operator.
-        method: Computation method ("auto", "exact", "sql").
+        method: Computation method ("auto", "exact", "slq").
     """
     from linox.linalg.determinants import slogdet as _slogdet
 
     op = ensure_linop(a)
     m = config.resolve_method("slogdet", op, method)
 
-    # As in `trace`: SQL needs a PRNG key, so an `auto` resolution that lands
+    # As in `trace`: SLQ needs a PRNG key, so an `auto` resolution that lands
     # there without one falls back to the exact path.
-    if m == "sql" and method == "auto" and kwargs.get("key") is None:
+    if m == "slq" and method == "auto" and kwargs.get("key") is None:
         m = "exact"
 
     return _slogdet(op, method=m, **kwargs)

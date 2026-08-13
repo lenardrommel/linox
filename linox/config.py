@@ -137,7 +137,7 @@ def set_default_method(operation: str, method: str) -> None:
 #: bugs (e.g. ``sqrt(a, method="lanczos")`` quietly returning the exact result).
 VALID_METHODS: dict[str, frozenset[str]] = {
     "trace": frozenset({"auto", "exact", "hutchinson"}),
-    "slogdet": frozenset({"auto", "exact", "sql"}),
+    "slogdet": frozenset({"auto", "exact", "slq"}),
     "solve": frozenset({"auto", "exact", "lsmr", "cg", "conjugate_gradient"}),
     "inverse": frozenset({"auto", "exact", "approx", "lsmr", "cg"}),
     "sqrt": frozenset({"auto", "exact", "approx", "lanczos"}),
@@ -203,10 +203,10 @@ def resolve_method(operation: str, op: AnyType, requested_method: str) -> str:
         # For large operators, default to Hutchinson
         return "hutchinson"
     if operation == "slogdet":
-        # For large operators, default to SQL (if implemented) or fallback
-        # Currently we might not have SQL hooked up everywhere, so be careful.
-        # But 'sql' is the intended approx backend.
-        return "sql"
+        # For large operators, default to SLQ (if implemented) or fallback
+        # Currently we might not have SLQ hooked up everywhere, so be careful.
+        # But 'slq' is the intended approx backend.
+        return "slq"
     if operation == "inverse":
         return "lsmr"  # Approx inverse for large scale
     if operation == "solve":

@@ -7,7 +7,7 @@
 linox v0.0.3 delivers:
 - Clean package structure (`operators/`, `linalg/`, `utils/`)
 - Unified public API with `method="auto"|"exact"|"approx"` dispatch
-- Approximation backends (Lanczos, Hutchinson, SQL, LSMR)
+- Approximation backends (Lanczos, Hutchinson, SLQ, LSMR)
 - Operator introspection, canonicalization, and fingerprint-based caching
 - Tracing and performance lint
 - PSD/symmetry wrappers and factored operators
