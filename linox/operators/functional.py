@@ -1,3 +1,5 @@
+"""Lazy matrix functions ``f(A)`` of a linear operator."""
+
 
 from collections.abc import Callable
 
@@ -40,13 +42,18 @@ class MatrixFunctionLinearOperator(LinearOperator):
             method = "lanczos" if getattr(self.operator, "is_symmetric", False) else "arnoldi"
 
         if method == "lanczos":
-            fn = lambda col: lanczos_matrix_function(
-                self.operator, col, self.func, self.num_iters
-            )
+
+            def fn(col):
+                return lanczos_matrix_function(
+                    self.operator, col, self.func, self.num_iters
+                )
+
         elif method == "arnoldi":
-            fn = lambda col: arnoldi_matrix_function(
-                self.operator, col, self.func, self.num_iters
-            )
+
+            def fn(col):
+                return arnoldi_matrix_function(
+                    self.operator, col, self.func, self.num_iters
+                )
         else:
             msg = f"Unknown MatrixFunction method: {method}"
             raise ValueError(msg)
@@ -72,6 +79,7 @@ class MatrixFunctionLinearOperator(LinearOperator):
         return V @ jnp.diag(self.func(w)) @ jnp.linalg.inv(V)
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         # f(A)^T = f(A^T) ?
         # If A is symmetric, A=A^T, f(A) symmetric.
         # If A normal, yes.

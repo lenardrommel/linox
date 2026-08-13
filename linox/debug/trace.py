@@ -62,6 +62,7 @@ class TraceContext:
 
     @property
     def report(self) -> TraceReport:
+        """Return the events collected so far as an analyzed :class:`TraceReport`."""
         r = TraceReport(events=list(self.events))
         r.analyze()
         return r

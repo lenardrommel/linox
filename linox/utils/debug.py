@@ -1,3 +1,5 @@
+"""Operator-graph inspection and execution tracing helpers."""
+
 # _graph.py
 
 from __future__ import annotations
@@ -46,6 +48,7 @@ class LinOpNode:
 def linop_graph(
     op, *, show_extra: bool = True, max_depth: int | None = None
 ) -> LinOpNode:
+    """Return a tree of :class:`LinOpNode` describing an operator's structure."""
     seen = {}
 
     def _node(x, depth: int) -> LinOpNode:

@@ -89,7 +89,10 @@ default-groups = ["dev"]
 
 [tool.ruff]
 line-length = 150
-exclude = ["tests"]
+# `examples/` are demonstration scripts and `helper/` is the GP demo package
+# that ships alongside them -- neither is public API, and holding them to the
+# docstring rules produced 75 findings with no reader to benefit.
+exclude = ["tests", "examples", "helper"]
 
 
 [tool.ruff.lint]
@@ -98,6 +101,7 @@ select = ["E", "F", "I", "D", "UP", "B", "SIM", "RUF"]
 ignore = [
   "D107",  # Missing docstring in __init__
   "D105",  # Missing docstring in magic method
+  "RUF001", # String contains ambiguous sign (×, −, Λ, ⊗ in maths notation)
   "RUF002", # Docstring contains ambiguous sign
   "RUF003", # Comment contains ambiguous sign
   "E741", # Ambiguous variable name

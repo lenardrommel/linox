@@ -1,3 +1,5 @@
+"""Isotropic additive operators of the form ``s*I + A``."""
+
 # _isotropicadd.py
 
 import jax
@@ -257,12 +259,14 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
         return self._s._todense() + self._A._todense()
 
     def tree_flatten(self) -> tuple[tuple, dict]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self._s.scalar, self._A)
         aux_data = {}
         return children, aux_data
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
+        """Reconstruct this operator from JAX pytree children and static data."""
         s, A = children
         return cls(s, A)
 

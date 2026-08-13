@@ -22,7 +22,6 @@ import numpy as np
 from linox import utils
 from linox.operators.arithmetic import (
     AddLinearOperator,
-    ProductLinearOperator,
     diagonal,
     lcholesky,
     ldet,

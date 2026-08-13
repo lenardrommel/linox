@@ -1,3 +1,5 @@
+"""Lanczos tridiagonalization and the Krylov methods built on it."""
+
 # _lanzcos.py
 
 import jax

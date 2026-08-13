@@ -28,6 +28,8 @@ _DEBUG_HOOK: CallableType[[DebugEvent], None] | None = None
 
 @dataclass(frozen=True)
 class DebugEvent:
+    """A single debug or profiling event emitted by the library."""
+
     kind: str  # e.g. "densify", "solve_fallback", "eigh_dense"
     msg: str
     op_type: str | None = None

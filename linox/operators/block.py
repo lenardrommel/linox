@@ -127,6 +127,7 @@ class BlockMatrix(LinearOperator):
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
         # Flatten the nested list of blocks into a single tuple
+        """Flatten this operator into JAX pytree children and static data."""
         flattened_blocks = []
         for row in self._blocks:
             flattened_blocks.extend(row)
@@ -141,6 +142,7 @@ class BlockMatrix(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "BlockMatrix":
+        """Reconstruct this operator from JAX pytree children and static data."""
         block_shape = aux_data["block_shape"]
 
         # Reconstruct the nested list structure
@@ -222,6 +224,7 @@ class BlockMatrix2x2(LinearOperator):
         return jnp.block([[A, B], [C, D]])
 
     def transpose(self) -> "BlockMatrix2x2":
+        """Return the transpose of this operator."""
         return BlockMatrix2x2(
             A=self.A.transpose(),
             B=self.C.transpose(),
@@ -230,6 +233,7 @@ class BlockMatrix2x2(LinearOperator):
         )
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.A, self.B, self.C, self.D)
         aux_data = {}
         return children, aux_data
@@ -240,6 +244,7 @@ class BlockMatrix2x2(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "BlockMatrix2x2":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         A, B, C, D = children
         return cls(A=A, B=B, C=C, D=D)
@@ -295,9 +300,11 @@ class BlockDiagonal(LinearOperator):
         return jax.scipy.linalg.block_diag(*[block._todense() for block in self.blocks])
 
     def transpose(self) -> "BlockDiagonal":
+        """Return the transpose of this operator."""
         return BlockDiagonal(*[block.transpose() for block in self.blocks])
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = tuple(self.blocks)
         aux_data = {}
         return children, aux_data
@@ -308,6 +315,7 @@ class BlockDiagonal(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "BlockDiagonal":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         return cls(*children)
 

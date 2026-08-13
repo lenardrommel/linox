@@ -99,11 +99,11 @@ from .operators.wrappers import (
     assume_symmetric,
 )
 from .utils import array as _array_module
-from .utils.array import allclose
 
 # Not part of the public API; re-exported only because `linox._broadcast_shapes`
 # was importable in earlier releases.
-from .utils.array import _broadcast_shapes as _broadcast_shapes  # noqa: F401
+from .utils.array import _broadcast_shapes as _broadcast_shapes
+from .utils.array import allclose
 from .utils.debug import inspect_run, linop_graph
 from .utils.validation import ValidationError, validate
 
@@ -117,7 +117,6 @@ __all__ = [
     "PSD",
     "RESULTS",
     "SPD",
-    # Arithmetic Classes
     "AddLinearOperator",
     "BlockDiagonal",
     "BlockMatrix",
@@ -130,11 +129,9 @@ __all__ = [
     "IsotropicScalingPlusSymmetricLowRank",
     "Kronecker",
     "KroneckerSelectedEigenvectors",
-    # Core Classes
     "LinearOperator",
     "LinearSolveError",
     "LowRank",
-    # Classes Exported (Compatibility/Typing)
     "Matrix",
     "Ones",
     "Permutation",
@@ -148,25 +145,29 @@ __all__ = [
     "SymmetricLowRank",
     "Toeplitz",
     "TransposedLinearOperator",
-    # Utils / Debug / Misc
     "ValidationError",
     "Zero",
     "allclose",
+    "arnoldi_iteration",
+    "arnoldi_matrix_function",
     "as_linop",
     "assume_psd",
     "assume_spd",
     "assume_symmetric",
     "block_diag",
     "bmat",
+    "cholesky",
     "congruence_transform",
     "det",
     "diag",
     "diagonal",
-    # Linalg Functions
     "eigh",
     "exp",
-    # Creation
     "eye",
+    "hutchinson_diagonal",
+    "hutchinson_trace",
+    "hutchinson_trace_and_diagonal",
+    "inspect_run",
     "inv",
     "inverse",
     "is_debug",
@@ -174,10 +175,15 @@ __all__ = [
     "is_square",
     "is_symmetric",
     "kron",
+    "lanczos_bidiag",
+    "lanczos_eigh",
+    "lanczos_matrix_function",
+    "lanczos_tridiag",
     "lcholesky",
     "ldet",
     "leigh",
     "lexp",
+    "linop_graph",
     "linverse",
     "llog",
     "log",
@@ -186,49 +192,34 @@ __all__ = [
     "lpow",
     "lpsolve",
     "lqr",
+    "lsmr_solve",
     "lsolve",
     "lsqrt",
+    "lu_factor",
+    "lu_solve",
     "ones",
     "pinv",
     "pinverse",
     "pow",
+    "psolve",
+    "qr",
     "set_debug",
     "slogdet",
+    "slq",
+    "slq_logdet",
     "solve",
-    # Element-wise / Functions
     "sqrt",
+    "stochastic_lanczos_quadrature",
     "svd",
+    "svd_partial",
     "symmetrize",
     "todense",
     "toeplitz",
+    "topk_eigh",
     "trace",
-    # Structure Operations
     "transpose",
     "validate",
     "zeros",
-    # Matrix-free algorithms
-    "arnoldi_iteration",
-    "arnoldi_matrix_function",
-    "cholesky",
-    "hutchinson_diagonal",
-    "hutchinson_trace",
-    "hutchinson_trace_and_diagonal",
-    "inspect_run",
-    "lanczos_bidiag",
-    "lanczos_eigh",
-    "lanczos_matrix_function",
-    "lanczos_tridiag",
-    "linop_graph",
-    "lsmr_solve",
-    "lu_factor",
-    "lu_solve",
-    "psolve",
-    "qr",
-    "slq",
-    "slq_logdet",
-    "stochastic_lanczos_quadrature",
-    "svd_partial",
-    "topk_eigh",
 ]
 
 

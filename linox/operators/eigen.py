@@ -61,14 +61,17 @@ class EigenD(LinearOperator):
 
     @property
     def Q(self) -> LinearOperator:
+        """The orthonormal eigenvector operator ``Q``."""
         return self._Q
 
     @property
     def Lambda(self) -> LinearOperator:
+        """The eigenvalue operator ``Lambda``."""
         return self._Lambda
 
     @property
     def eigenvalues(self) -> jax.Array:
+        """The eigenvalues, as a :class:`jax.Array`."""
         return diagonal(self._Lambda)
 
     def _matmul(self, vec: jax.Array) -> jax.Array:
@@ -80,9 +83,11 @@ class EigenD(LinearOperator):
         return Q_dense @ (lam[:, None] * Q_dense.T)
 
     def transpose(self) -> "EigenD":
+        """Return the transpose of this operator."""
         return self
 
     def tree_flatten(self) -> tuple[tuple, dict]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self._Q, self._Lambda)
         aux_data = {}
         return children, aux_data
@@ -93,6 +98,7 @@ class EigenD(LinearOperator):
         aux_data: dict,
         children: tuple,
     ) -> "EigenD":
+        """Reconstruct this operator from JAX pytree children and static data."""
         Q, Lambda = children
         return cls(Q=Q, Lambda=Lambda)
 

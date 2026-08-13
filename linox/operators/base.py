@@ -1,3 +1,5 @@
+"""The :class:`LinearOperator` base class."""
+
 # _linear_operator.py
 
 import operator
@@ -126,11 +128,13 @@ class LinearOperator:
         )
 
     def graph(self, **kwargs):
+        """Return this operator's structure as a tree of :class:`LinOpNode`."""
         from linox.utils.debug import linop_graph
 
         return linop_graph(self, **kwargs)
 
     def graph_str(self, **kwargs):
+        """Return this operator's structure as a printable tree."""
         return self.graph(**kwargs).pretty()
 
     ########################################################################
@@ -138,6 +142,7 @@ class LinearOperator:
     ########################################################################
 
     def todense(self) -> jnp.ndarray:
+        """Materialize this operator as a dense array."""
         if config.get_warn_on_densify():
             config.warn(f"Linear operator {self} is densed.", prefix="PerformanceWarning")
 
@@ -162,10 +167,12 @@ class LinearOperator:
 
 
     def transpose(self) -> "LinearOperator":
+        """Return the transpose of this operator."""
         return self._todense().swapaxes(-1, -2)
 
     @property
     def T(self) -> "LinearOperator":
+        """Return the transpose of this operator, preserving structure where possible."""
         from linox.operators.arithmetic import (
             TransposedLinearOperator,
         )
@@ -281,6 +288,7 @@ class LinearOperator:
         )
 
     def __call__(self, arr: BinaryOperandType) -> "LinearOperator":
+        """Apply this operator, equivalent to ``self @ arr``."""
         return self @ arr
 
     @classmethod

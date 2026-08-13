@@ -118,7 +118,7 @@ def stochastic_lanczos_quadrature(
     from jax import random
 
     # Get operator shape
-    n = A.shape[0] if hasattr(A, "shape") else A.shape[0]
+    n = A.shape[0]
 
     # Generate test vectors
     if distribution == "rademacher":

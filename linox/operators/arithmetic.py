@@ -201,6 +201,7 @@ def smart_add(*operators: LinearOperator) -> LinearOperator:
 # all arithmetic functions
 @plum.dispatch
 def ladd(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Add two linear operators, applying structure-preserving rewrites."""
     return smart_add(a, b)
 
 
@@ -211,6 +212,7 @@ def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
 
 @plum.dispatch
 def lsub(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Subtract ``b`` from ``a``."""
     return AddLinearOperator(a, -b)
 
 
@@ -221,11 +223,13 @@ def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
 
 @plum.dispatch
 def lmul(a: ScalarLike | jax.Array, b: LinearOperator) -> LinearOperator:
+    """Scale a linear operator by a scalar."""
     return ScaledLinearOperator(scalar=a, operator=b)
 
 
 @plum.dispatch
 def ldiv(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Divide ``a`` by ``b`` elementwise (defined for diagonal-like operators)."""
     if len(a.shape) < 2 and len(b.shape) < 2:
         return a._todense() / b._todense()
     msg = f"Division only supported for Diagonal operators, got {type(a)} and {type(b)}"
@@ -234,6 +238,7 @@ def ldiv(a: LinearOperator, b: LinearOperator) -> LinearOperator:
 
 @plum.dispatch
 def lmatmul(a: LinearOperator, b: LinearOperator) -> ArithmeticType:
+    """Compose two linear operators, applying structure-preserving rewrites."""
     return smart_matmul(a, b)
 
 
@@ -272,11 +277,13 @@ def smart_matmul(a: LinearOperator, b: LinearOperator) -> LinearOperator:
 
 # @plum.dispatch
 def lneg(a: LinearOperator) -> LinearOperator:
+    """Negate a linear operator."""
     return ScaledLinearOperator(operator=a, scalar=-1)
 
 
 @plum.dispatch
 def lsqrt(a: LinearOperator) -> LinearOperator:
+    """Return a factor ``S`` of ``a`` satisfying ``S @ S.T == a``."""
     msg = f"Square root of {type(a)} not implemented."
     raise NotImplementedError(msg)
 
@@ -288,6 +295,7 @@ def lsqrt(a: LinearOperator) -> LinearOperator:
 
 @plum.dispatch
 def diagonal(a: LinearOperator) -> jax.Array:
+    """Extract the diagonal of an operator as a :class:`jax.Array`."""
     _warn(f"Linear operator {a} is densed for diagonal computation.")
     dense_matrix = a._todense()
     if len(a.shape) <= 2:
@@ -298,21 +306,25 @@ def diagonal(a: LinearOperator) -> jax.Array:
 
 
 def transpose(a: LinearOperator) -> ArithmeticType:
+    """Return the transpose of this operator."""
     return TransposedLinearOperator(a)
 
 
 @plum.dispatch
 def linverse(a: LinearOperator) -> ArithmeticType:
+    """Return the inverse of an operator, lazily where possible."""
     return InverseLinearOperator(a)
 
 
 @plum.dispatch
 def lpinverse(a: LinearOperator) -> ArithmeticType:
+    """Return the Moore-Penrose pseudo-inverse of an operator."""
     return PseudoInverseLinearOperator(a)
 
 
 @plum.dispatch
 def iso(scalar: ScalarLike, a: LinearOperator) -> LinearOperator:
+    """Build the isotropic additive operator ``scalar * I + a``."""
     from linox.operators.isotropic import (
         IsotropicAdditiveLinearOperator,
     )
@@ -322,6 +334,7 @@ def iso(scalar: ScalarLike, a: LinearOperator) -> LinearOperator:
 
 @plum.dispatch
 def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
+    """Eigendecomposition of a Hermitian operator, as ``(eigenvalues, Q)``."""
     with config.profile(
         kind="eigh",
         msg=f"eigh: {type(a).__name__}",
@@ -613,6 +626,7 @@ def slogdet(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
 
 @plum.dispatch
 def kron(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Return the Kronecker product ``a (x) b``."""
     from linox.operators.kron import Kronecker
 
     return Kronecker(a, b)
@@ -799,6 +813,7 @@ def lpow(
 
 
 def is_square(a: LinearOperator) -> bool:
+    """Whether the operator has equal row and column counts."""
     return a.shape[-1] == a.shape[-2]
 
 
@@ -918,6 +933,7 @@ def is_hermitian(
 
 
 def symmetrize(a: LinearOperator) -> ArithmeticType:
+    """Return the symmetric part ``(a + a.T) / 2`` of an operator."""
     return 0.5 * (a + a.transpose())
 
 
@@ -972,6 +988,7 @@ class ScaledLinearOperator(LinearOperator):
 
     @property
     def is_symmetric(self) -> bool:
+        """Whether the scaled operator is symmetric."""
         return self.operator.is_symmetric
 
     @property
@@ -982,13 +999,14 @@ class ScaledLinearOperator(LinearOperator):
         # Introspection is usually for planning (outside JIT), so concrete values expected.
         # But here scalar is stored as array/scalar.
         # For safety, we can try converting to float if it's not traced.
-        # If traced, we probably can't decide at analysis time easily without concrete value.
-        # For now, simplistic check:
+        # A traced scalar has no concrete sign, so make no claim rather than
+        # guessing. (A bare `except` here previously swallowed every error.)
+        """Whether the scaled operator is positive semi-definite."""
         try:
             s = float(self.scalar)
-            return s >= 0 and self.operator.is_psd
-        except:
+        except (jax.errors.ConcretizationTypeError, TypeError):
             return False
+        return s >= 0 and self.operator.is_psd
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return (self.operator @ arr) * self.scalar
@@ -997,9 +1015,11 @@ class ScaledLinearOperator(LinearOperator):
         return self.operator._todense() * self.scalar
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         return self.scalar * self.operator.transpose()
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.operator, self.scalar)
         aux_data = {}
         return children, aux_data
@@ -1010,6 +1030,7 @@ class ScaledLinearOperator(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "ScaledLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         operator, scalar = children
         return cls(operator=operator, scalar=scalar)
@@ -1120,9 +1141,11 @@ class AddLinearOperator(LinearOperator):
         return reduce(operator.add, (op._todense() for op in self.operator_list))
 
     def transpose(self) -> "AddLinearOperator":
+        """Return the transpose of this operator."""
         return AddLinearOperator(*(op.transpose() for op in self.operator_list))
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = tuple(self.operator_list)
         aux_data = {}
         return children, aux_data
@@ -1133,6 +1156,7 @@ class AddLinearOperator(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "AddLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         return cls(*children)
 
@@ -1230,6 +1254,7 @@ class ProductLinearOperator(LinearOperator):
         return reduce(lambda x, y: y @ x, [arr, *reversed(self.operator_list)])
 
     def transpose(self) -> "ProductLinearOperator":
+        """Return the transpose of this operator."""
         return ProductLinearOperator(
             *(op.transpose() for op in reversed(self.operator_list))
         )
@@ -1244,6 +1269,7 @@ class ProductLinearOperator(LinearOperator):
         )
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = tuple(self.operator_list)
         aux_data = {}
         return children, aux_data
@@ -1252,6 +1278,7 @@ class ProductLinearOperator(LinearOperator):
     def tree_unflatten(
         cls, aux_data: dict[str, any], children: tuple[any, ...]
     ) -> "ProductLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         return cls(*children)
 
@@ -1275,9 +1302,11 @@ class CongruenceTransform(ProductLinearOperator):
         super().__init__(self._A, self._B, self._A.T)
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         return CongruenceTransform(self._A, self._B.T)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self._A, self._B)
         aux_data = {}
         return children, aux_data
@@ -1288,6 +1317,7 @@ class CongruenceTransform(ProductLinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "CongruenceTransform":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         A, B = children
         return cls(A=A, B=B)
@@ -1295,6 +1325,7 @@ class CongruenceTransform(ProductLinearOperator):
 
 @plum.dispatch
 def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:
+    """Return the congruence transform ``A @ B @ A.T``."""
     return CongruenceTransform(A, B)
 
 
@@ -1330,9 +1361,11 @@ class TransposedLinearOperator(LinearOperator):
         return self.operator._todense().swapaxes(-1, -2)
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         return self.operator
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.operator,)
         aux_data = {}
         return children, aux_data
@@ -1343,6 +1376,7 @@ class TransposedLinearOperator(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "TransposedLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         (operator,) = children
         return cls(operator=operator)
@@ -1405,6 +1439,7 @@ class InverseLinearOperator(LinearOperator):
         return self._matmul(I_op)
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         # If A is invertible, (A^-1)^T = (A^T)^-1
         # We propagate the solver method.
         # Note: if method was "cg" (expects SPD), A^T should also be SPD if A was.
@@ -1416,6 +1451,7 @@ class InverseLinearOperator(LinearOperator):
         )
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.operator,)
 
         aux_data = {"method": self.method, "solver_options": self.solver_options} if self.method != "exact" else {}
@@ -1427,6 +1463,7 @@ class InverseLinearOperator(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "InverseLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         (operator,) = children
         return cls(operator=operator, **aux_data)
 
@@ -1462,9 +1499,11 @@ class CongruenceTransform(ProductLinearOperator):
         super().__init__(self._A, self._B, self._A.T)
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         return CongruenceTransform(self._A, self._B.T)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self._A, self._B)
         aux_data = {}
         return children, aux_data
@@ -1475,6 +1514,7 @@ class CongruenceTransform(ProductLinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "CongruenceTransform":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         A, B = children
         return cls(A=A, B=B)
@@ -1482,37 +1522,43 @@ class CongruenceTransform(ProductLinearOperator):
 
 @plum.dispatch
 def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:  # noqa: F811
+    """Return the congruence transform ``A @ B @ A.T``."""
     return CongruenceTransform(A, B)
 
 
 class PseudoInverseLinearOperator(LinearOperator):
+    """Moore-Penrose pseudo-inverse ``A^+`` of a linear operator."""
+
     def __init__(self, operator: LinearOperator, tol: float = 1e-12) -> None:
         self.operator = operator
         super().__init__(shape=operator.T.shape, dtype=operator.dtype)
         self.tol = tol
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         # (A^+)^T == (A^T)^+ -- transpose the operand, not the pseudo-inverse
         # of self, which recurses forever.
         return PseudoInverseLinearOperator(self.operator.transpose(), tol=self.tol)
 
     def _todense(self) -> jax.Array:
-        r"""# TODO:
-        Compute the dense pseudo-inverse using SVD.
-        U, S, Vh = svd(self.operator).
+        r"""Materialize the pseudo-inverse densely.
+
+        TODO: compute this from the SVD rather than via ``jnp.linalg.pinv``:
+        ``U, S, Vh = svd(self.operator)``.
 
         Returns
         -------
             x_LS = \sum_i (u_i^T b) / s_i v_i
             -> U, S, Vh = svd(self.operator)
             return U @ jnp.diag(1 / S) @ Vh.
-        """  # noqa: D205
+        """
         return jnp.linalg.pinv(self.operator._todense(), rtol=self.tol)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return lpsolve(self.operator, arr, rtol=self.tol)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.operator,)
         aux_data = {}
         return children, aux_data
@@ -1523,6 +1569,7 @@ class PseudoInverseLinearOperator(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "PseudoInverseLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         (operator,) = children
         return cls(operator=operator)
@@ -1557,14 +1604,14 @@ def _(
     # Note: With full_matrices=True, U can be (m, m) but S is (min(m,n),)
     # We only mask the first S.shape[0] columns of U and rows of Vh
     k = S.shape[0]
-    if U.shape[1] == k:
+    if U.shape[1] == k:  # noqa: SIM108 - the per-branch comments carry the reasoning
         # Partial SVD or full_matrices=False: all columns correspond to singular values
         U_masked = U * mask[None, :]
     else:
         # full_matrices=True: only first k columns correspond to singular values
         U_masked = U.at[:, :k].multiply(mask[None, :])
 
-    if Vh.shape[0] == k:
+    if Vh.shape[0] == k:  # noqa: SIM108 - as above
         # All rows correspond to singular values
         Vh_masked = Vh * mask[:, None]
     else:
