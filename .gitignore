@@ -6,6 +6,7 @@ local_*
 coverage.*
 uv.lock
 tox.ini
+comparables/
 
 
 # Byte-compiled / optimized / DLL files

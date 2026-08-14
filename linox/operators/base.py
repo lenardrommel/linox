@@ -164,8 +164,19 @@ class LinearOperator:
         return self._todense() @ other
 
     def transpose(self) -> "LinearOperator":
-        """Return the transpose of this operator."""
-        return self._todense().swapaxes(-1, -2)
+        """Return the transpose of this operator.
+
+        Subclasses that know their own structure should override this and
+        return it (``Diagonal`` returns itself, ``Kronecker`` returns a
+        ``Kronecker`` of transposed factors, and so on). The default is a lazy
+        wrapper that derives the adjoint from the forward matvec, so it never
+        materialises the dense matrix.
+        """
+        from linox.operators.arithmetic import (
+            TransposedLinearOperator,
+        )
+
+        return TransposedLinearOperator(self)
 
     @property
     def T(self) -> "LinearOperator":

@@ -1333,7 +1333,36 @@ class TransposedLinearOperator(LinearOperator):
         )
 
     def _matmul(self, arr: jnp.array) -> jax.Array:
-        return self.operator.transpose() @ arr
+        # Derive the adjoint from the forward matvec instead of asking the
+        # wrapped operator to transpose itself. `LinearOperator.transpose`
+        # materialises the dense matrix by default, so the old
+        # `self.operator.transpose() @ arr` densified any operator that did
+        # not override it -- exactly the operators a matrix-free library must
+        # not densify.
+        #
+        # This wrapper is only ever constructed when there is *no* structured
+        # transpose (`LinearOperator.T` returns the subclass's own transpose
+        # when it provides one), so nothing structured loses its fast path.
+        arr = jnp.asarray(arr)
+        n = self.operator.shape[-1]
+
+        # `linear_transpose` requires the cotangent's dtype to match the
+        # forward output's exactly, so promote both to a common dtype rather
+        # than silently narrowing a float64 rhs onto a float32 operator.
+        dtype = jnp.promote_types(self.operator.dtype, arr.dtype)
+        basis = jnp.zeros((n,), dtype=dtype)
+
+        def forward(v: jax.Array) -> jax.Array:
+            return self.operator @ v
+
+        out_dtype = jax.eval_shape(forward, basis).dtype
+
+        def adjoint(col: jax.Array) -> jax.Array:
+            return jax.linear_transpose(forward, basis)(col.astype(out_dtype))[0]
+
+        if arr.ndim == 1:
+            return adjoint(arr)
+        return jax.vmap(adjoint, in_axes=-1, out_axes=-1)(arr)
 
     def _todense(self) -> jax.Array:
         return self.operator._todense().swapaxes(-1, -2)
