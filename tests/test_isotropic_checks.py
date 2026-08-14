@@ -157,3 +157,39 @@ class TestCheckStaysMatrixFree:
         kron = Kronecker(Matrix(NON_SYMMETRIC), Matrix(jnp.eye(2)))
         with pytest.raises(ValueError, match="symmetric"):
             linverse(kron + 0.1 * Identity(4))
+
+    def test_operator_without_structured_transpose_is_not_materialised(self) -> None:
+        """The probe must not reach for `A.T`.
+
+        `LinearOperator.transpose` materialises the dense matrix by default, so
+        an `A x` vs `A.T x` formulation would densify exactly the operators
+        this check exists to keep matrix-free. The bilinear form
+        `<x, Ay> == <Ax, y>` needs only forward matvecs.
+        """
+        from linox.operators.base import LinearOperator
+        from linox.operators.isotropic import _require_symmetric
+
+        materialisations = []
+
+        class Opaque(LinearOperator):
+            """An operator with no structured transpose, like a user's own."""
+
+            def __init__(self, array):
+                self._array = array
+                super().__init__(array.shape, array.dtype)
+
+            def _matmul(self, other):
+                return self._array @ other
+
+            def _todense(self):
+                materialisations.append(1)
+                return self._array
+
+        assert "transpose" not in Opaque.__dict__
+
+        _require_symmetric(Opaque(PSD))
+        assert materialisations == []
+
+        with pytest.raises(ValueError, match="symmetric"):
+            _require_symmetric(Opaque(NON_SYMMETRIC))
+        assert materialisations == []

@@ -45,10 +45,13 @@ def _require_symmetric(A: LinearOperator, *, num_probes: int = 3) -> None:
     * one that already holds a concrete dense array is compared exactly,
       which costs nothing since the array is in hand;
     * anything else -- Kronecker, kernel, block, any lazy composition -- is
-      probed matrix-free, comparing ``A x`` against ``A.T x`` for a few random
-      ``x``. Densifying here would defeat the point: ``leigh`` has structured
-      dispatches that never build the dense matrix, so a dense check would be
-      the *only* O(n^2) step in the whole path.
+      probed matrix-free through the bilinear form ``<x, Ay> == <Ax, y>``,
+      which needs only *forward* matvecs. Densifying here would defeat the
+      point: ``leigh`` has structured dispatches that never build the dense
+      matrix, so a dense check would be the only O(n^2) step in the whole
+      path. Note this deliberately avoids ``A.T``, whose base implementation
+      materialises the dense matrix for any operator lacking a structured
+      transpose.
 
     The probe is randomized, so an adversarially-constructed operand could
     slip through; for that, ``num_probes`` can be raised.
@@ -60,12 +63,23 @@ def _require_symmetric(A: LinearOperator, *, num_probes: int = 3) -> None:
     if isinstance(array, jnp.ndarray) and array.ndim >= 2:
         ok = jnp.allclose(array, jnp.swapaxes(array, -1, -2))
     else:
+        # Probe the bilinear form: A is self-adjoint iff <x, Ay> == <Ax, y>.
+        #
+        # Deliberately avoids `A.T`. For an operator that does not override
+        # `transpose()`, the base implementation materialises the dense matrix,
+        # so an `A.T @ x` formulation would densify precisely the operators
+        # this check exists to keep matrix-free. The bilinear form needs only
+        # forward matvecs and so never materialises anything.
         key = jax.random.PRNGKey(0)
         n = A.shape[-1]
         ok = jnp.asarray(True)
         for i in range(num_probes):
-            x = jax.random.normal(jax.random.fold_in(key, i), (n,), dtype=A.dtype)
-            ok = ok & jnp.allclose(A @ x, A.T @ x, rtol=1e-5, atol=1e-8)
+            kx, ky = jax.random.split(jax.random.fold_in(key, i))
+            x = jax.random.normal(kx, (n,), dtype=A.dtype)
+            y = jax.random.normal(ky, (n,), dtype=A.dtype)
+            lhs = jnp.vdot(x, A @ y)
+            rhs = jnp.vdot(A @ x, y)
+            ok = ok & jnp.allclose(lhs, rhs, rtol=1e-5, atol=1e-8)
 
     require(
         ok,
