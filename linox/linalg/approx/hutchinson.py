@@ -102,10 +102,7 @@ def hutchinson_trace_and_diagonal(
     diag_mean = jnp.mean(diag_samples, axis=1)
     diag_std = jnp.std(diag_samples, axis=1, ddof=1) / jnp.sqrt(num_samples)
 
-    return {
-        "trace": (trace_mean, trace_std),
-        "diagonal": (diag_mean, diag_std)
-    }
+    return {"trace": (trace_mean, trace_std), "diagonal": (diag_mean, diag_std)}
 
 
 def _generate_probes(key, n, num_samples, distribution):

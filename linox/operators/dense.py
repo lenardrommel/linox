@@ -52,6 +52,7 @@ class Matrix(LinearOperator):
         return self.A
 
     def transpose(self) -> "Matrix":
+        """Return the transpose of this operator."""
         return Matrix(self.A.swapaxes(-1, -2))
 
     def __T__(self) -> "Matrix":
@@ -59,14 +60,14 @@ class Matrix(LinearOperator):
         return self.transpose()
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.A,)
         aux_data = {}
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(
-        cls, aux_data: dict[str, any], children: tuple[any, ...]
-    ) -> "Matrix":
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "Matrix":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         (A,) = children
         return cls(A=A)
@@ -94,7 +95,7 @@ def _(a: Matrix, b: Matrix) -> Matrix:
 
 
 @lmul.dispatch
-def _(a: float, b: Matrix) -> Matrix: # Fixed type hint from ScalarType to float/complex potentially, but keeping simple for now
+def _(a: float, b: Matrix) -> Matrix:  # Fixed type hint from ScalarType to float/complex potentially, but keeping simple for now
     return Matrix(a * b.A)
 
 

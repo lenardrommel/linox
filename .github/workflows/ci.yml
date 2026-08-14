@@ -43,7 +43,7 @@ jobs:
         run: pytest -q
 
   lint:
-    name: lint (advisory)
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,16 +59,5 @@ jobs:
           python -m pip install --upgrade pip
           pip install pre-commit
 
-      # Advisory for now. `pre-commit run --all-files` currently reports ~95
-      # ruff findings plus trailing-whitespace and end-of-file fixes across
-      # files this branch never touched (examples/, docs/, CHANGELOG.md,
-      # .gitignore, pyproject.toml, mkdocs.yml). Making it blocking today would
-      # mean either a large unrelated cleanup or a permanently red CI, so the
-      # findings are reported without failing the build. The cleanup is
-      # tracked separately; drop this flag once it lands.
-      #
-      # `continue-on-error` is set on the step rather than the job: at job
-      # level the run conclusion is still reported as a failure.
       - name: Run pre-commit
-        continue-on-error: true
         run: pre-commit run --all-files --show-diff-on-failure

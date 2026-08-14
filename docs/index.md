@@ -36,4 +36,3 @@ b = lo.solve(B, y)
 ## Documentation
 
 - [API Reference](reference.md) — Complete API documentation
-

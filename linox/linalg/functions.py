@@ -118,7 +118,7 @@ def stochastic_lanczos_quadrature(
     from jax import random
 
     # Get operator shape
-    n = A.shape[0] if hasattr(A, "shape") else A.shape[0]
+    n = A.shape[0]
 
     # Generate test vectors
     if distribution == "rademacher":
@@ -144,12 +144,14 @@ def stochastic_lanczos_quadrature(
 
     return trace_estimate, trace_std
 
+
 # --- Operator Wrappers ---
 
 
 def MatrixFunction(A, func, **kwargs):
     """Create a lazy matrix function operator."""
     from linox.operators.functional import MatrixFunctionLinearOperator
+
     return MatrixFunctionLinearOperator(A, func, **kwargs)
 
 

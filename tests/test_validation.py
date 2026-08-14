@@ -202,7 +202,7 @@ class TestMethodValidation:
         A_data = A_data @ A_data.T + 0.1 * jnp.eye(5)
         A = Matrix(A_data)
         b = jnp.ones(5)
-        
+
         # These should not raise
         for method in ["auto", "exact"]:
             result = linox.solve(A, b, method=method)
@@ -245,7 +245,7 @@ class TestOperatorPropertyValidation:
         """is_square should correctly identify square matrices."""
         A_square = Matrix(jnp.ones((5, 5)))
         A_rect = Matrix(jnp.ones((3, 5)))
-        
+
         assert linox.is_square(A_square)
         assert not linox.is_square(A_rect)
 
@@ -281,10 +281,10 @@ class TestEdgeCaseValidation:
         """Test operators with size 1."""
         I = Identity(1)
         assert I.shape == (1, 1)
-        
+
         D = Diagonal(jnp.array([2.0]))
         assert D.shape == (1, 1)
-        
+
         x = jnp.array([3.0])
         result = D @ x
         assert jnp.allclose(result, jnp.array([6.0]))

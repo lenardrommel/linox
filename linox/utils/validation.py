@@ -46,10 +46,7 @@ class ValidationError(ValueError):
         self.operator = operator
         self.hint = hint
 
-        full_message = (
-            f"Validation failed for {type(operator).__name__}"
-            f" (shape={operator.shape}, dtype={operator.dtype}): {message}"
-        )
+        full_message = f"Validation failed for {type(operator).__name__} (shape={operator.shape}, dtype={operator.dtype}): {message}"
         if hint:
             full_message += f"\nHint: {hint}"
 
@@ -261,6 +258,4 @@ def _validate_numerical(
     if hasattr(op, "children") and callable(op.children):
         for i, child in enumerate(op.children()):
             child_key = jax.random.fold_in(key, i)
-            _validate_numerical(
-                child, rtol=rtol, atol=atol, num_probes=num_probes, key=child_key
-            )
+            _validate_numerical(child, rtol=rtol, atol=atol, num_probes=num_probes, key=child_key)

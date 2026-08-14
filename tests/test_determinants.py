@@ -5,7 +5,7 @@ from linox import Matrix
 from linox.linalg.determinants import slogdet
 
 
-def test_slq_logdet_simple() -> None:
+def test_sql_logdet_simple() -> None:
     key = jax.random.PRNGKey(42)
     n = 100
     # A = diag(1, 2, ..., n)

@@ -22,7 +22,6 @@ import numpy as np
 from linox import utils
 from linox.operators.arithmetic import (
     AddLinearOperator,
-    ProductLinearOperator,
     diagonal,
     lcholesky,
     ldet,
@@ -58,9 +57,7 @@ class Kronecker(LinearOperator):
     jnp.allclose(result, result_true)
     """
 
-    def __init__(
-        self, A: LinearOperator | jax.Array, B: LinearOperator | jax.Array
-    ) -> None:
+    def __init__(self, A: LinearOperator | jax.Array, B: LinearOperator | jax.Array) -> None:
         self._A = utils.as_linop(A)
         self._B = utils.as_linop(B)
         A_shape = self._A.shape if len(self._A.shape) == 2 else (self._A.shape[0], 1)
@@ -141,9 +138,7 @@ class Kronecker(LinearOperator):
         """Compute trace of Kronecker product: tr(A (x) B) = tr(A) tr(B)."""
         # `self.A` / `self.B` are LinearOperators, so take their diagonals
         # through the dispatch rather than calling `jnp.trace` on them.
-        return jnp.sum(jnp.asarray(diagonal(self.A)), axis=-1) * jnp.sum(
-            jnp.asarray(diagonal(self.B)), axis=-1
-        )
+        return jnp.sum(jnp.asarray(diagonal(self.A)), axis=-1) * jnp.sum(jnp.asarray(diagonal(self.B)), axis=-1)
 
 
 @linverse.dispatch
@@ -404,12 +399,8 @@ def _(
     """Trace of Kronecker product: trace(A ⊗ B) = trace(A) * trace(B)."""
     from linox.operators.arithmetic import ltrace
 
-    trace_A, std_A = ltrace(
-        op.A, key=key, num_samples=num_samples, distribution=distribution
-    )
-    trace_B, std_B = ltrace(
-        op.B, key=key, num_samples=num_samples, distribution=distribution
-    )
+    trace_A, std_A = ltrace(op.A, key=key, num_samples=num_samples, distribution=distribution)
+    trace_B, std_B = ltrace(op.B, key=key, num_samples=num_samples, distribution=distribution)
 
     # trace(A ⊗ B) = trace(A) * trace(B)
     trace_value = trace_A * trace_B
@@ -456,9 +447,7 @@ def _(
         # Fall back to general algorithm
         from linox.config import warn as _warn
 
-        _warn(
-            "Computing log(A ⊗ B) using dense method - no efficient structured formula available"
-        )
+        _warn("Computing log(A ⊗ B) using dense method - no efficient structured formula available")
         eigvals, eigvecs = jnp.linalg.eigh(op.todense())
         return utils.as_linop(eigvecs @ jnp.diag(jnp.log(eigvals)) @ eigvecs.T)
     from linox.linalg.approx.lanczos import lanczos_matrix_function
@@ -498,7 +487,6 @@ def _factor_pair(total: int) -> tuple[int, int]:
         if total % k == 0:
             return k, total // k
     return total, 1
-
 
 
 class KroneckerSelectedEigenvectors(LinearOperator):
@@ -581,9 +569,7 @@ class KroneckerSelectedEigenvectors(LinearOperator):
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(
-        cls, aux_data: dict, children: tuple
-    ) -> "KroneckerSelectedEigenvectors":
+    def tree_unflatten(cls, aux_data: dict, children: tuple) -> "KroneckerSelectedEigenvectors":
         """Unflatten for JAX pytree registration."""
         factor_vecs, sort_indices = children
         return cls(
@@ -640,9 +626,7 @@ class KroneckerSelectedEigenvectors(LinearOperator):
             elif v.shape[1] == 1 and v.shape[0] == n:
                 v = v[:, 0]
             else:
-                msg = (
-                    f"Unsupported v shape {v.shape}. Expected (n,), (batch,n), or (n,p)"
-                )
+                msg = f"Unsupported v shape {v.shape}. Expected (n,), (batch,n), or (n,p)"
                 raise ValueError(msg)
         else:
             msg = f"Unsupported v.ndim={v.ndim}. Expected 1 or 2."
@@ -703,9 +687,7 @@ class KroneckerSelectedEigenvectorsTranspose(LinearOperator):
         return (self._parent,), {}
 
     @classmethod
-    def tree_unflatten(
-        cls, aux_data: dict, children: tuple
-    ) -> "KroneckerSelectedEigenvectorsTranspose":
+    def tree_unflatten(cls, aux_data: dict, children: tuple) -> "KroneckerSelectedEigenvectorsTranspose":
         """Unflatten for JAX pytree registration."""
         return cls(children[0])
 
@@ -715,6 +697,7 @@ class KroneckerSelectedEigenvectorsTranspose(LinearOperator):
     def transpose(self) -> KroneckerSelectedEigenvectors:
         """Return transpose (the parent operator)."""
         return self._parent
+
     def _todense(self) -> jax.Array:
         return self._parent._todense().T
 
@@ -1070,11 +1053,7 @@ def topk_eigh(
 
     if mode == "jax":
         # JAX branch: NO device_get, NO python if on traced values
-        scalar_j = (
-            jnp.asarray(1.0, dtype=dtype)
-            if scalar is None
-            else jnp.asarray(scalar, dtype=dtype)
-        )
+        scalar_j = jnp.asarray(1.0, dtype=dtype) if scalar is None else jnp.asarray(scalar, dtype=dtype)
         add_shift_j = jnp.asarray(0.0, dtype=dtype)
         if include_noise_shift and sigma2 is not None:
             add_shift_j = jnp.asarray(sigma2, dtype=dtype)
@@ -1095,9 +1074,7 @@ def topk_eigh(
         if scalar is not None:
             scalar_f = float(jax.device_get(jnp.asarray(scalar)))
             if scalar_f < 0.0:
-                raise ValueError(
-                    "Negative scalar breaks PSD monotone-grid assumptions."
-                )
+                raise ValueError("Negative scalar breaks PSD monotone-grid assumptions.")
 
         add_shift = 0.0
         if include_noise_shift and sigma2 is not None:
@@ -1147,25 +1124,18 @@ class KroneckerAdditiveIsotropicAdditiveLinearOperator(AddLinearOperator):
         return self._kronecker._matmul(vec) + self._s * vec
 
     def _todense(self) -> jax.Array:
-        return (
-            self._kronecker._todense()
-            + self._s * Identity(self._kronecker.shape[0])._todense()
-        )
+        return self._kronecker._todense() + self._s * Identity(self._kronecker.shape[0])._todense()
 
     def transpose(self) -> "KroneckerAdditiveIsotropicAdditiveLinearOperator":
         """Return transposed operator."""
-        return KroneckerAdditiveIsotropicAdditiveLinearOperator(
-            self._kronecker.transpose(), self._s
-        )
+        return KroneckerAdditiveIsotropicAdditiveLinearOperator(self._kronecker.transpose(), self._s)
 
     def tree_flatten(self) -> tuple[tuple, dict]:
         """Flatten for JAX pytree registration."""
         return (self._kronecker, self._s), {}
 
     @classmethod
-    def tree_unflatten(
-        cls, aux_data: dict, children: tuple
-    ) -> "KroneckerAdditiveIsotropicAdditiveLinearOperator":
+    def tree_unflatten(cls, aux_data: dict, children: tuple) -> "KroneckerAdditiveIsotropicAdditiveLinearOperator":
         """Unflatten for JAX pytree registration."""
         return cls(children[0], children[1])
 

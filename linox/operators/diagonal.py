@@ -63,29 +63,33 @@ class Diagonal(LinearOperator):
         # Real diagonal matrices are symmetric.
         # If complex, check imaginary part?
         # Generally yes for simplicity in real case.
+        """Whether this operator equals its own transpose (always true here)."""
         return True
 
     @property
     def is_psd(self) -> bool:
-        # Check if all elements non-negative
-        # Since we want boolean return without tracing values if possible...
-        # If diag is concrete array, we can check.
-        # If tracer, we fail.
+        """Whether every diagonal entry is non-negative.
+
+        Returns ``False`` for a traced diagonal rather than guessing: under
+        ``jax.jit`` the entries are tracers with no concrete ordering, so no
+        claim can be made. A bare ``except`` here previously swallowed every
+        error, including unrelated bugs.
+        """
         try:
-            # Fast check if all >= 0?
-            # For now return False to be safe unless we are sure.
-            # Or if user wants to use it in introspection (non-jit), access array.
             return bool(jnp.all(self.diag >= 0))
-        except:
+        except jax.errors.ConcretizationTypeError:
             return False
 
     def transpose(self) -> "Diagonal":
+        """Return the transpose of this operator."""
         return self
 
     def diagonal(self) -> jax.Array:
+        """Return the diagonal entries."""
         return self.diag
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.diag,)
         aux_data = {}
         return children, aux_data
@@ -96,6 +100,7 @@ class Diagonal(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "Diagonal":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         (diag,) = children
         return cls(diag=diag)
@@ -218,6 +223,13 @@ def _(
 
 
 class CircularlySymmetricDiagonal(Diagonal):
+    """Diagonal laid out for a circularly-symmetric quantity.
+
+    The real and imaginary parts of a circularly-symmetric complex variable
+    share the same variance, so ``R_real`` is repeated, followed by ``W`` and
+    an optional trailing block ``b``.
+    """
+
     def __init__(self, R_real: ArrayLike, W: ArrayLike, b: ArrayLike | None) -> None:
         self._R_real = jnp.asarray(R_real)
         self._W = jnp.asarray(W)
@@ -236,14 +248,17 @@ class CircularlySymmetricDiagonal(Diagonal):
 
     @property
     def R_real(self) -> jax.Array:
+        """The repeated real-variance block."""
         return self._R_real
 
     @property
     def W(self) -> jax.Array:
+        """The ``W`` block of the diagonal."""
         return self._W
 
     @property
     def b(self) -> jax.Array | None:
+        """The optional trailing bias block, or ``None``."""
         return self._b
 
 

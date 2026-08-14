@@ -26,7 +26,7 @@ import jax.random as random
 import matplotlib.pyplot as plt
 import numpy as np
 import optax
-from optax import tree_utils as otu
+from optax import tree_utils as out
 
 import linox as lo
 
@@ -187,16 +187,16 @@ def rbf_kernel(X1: jax.Array, X2: jax.Array, lengthscale: jax.Array) -> jax.Arra
 
 def function_kernel_2d(U1: jax.Array, U2: jax.Array, lengthscale: jax.Array) -> jax.Array:
     """Linear/Dot Product kernel (L2 inner product).
-    
+
     k(u, v) = <u, v> / lengthscale^2
     """
     # Flatten spatial dims: (n, nx, ny) -> (n, nx*ny)
     U1_flat = U1.reshape(U1.shape[0], -1)
     U2_flat = U2.reshape(U2.shape[0], -1)
-    
+
     # Compute pairwise inner products
     dot_prod = jnp.matmul(U1_flat, U2_flat.T)
-    
+
     # Normalize by lengthscale (acting as a variance/scale factor combined with output_scale)
     return dot_prod / lengthscale**2
 
@@ -320,7 +320,7 @@ def predict(
     K_f, K_x_m, K_y_m, K_t_m = build_kronecker_kernel_components(
         u0_train, x, y, t, p["ls_func"], p["ls_x"], p["ls_y"], p["ls_t"], p["output_scale"]
     )
-    
+
     K_kron = lo.Kronecker(
         lo.Matrix(K_f),
         lo.Kronecker(lo.Matrix(K_x_m), lo.Kronecker(lo.Matrix(K_y_m), lo.Matrix(K_t_m)))
@@ -336,9 +336,9 @@ def predict(
     # Cross kernels
     K_f_cross = function_kernel_2d(u0_test, u0_train, p["ls_func"])
     K_f_cross = p["output_scale"] * K_f_cross
-    
+
     # We reuse spatial/temporal kernels (assuming test pts same as train pts for grid)
-    # If strictly consistent, we should rebuild K_xx, K_yy, K_tt. 
+    # If strictly consistent, we should rebuild K_xx, K_yy, K_tt.
     # Here we assume prediction is on same grid.
     K_x_cross = rbf_kernel(x, x, p["ls_x"]) + jitter * jnp.eye(n_x)
     K_y_cross = rbf_kernel(y, y, p["ls_y"]) + jitter * jnp.eye(n_y)
@@ -351,7 +351,7 @@ def predict(
 
     # Predict
     pred_flat = K_cross @ alpha
-    
+
     # Reshape: (n_test, nx, ny, nt) -> (n_test, nt, nx, ny)
     pred_reshaped = pred_flat.reshape(n_test, n_x, n_y, n_t).transpose(0, 3, 1, 2)
     return pred_reshaped
@@ -412,13 +412,13 @@ def run_optimization(
 ) -> tuple[GPParams, list]:
     """Run optimization loop."""
     print("\n--- Optimization (4D) ---")
-    
+
     @jax.jit
     def loss_fn(p):
         return negative_log_likelihood(p, u0_train, u_train, x, y, t)
-    
+
     value_and_grad_fn = jax.jit(jax.value_and_grad(loss_fn))
-    
+
     # Compile
     print("  Compiling JIT functions...")
     s = time.time()
@@ -427,16 +427,16 @@ def run_optimization(
 
     optimizer = optax.lbfgs(linesearch=optax.scale_by_backtracking_linesearch(max_backtracking_steps=10))
     state = optimizer.init(params)
-    
-    
+
+
     history = []
     print(f"  {'Iter':>4} | {'NLL':>12} | {'Grad':>12} | {'scale':>8}")
 
     for i in range(max_iter):
         loss, grad = value_and_grad_fn(params)
-        gnorm = otu.tree_norm(grad)
+        gnorm = out.tree_norm(grad)
         history.append(float(loss))
-        
+
         if i % 10 == 0 or i == max_iter-1:
             p = transform_params(params)
             print(f"  {i:4d} | {float(loss):12.4e} | {float(gnorm):12.4e} | {float(p['output_scale']):8.4f}")
@@ -486,7 +486,7 @@ def main():
 
     # Optimize
     params_opt, _ = run_optimization(params, u0_train, u_train_norm, x, y, t, max_iter=30)
-    
+
     p = transform_params(params_opt)
     print("\nOptimized Params:")
     for k, v in p.items():
@@ -498,7 +498,7 @@ def main():
     pred_fn = jax.jit(predict)
     u_pred_norm = pred_fn(params_opt, u0_train, u_train_norm, u0_test, x, y, t)
     u_pred = u_pred_norm * u_std + u_mean
-    
+
     rmse = jnp.sqrt(jnp.mean((u_pred - u_test)**2))
     print(f"  RMSE: {float(rmse):.4f}")
 

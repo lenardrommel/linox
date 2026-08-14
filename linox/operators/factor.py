@@ -35,6 +35,7 @@ class Triangular(LinearOperator):
 
     @property
     def lower(self) -> bool:
+        """Whether the stored factor is lower triangular."""
         return self._lower
 
     def _matmul(self, x: jax.Array) -> jax.Array:
@@ -48,13 +49,16 @@ class Triangular(LinearOperator):
         return jnp.triu(self._A)
 
     def transpose(self) -> "Triangular":
+        """Return the transpose of this operator."""
         return Triangular(self._A.T, lower=not self._lower)
 
     def tree_flatten(self):
+        """Flatten this operator into JAX pytree children and static data."""
         return (self._A,), {"lower": self._lower}
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
+        """Reconstruct this operator from JAX pytree children and static data."""
         return cls(children[0], **aux_data)
 
 
@@ -70,6 +74,7 @@ class CholeskyFactor(Triangular):
         super().__init__(L, lower=True)
 
     def transpose(self) -> "Triangular":
+        """Return the transpose of this operator."""
         # Transpose of CholeskyFactor is just a generic Upper Triangular matrix,
         # it loses the "CholeskyFactor" semantic meaning (which implies L is lower).
         return Triangular(self._A.T, lower=False)
@@ -122,13 +127,16 @@ class PSDFromFactor(LinearOperator):
         return L_dense @ L_dense.T
 
     def transpose(self) -> "PSDFromFactor":
+        """Return the transpose of this operator."""
         return self
 
     def tree_flatten(self):
+        """Flatten this operator into JAX pytree children and static data."""
         return (self.L,), {}
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
+        """Reconstruct this operator from JAX pytree children and static data."""
         return cls(children[0])
 
 
@@ -143,8 +151,9 @@ def _(A: PSDFromFactor) -> LinearOperator:
 
 @lcholesky.dispatch
 def _(A: PSDFromFactor) -> LinearOperator:
-    """Cholesky of L L^T.
-    If L is a CholeskyFactor (lower triangular), return it directly.
+    """Cholesky-like factor of ``L L^T``.
+
+    If ``L`` is a :class:`CholeskyFactor` (lower triangular), return it directly.
     Otherwise, we might need to QR decomposition or similar, but for now return L
     assuming the user provided a 'nice' factor.
     """
@@ -162,8 +171,9 @@ def _(A: PSDFromFactor) -> LinearOperator:
 
 @lsolve.dispatch
 def _(A: PSDFromFactor, b: jax.Array) -> jax.Array:
-    """Solve A x = b where A = L L^T.
-    x = A^{-1} b = (L L^T)^{-1} b = L^{-T} L^{-1} b.
+    """Solve ``A x = b`` where ``A = L L^T``.
+
+    ``x = A^{-1} b = (L L^T)^{-1} b = L^{-T} L^{-1} b``.
     """
     # If L supports efficient solve (e.g. Triangular), use it.
     # y = L^{-1} b

@@ -1,3 +1,5 @@
+"""Isotropic additive operators of the form ``s*I + A``."""
+
 # _isotropicadd.py
 
 import jax
@@ -176,9 +178,7 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
         if self._A.shape[-1] != self._A.shape[-2]:
             msg = "A must be a square matrix."
             raise ValueError(msg)
-        self._s = ScaledLinearOperator(
-            Identity(self._A.shape[0], dtype=self._A.dtype), s
-        )
+        self._s = ScaledLinearOperator(Identity(self._A.shape[0], dtype=self._A.dtype), s)
         self._Q = None
         self._S = None
         self._projector = None
@@ -245,9 +245,7 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
         """Orthogonal complement projector I - Q Q^T (cached)."""
         self._ensure_eigh()
         if self._complement is None:
-            self._complement = (
-                Identity(self.shape[0], dtype=self._A.dtype) - self.projector
-            )
+            self._complement = Identity(self.shape[0], dtype=self._A.dtype) - self.projector
         return self._complement
 
     def _matmul(self, arr: jax.Array):
@@ -257,12 +255,14 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
         return self._s._todense() + self._A._todense()
 
     def tree_flatten(self) -> tuple[tuple, dict]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self._s.scalar, self._A)
         aux_data = {}
         return children, aux_data
 
     @classmethod
     def tree_unflatten(cls, aux_data, children):
+        """Reconstruct this operator from JAX pytree children and static data."""
         s, A = children
         return cls(s, A)
 
@@ -403,9 +403,7 @@ def _(
     s = a.s.scalar
 
     # Recursively compute trace of A
-    trace_A, std_A = ltrace(
-        a.operator, key=key, num_samples=num_samples, distribution=distribution
-    )
+    trace_A, std_A = ltrace(a.operator, key=key, num_samples=num_samples, distribution=distribution)
 
     trace_value = s * n + trace_A
     trace_std = std_A  # std of constant + random variable = std of random variable

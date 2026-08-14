@@ -8,6 +8,6 @@ def test_eigh():
     linop = linox.kron(linox.Matrix(A), linox.Matrix(A))
 
     _ev, _evec = linox.leigh(linop)
-    
+
 
 test_eigh()

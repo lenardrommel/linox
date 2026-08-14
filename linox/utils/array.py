@@ -34,10 +34,7 @@ def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
             If ``x`` does not feature the required number of dimensions.
     """
     # Handle JAX traced values
-    if isinstance(x, tuple) and all(
-        isinstance(item, int | numbers.Integral | jnp.integer) or hasattr(item, "aval")
-        for item in x
-    ):
+    if isinstance(x, tuple) and all(isinstance(item, int | numbers.Integral | jnp.integer) or hasattr(item, "aval") for item in x):
         shape = tuple(int(item) for item in x) if any(isinstance(item, jnp.ndarray) for item in x) else x
     elif isinstance(x, int | numbers.Integral | jnp.integer):
         shape = (int(x),)
@@ -48,11 +45,7 @@ def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:
             msg = f"The given shape {x} must be an integer or an iterable of integers."
             raise TypeError(msg) from e
 
-        if not all(
-            isinstance(item, int | numbers.Integral | jnp.integer)
-            or hasattr(item, "aval")
-            for item in x
-        ):
+        if not all(isinstance(item, int | numbers.Integral | jnp.integer) or hasattr(item, "aval") for item in x):
             msg = f"The given shape {x} must only contain integer values."
             raise TypeError(msg)
 
@@ -116,6 +109,7 @@ def as_linop(x: LinearOperatorLike) -> "LinearOperator":
     # For arrays, wrap in Matrix
     if isinstance(x, (np.ndarray, jax.Array)):
         from linox.operators.dense import Matrix
+
         return Matrix(x)
 
     # Add Callable support.

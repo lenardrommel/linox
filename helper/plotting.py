@@ -365,7 +365,7 @@ def plot_kernel_predictions_1d_thesis(
     ax.plot(
         np.asarray(grid_plot_sorted),
         np.asarray(pred_mean_sorted),
-        color=rgb.pn_red,
+        color=rgb.on_red,
         label="GP Prediction",
     )
 

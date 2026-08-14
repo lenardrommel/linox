@@ -1,3 +1,5 @@
+"""Operator-graph inspection and execution tracing helpers."""
+
 # _graph.py
 
 from __future__ import annotations
@@ -43,9 +45,8 @@ class LinOpNode:
         return "\n".join(lines)
 
 
-def linop_graph(
-    op, *, show_extra: bool = True, max_depth: int | None = None
-) -> LinOpNode:
+def linop_graph(op, *, show_extra: bool = True, max_depth: int | None = None) -> LinOpNode:
+    """Return a tree of :class:`LinOpNode` describing an operator's structure."""
     seen = {}
 
     def _node(x, depth: int) -> LinOpNode:
@@ -134,7 +135,7 @@ class InspectReport:
         for k, s in items:
             total_invocations = s["starts"] + s["point"]
             if total_invocations == 0:
-                 continue
+                continue
 
             msg = f"  {k}: {total_invocations} calls"
             if s["time"] > 0:

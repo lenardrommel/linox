@@ -46,10 +46,12 @@ def with_cache(cache_dict: dict[str, Any] | None = None):
 
 
 def cache_lookup(key: str) -> Any | None:
+    """Return the cached value for ``key``, or ``None`` if it is absent."""
     return _get_store().get(key)
 
 
 def cache_update(key: str, value: Any) -> None:
+    """Store ``value`` in the session cache under ``key``."""
     _get_store()[key] = value
 
 

@@ -1,3 +1,5 @@
+"""Woodbury-identity solvers for diagonal-plus-low-rank operators."""
+
 # _woodbury.py
 
 import jax
@@ -18,9 +20,10 @@ def _row_broadcast(d: jax.Array, v: jax.Array) -> jax.Array:
 
 
 def woodbury_solve(U: Matrix, s: ArrayLike, d: ScalarLike | ArrayLike, v: ArrayLike):
-    """Woodbury matrix identity implementation for solving specifically system of PSD plus diagonal matrix.
-    A = L L^T + D
-    A^{-1} b = D^{-1} v - D^{-1} L (I + L^T D^{-1} L)^{-1} L^T D^{-1} v.
+    """Solve ``(L L^T + D) x = v`` via the Woodbury matrix identity.
+
+    ``A = L L^T + D`` and
+    ``A^{-1} v = D^{-1} v - D^{-1} L (I + L^T D^{-1} L)^{-1} L^T D^{-1} v``.
 
     Args:
       L: Low-rank approximation of PSD.
@@ -49,9 +52,10 @@ def woodbury_solve(U: Matrix, s: ArrayLike, d: ScalarLike | ArrayLike, v: ArrayL
 
 
 def woodbury_chol_solve(L: Matrix, d: ScalarLike | ArrayLike, v: ArrayLike):
-    """Woodbury matrix identity implementation for solving specifically system of PSD plus diagonal matrix.
-    A = L L^T + D
-    A^{-1} b = D^{-1} v - D^{-1} L (I + L^T D^{-1} L)^{-1} L^T D^{-1} v.
+    """Solve ``(L L^T + D) x = v`` via the Woodbury matrix identity.
+
+    ``A = L L^T + D`` and
+    ``A^{-1} v = D^{-1} v - D^{-1} L (I + L^T D^{-1} L)^{-1} L^T D^{-1} v``.
 
     Args:
       L: Low-rank approximation of PSD.
@@ -67,6 +71,4 @@ def woodbury_chol_solve(L: Matrix, d: ScalarLike | ArrayLike, v: ArrayLike):
     D_inv_v = v / (_row_broadcast(d, v) if d.ndim > 0 else d)
     D_inv_L = L / (d[:, None] if d.ndim > 0 else d)
     eye = jnp.eye(L.shape[-1])
-    return D_inv_v - D_inv_L @ jax.scipy.linalg.cho_solve(
-        (jnp.linalg.cholesky(eye + L.T @ D_inv_L), True), L.T @ D_inv_v
-    )
+    return D_inv_v - D_inv_L @ jax.scipy.linalg.cho_solve((jnp.linalg.cholesky(eye + L.T @ D_inv_L), True), L.T @ D_inv_v)

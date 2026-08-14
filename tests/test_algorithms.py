@@ -239,7 +239,7 @@ class TestMatrixFunctions:
 class TestStochasticLanczosQuadrature:
     """Tests for stochastic Lanczos quadrature (SLQ)."""
 
-    def test_slq_logdet_identity(self) -> None:
+    def test_sql_logdet_identity(self) -> None:
         """Test log-determinant estimation on identity."""
         n = 50
         A = Matrix(jnp.eye(n))
@@ -253,7 +253,7 @@ class TestStochasticLanczosQuadrature:
         assert jnp.abs(logdet_est) < 3 * logdet_std + 1e-6
         assert jnp.abs(logdet_est) < 1.0
 
-    def test_slq_logdet_diagonal(self) -> None:
+    def test_sql_logdet_diagonal(self) -> None:
         """Test log-determinant estimation on diagonal matrix."""
         n = 20
         diag_vals = jnp.arange(1.0, n + 1.0)
@@ -268,7 +268,7 @@ class TestStochasticLanczosQuadrature:
         # Should be within a few standard errors (or numerically exact)
         assert jnp.abs(logdet_est - true_logdet) <= 5 * logdet_std + 1e-12
 
-    def test_slq_trace_exp(self) -> None:
+    def test_sql_trace_exp(self) -> None:
         """Test trace(exp(A)) estimation."""
         n = 20
         A = Matrix(-jnp.eye(n))  # -I

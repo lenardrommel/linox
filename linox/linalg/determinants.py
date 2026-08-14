@@ -13,11 +13,7 @@ from linox.utils.array import LinearOperatorLike
 # For approx, we use SLQ.
 
 
-def slogdet(
-    A: LinearOperatorLike,
-    method: str = "exact",
-    **kwargs
-) -> tuple[jax.Array, jax.Array]:
+def slogdet(A: LinearOperatorLike, method: str = "exact", **kwargs) -> tuple[jax.Array, jax.Array]:
     """Compute sign and log of determinant.
 
     Args:
@@ -35,8 +31,8 @@ def slogdet(
         # Check requirements
         key = kwargs.get("key")
         if key is None:
-             msg = "SLQ requires a PRNG key."
-             raise ValueError(msg)
+            msg = "SLQ requires a PRNG key."
+            raise ValueError(msg)
 
         # SLQ assumes symmetric A for Lanczos.
         # If A is not symmetric, SLQ trace(log(A)) is valid?

@@ -101,9 +101,7 @@ def toeplitz_solve_hybrid(toeplitz_vec, b):
         b_np = jnp.asarray(b_val)
         return solve_toeplitz(c_np, b_np, check_finite=False)
 
-    x = jax.pure_callback(
-        scipy_call, result_shape, toeplitz_vec, b, vmap_method="sequential"
-    )
+    x = jax.pure_callback(scipy_call, result_shape, toeplitz_vec, b, vmap_method="sequential")
     return x
 
 

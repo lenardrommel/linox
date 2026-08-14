@@ -176,10 +176,7 @@ class ArrayKernel(KernelOperator):
         """
         n0, n1 = self.shape
         if n0 > DENSE_THRESHOLD or n1 > DENSE_THRESHOLD:
-            config.warn(
-                f"Densifying large kernel ({n0}x{n1}). This may cause OOM. "
-                "Consider using matrix-free operations instead."
-            )
+            config.warn(f"Densifying large kernel ({n0}x{n1}). This may cause OOM. Consider using matrix-free operations instead.")
 
         x0 = self.x0
         x1 = self.x1
@@ -246,9 +243,7 @@ class ToeplitzKernel(KernelOperator):
         chunk_size: int = 256,
     ) -> None:
         if x1 is not None and not _is_self_covariance_cheap(x0, x1):
-            msg = (
-                "ToeplitzKernel requires self-covariance (x1 must be None or x1 is x0)"
-            )
+            msg = "ToeplitzKernel requires self-covariance (x1 must be None or x1 is x0)"
             raise ValueError(msg)
 
         super().__init__(kernel, x0, None)
@@ -277,9 +272,7 @@ class ToeplitzKernel(KernelOperator):
         """
         n = self.shape[0]
         if n > DENSE_THRESHOLD:
-            config.warn(
-                f"Densifying large ToeplitzKernel ({n}x{n}). This may cause OOM."
-            )
+            config.warn(f"Densifying large ToeplitzKernel ({n}x{n}). This may cause OOM.")
         return self._toeplitz_op._todense()
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:

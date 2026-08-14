@@ -1,4 +1,5 @@
 """Linox Operators."""
+
 from .arithmetic import (
     AddLinearOperator,
     CongruenceTransform,
@@ -71,5 +72,3 @@ __all__ = [
     "assume_spd",
     "assume_symmetric",
 ]
-
-

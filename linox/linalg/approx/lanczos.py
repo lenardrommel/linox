@@ -1,3 +1,5 @@
+"""Lanczos tridiagonalization and the Krylov methods built on it."""
+
 # _lanzcos.py
 
 import jax
@@ -60,12 +62,8 @@ def lanczos_solve_sqrt(
         rs = rs.at[:, k + 1].set(rs[:, k] - mu * w)
 
         # Full reorthogonalization of residual (double Gram-Schmidt)
-        rs = rs.at[:, k + 1].set(
-            rs[:, k + 1] - rs_prev_k @ ((rs_prev_k.T @ rs[:, k + 1]) / rs_norm_sq)
-        )
-        rs = rs.at[:, k + 1].set(
-            rs[:, k + 1] - rs_prev_k @ ((rs_prev_k.T @ rs[:, k + 1]) / rs_norm_sq)
-        )
+        rs = rs.at[:, k + 1].set(rs[:, k + 1] - rs_prev_k @ ((rs_prev_k.T @ rs[:, k + 1]) / rs_norm_sq))
+        rs = rs.at[:, k + 1].set(rs[:, k + 1] - rs_prev_k @ ((rs_prev_k.T @ rs[:, k + 1]) / rs_norm_sq))
 
         rs_norm_sq = rs_norm_sq.at[k + 1].set(rs[:, k + 1].T @ rs[:, k + 1])
 
@@ -89,9 +87,7 @@ def lanczos_solve_sqrt(
     p = b if overwrite_b else b.copy()
 
     # Lanczos iterations
-    ds, _, _, _, _, k = jax.lax.while_loop(
-        _cond_fun, _step, (ds, rs, rs_norm_sq, p, eta, 0)
-    )
+    ds, _, _, _, _, k = jax.lax.while_loop(_cond_fun, _step, (ds, rs, rs_norm_sq, p, eta, 0))
 
     return ds[:, :k]
 
@@ -166,6 +162,7 @@ def lanczos_tridiag(
 
         # Reorthogonalization (full Gram-Schmidt)
         if reortho:
+
             def reorth_body(j, w_state):
                 proj = jnp.dot(w_state, Q_curr[:, j])
                 return w_state - proj * Q_curr[:, j]

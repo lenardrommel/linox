@@ -28,6 +28,8 @@ _DEBUG_HOOK: CallableType[[DebugEvent], None] | None = None
 
 @dataclass(frozen=True)
 class DebugEvent:
+    """A single debug or profiling event emitted by the library."""
+
     kind: str  # e.g. "densify", "solve_fallback", "eigh_dense"
     msg: str
     op_type: str | None = None
@@ -38,7 +40,6 @@ class DebugEvent:
     t: float = 0.0
     duration: float | None = None
     phase: str | None = None  # "start" or "end"
-
 
 
 @contextlib.contextmanager
@@ -53,7 +54,6 @@ def profile(kind: str, msg: str, **kwargs) -> None:
         t1 = time.time()
         # emit end event with duration
         emit(DebugEvent(kind=kind, msg=msg, phase="end", t=t1, duration=t1 - t0, **kwargs))
-
 
 
 def set_debug(value: bool) -> None:
@@ -156,10 +156,7 @@ def validate_method(operation: str, requested_method: str) -> str:
     """
     valid = VALID_METHODS.get(operation)
     if valid is not None and requested_method not in valid:
-        msg = (
-            f"Unknown method {requested_method!r} for operation {operation!r}. "
-            f"Valid methods are: {', '.join(sorted(valid))}."
-        )
+        msg = f"Unknown method {requested_method!r} for operation {operation!r}. Valid methods are: {', '.join(sorted(valid))}."
         raise ValueError(msg)
     return requested_method
 

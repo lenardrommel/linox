@@ -29,14 +29,14 @@ def slq(
     # 1. Generate probes
     # Batched generation
     if distribution == "rademacher":
-         keys = random.split(key, num_samples)
-         V = jax.vmap(lambda k: 2 * random.bernoulli(k, shape=(n,)) - 1.0)(keys)
+        keys = random.split(key, num_samples)
+        V = jax.vmap(lambda k: 2 * random.bernoulli(k, shape=(n,)) - 1.0)(keys)
     elif distribution == "normal":
-         keys = random.split(key, num_samples)
-         V = jax.vmap(lambda k: random.normal(k, shape=(n,)))(keys)
+        keys = random.split(key, num_samples)
+        V = jax.vmap(lambda k: random.normal(k, shape=(n,)))(keys)
     else:
-         msg = f"Unknown distribution: {distribution}"
-         raise ValueError(msg)
+        msg = f"Unknown distribution: {distribution}"
+        raise ValueError(msg)
 
     # 2. Lanczos on each probe
     # Note: Lanczos is inherently sequential per vector, so we vmap the entire lanczos process.

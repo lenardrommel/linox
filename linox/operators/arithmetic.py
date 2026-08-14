@@ -35,6 +35,7 @@ from linox.operators.base import LinearOperator
 
 ArithmeticType = LinearOperator | jax.Array
 
+
 # TODO: Move to utils
 def _deprecated_l_prefix(func_name: str):
     """Create deprecation warning for functions with 'l' prefix."""
@@ -43,8 +44,7 @@ def _deprecated_l_prefix(func_name: str):
         @wraps(func)
         def wrapper(*args, **kwargs):
             warnings.warn(
-                f"'{func_name}' is deprecated and will be removed in linox 0.0.3. "
-                f"Use '{func_name[1:]}' instead.",
+                f"'{func_name}' is deprecated and will be removed in linox 0.0.3. Use '{func_name[1:]}' instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -64,12 +64,14 @@ def _rhs_rows(b: jax.Array) -> int:
     msg = f"Unsupported rhs ndim: {b.ndim}"
     raise ValueError(msg)
 
+
 # TODO: Move to utils
 def _as_2d_rhs(b: jax.Array) -> tuple[jax.Array, bool]:
     """Return (b2d, squeeze) where b2d has shape (..., m, k)."""
     if b.ndim == 1:
         return b[:, None], True
     return b, False
+
 
 # TODO: Move to utils
 def x_in_y(x: LinearOperator, Y: tuple[type, ...]) -> bool:
@@ -78,12 +80,14 @@ def x_in_y(x: LinearOperator, Y: tuple[type, ...]) -> bool:
         return isinstance(x.operator, Y)
     return isinstance(x, Y)
 
+
 # TODO: Move to utils
 def get_scale_and_op(x: LinearOperator) -> tuple[jax.Array, LinearOperator]:
     """Return (scale, op) for x."""
     if isinstance(x, ScaledLinearOperator):
         return x.scalar, x.operator
     return jnp.array(1.0, dtype=x.dtype), x
+
 
 # TODO: Move to utils
 def smart_add(*operators: LinearOperator) -> LinearOperator:
@@ -98,7 +102,7 @@ def smart_add(*operators: LinearOperator) -> LinearOperator:
         SymmetricLowRank,
     )
     from linox.operators.special import Identity, Scalar, Zero
-    
+
     # 1. Flatten AddLinearOperators
     flat_ops = []
     for op in operators:
@@ -160,27 +164,19 @@ def smart_add(*operators: LinearOperator) -> LinearOperator:
         diag_op = None
         lr_op = None
 
-        if isinstance(op1, Diagonal) and isinstance(
-            op2, (SymmetricLowRank, ScaledLinearOperator)
-        ):
+        if isinstance(op1, Diagonal) and isinstance(op2, (SymmetricLowRank, ScaledLinearOperator)):
             if isinstance(op2, SymmetricLowRank):
                 diag_op, lr_op = op1, op2
                 alpha = 1.0
-            elif isinstance(op2, ScaledLinearOperator) and isinstance(
-                op2.operator, SymmetricLowRank
-            ):
+            elif isinstance(op2, ScaledLinearOperator) and isinstance(op2.operator, SymmetricLowRank):
                 diag_op, lr_op = op1, op2.operator
                 alpha = op2.scalar
 
-        elif isinstance(op2, Diagonal) and isinstance(
-            op1, (SymmetricLowRank, ScaledLinearOperator)
-        ):
+        elif isinstance(op2, Diagonal) and isinstance(op1, (SymmetricLowRank, ScaledLinearOperator)):
             if isinstance(op1, SymmetricLowRank):
                 diag_op, lr_op = op2, op1
                 alpha = 1.0
-            elif isinstance(op1, ScaledLinearOperator) and isinstance(
-                op1.operator, SymmetricLowRank
-            ):
+            elif isinstance(op1, ScaledLinearOperator) and isinstance(op1.operator, SymmetricLowRank):
                 diag_op, lr_op = op2, op1.operator
                 alpha = op1.scalar
 
@@ -190,9 +186,7 @@ def smart_add(*operators: LinearOperator) -> LinearOperator:
             # We can check min(diag) > 0 ideally, or just optimistically use it
             # and let it fail/warn if negative?
             # For now, simplistic check or valid assumption.
-            return PositiveDiagonalPlusSymmetricLowRank(
-                diag_op, lr_op, low_rank_scale=alpha
-            )
+            return PositiveDiagonalPlusSymmetricLowRank(diag_op, lr_op, low_rank_scale=alpha)
 
     # Default fallback
     return AddLinearOperator(*non_zero_ops)
@@ -201,6 +195,7 @@ def smart_add(*operators: LinearOperator) -> LinearOperator:
 # all arithmetic functions
 @plum.dispatch
 def ladd(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Add two linear operators, applying structure-preserving rewrites."""
     return smart_add(a, b)
 
 
@@ -211,6 +206,7 @@ def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
 
 @plum.dispatch
 def lsub(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Subtract ``b`` from ``a``."""
     return AddLinearOperator(a, -b)
 
 
@@ -221,11 +217,13 @@ def _(a: LinearOperator, b: jax.Array) -> LinearOperator:
 
 @plum.dispatch
 def lmul(a: ScalarLike | jax.Array, b: LinearOperator) -> LinearOperator:
+    """Scale a linear operator by a scalar."""
     return ScaledLinearOperator(scalar=a, operator=b)
 
 
 @plum.dispatch
 def ldiv(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Divide ``a`` by ``b`` elementwise (defined for diagonal-like operators)."""
     if len(a.shape) < 2 and len(b.shape) < 2:
         return a._todense() / b._todense()
     msg = f"Division only supported for Diagonal operators, got {type(a)} and {type(b)}"
@@ -234,6 +232,7 @@ def ldiv(a: LinearOperator, b: LinearOperator) -> LinearOperator:
 
 @plum.dispatch
 def lmatmul(a: LinearOperator, b: LinearOperator) -> ArithmeticType:
+    """Compose two linear operators, applying structure-preserving rewrites."""
     return smart_matmul(a, b)
 
 
@@ -246,7 +245,7 @@ def smart_matmul(a: LinearOperator, b: LinearOperator) -> LinearOperator:
     # We check if b is the transpose of a (by structure or property)
     # A.T matches b?
     # Note: explicit .T on Matrix creates a NEW object, so 'is' check fails.
-    # But TranposedLinearOperator(A) matches.
+    # But TransposedLinearOperator(A) matches.
     # For Matrix, we might need to check underlying array (expensive?).
     # For now, handle TransposedLinearOperator structure.
     # Case 1: A @ A.T
@@ -272,11 +271,13 @@ def smart_matmul(a: LinearOperator, b: LinearOperator) -> LinearOperator:
 
 # @plum.dispatch
 def lneg(a: LinearOperator) -> LinearOperator:
+    """Negate a linear operator."""
     return ScaledLinearOperator(operator=a, scalar=-1)
 
 
 @plum.dispatch
 def lsqrt(a: LinearOperator) -> LinearOperator:
+    """Return a factor ``S`` of ``a`` satisfying ``S @ S.T == a``."""
     msg = f"Square root of {type(a)} not implemented."
     raise NotImplementedError(msg)
 
@@ -288,6 +289,7 @@ def lsqrt(a: LinearOperator) -> LinearOperator:
 
 @plum.dispatch
 def diagonal(a: LinearOperator) -> jax.Array:
+    """Extract the diagonal of an operator as a :class:`jax.Array`."""
     _warn(f"Linear operator {a} is densed for diagonal computation.")
     dense_matrix = a._todense()
     if len(a.shape) <= 2:
@@ -298,21 +300,25 @@ def diagonal(a: LinearOperator) -> jax.Array:
 
 
 def transpose(a: LinearOperator) -> ArithmeticType:
+    """Return the transpose of this operator."""
     return TransposedLinearOperator(a)
 
 
 @plum.dispatch
 def linverse(a: LinearOperator) -> ArithmeticType:
+    """Return the inverse of an operator, lazily where possible."""
     return InverseLinearOperator(a)
 
 
 @plum.dispatch
 def lpinverse(a: LinearOperator) -> ArithmeticType:
+    """Return the Moore-Penrose pseudo-inverse of an operator."""
     return PseudoInverseLinearOperator(a)
 
 
 @plum.dispatch
 def iso(scalar: ScalarLike, a: LinearOperator) -> LinearOperator:
+    """Build the isotropic additive operator ``scalar * I + a``."""
     from linox.operators.isotropic import (
         IsotropicAdditiveLinearOperator,
     )
@@ -322,6 +328,7 @@ def iso(scalar: ScalarLike, a: LinearOperator) -> LinearOperator:
 
 @plum.dispatch
 def leigh(a: LinearOperator) -> tuple[jax.Array, LinearOperator]:
+    """Eigendecomposition of a Hermitian operator, as ``(eigenvalues, Q)``."""
     with config.profile(
         kind="eigh",
         msg=f"eigh: {type(a).__name__}",
@@ -458,13 +465,11 @@ def lsvd(
         Inspired by matfree library (https://github.com/pnkraemer/matfree).
     """
     warnings.warn(
-        "lsvd is deprecated and will be removed in a future version. "
-        "Use svd(a, k=k) instead.",
+        "lsvd is deprecated and will be removed in a future version. Use svd(a, k=k) instead.",
         DeprecationWarning,
         stacklevel=2,
     )
     return svd(a, k=k, num_iters=num_iters, u0=u0)
-
 
 
 @plum.dispatch
@@ -477,8 +482,7 @@ def lqr(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
         R: Upper triangular matrix.
     """
     warnings.warn(
-        "lqr is deprecated and will be removed in a future version. "
-        "Use qr(a) instead.",
+        "lqr is deprecated and will be removed in a future version. Use qr(a) instead.",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -506,6 +510,7 @@ def lsolve(a: LinearOperator, b: jax.Array, method: str = "exact", **kwargs) -> 
     ):
         if method == "lsmr":
             from linox.linalg.approx.lsmr import lsmr_solve
+
             x, _ = lsmr_solve(a, b, **kwargs)
             return x
 
@@ -613,6 +618,7 @@ def slogdet(a: LinearOperator) -> tuple[jax.Array, jax.Array]:
 
 @plum.dispatch
 def kron(a: LinearOperator, b: LinearOperator) -> LinearOperator:
+    """Return the Kronecker product ``a (x) b``."""
     from linox.operators.kron import Kronecker
 
     return Kronecker(a, b)
@@ -799,6 +805,7 @@ def lpow(
 
 
 def is_square(a: LinearOperator) -> bool:
+    """Whether the operator has equal row and column counts."""
     return a.shape[-1] == a.shape[-2]
 
 
@@ -918,6 +925,7 @@ def is_hermitian(
 
 
 def symmetrize(a: LinearOperator) -> ArithmeticType:
+    """Return the symmetric part ``(a + a.T) / 2`` of an operator."""
     return 0.5 * (a + a.transpose())
 
 
@@ -972,6 +980,7 @@ class ScaledLinearOperator(LinearOperator):
 
     @property
     def is_symmetric(self) -> bool:
+        """Whether the scaled operator is symmetric."""
         return self.operator.is_symmetric
 
     @property
@@ -982,13 +991,14 @@ class ScaledLinearOperator(LinearOperator):
         # Introspection is usually for planning (outside JIT), so concrete values expected.
         # But here scalar is stored as array/scalar.
         # For safety, we can try converting to float if it's not traced.
-        # If traced, we probably can't decide at analysis time easily without concrete value.
-        # For now, simplistic check:
+        # A traced scalar has no concrete sign, so make no claim rather than
+        # guessing. (A bare `except` here previously swallowed every error.)
+        """Whether the scaled operator is positive semi-definite."""
         try:
             s = float(self.scalar)
-            return s >= 0 and self.operator.is_psd
-        except:
+        except (jax.errors.ConcretizationTypeError, TypeError):
             return False
+        return s >= 0 and self.operator.is_psd
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return (self.operator @ arr) * self.scalar
@@ -997,9 +1007,11 @@ class ScaledLinearOperator(LinearOperator):
         return self.operator._todense() * self.scalar
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         return self.scalar * self.operator.transpose()
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.operator, self.scalar)
         aux_data = {}
         return children, aux_data
@@ -1010,6 +1022,7 @@ class ScaledLinearOperator(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "ScaledLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         operator, scalar = children
         return cls(operator=operator, scalar=scalar)
@@ -1101,9 +1114,7 @@ class AddLinearOperator(LinearOperator):
 
     def __init__(self, *operator_list: ArithmeticType) -> None:
         self.operator_list = [
-            utils.as_linop(o)
-            if isinstance(op, AddLinearOperator)
-            else utils.as_linop(op)
+            utils.as_linop(o) if isinstance(op, AddLinearOperator) else utils.as_linop(op)
             for op in operator_list
             for o in (op.operator_list if isinstance(op, AddLinearOperator) else [op])
         ]
@@ -1120,9 +1131,11 @@ class AddLinearOperator(LinearOperator):
         return reduce(operator.add, (op._todense() for op in self.operator_list))
 
     def transpose(self) -> "AddLinearOperator":
+        """Return the transpose of this operator."""
         return AddLinearOperator(*(op.transpose() for op in self.operator_list))
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = tuple(self.operator_list)
         aux_data = {}
         return children, aux_data
@@ -1133,6 +1146,7 @@ class AddLinearOperator(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "AddLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         return cls(*children)
 
@@ -1167,9 +1181,7 @@ def _(a: "ProductLinearOperator") -> jax.Array:
         diags = []
         for op in a.operator_list:
             if isinstance(op, ScaledLinearOperator):
-                diags.append(
-                    jnp.asarray(op.scalar) * jnp.asarray(diagonal(op.operator))
-                )
+                diags.append(jnp.asarray(op.scalar) * jnp.asarray(diagonal(op.operator)))
             else:
                 diags.append(jnp.asarray(diagonal(op)))
         return reduce(operator.mul, diags)
@@ -1197,42 +1209,35 @@ class ProductLinearOperator(LinearOperator):
 
     def __init__(self, *operator_list: LinearOperator) -> None:
         self.operator_list = [
-            utils.as_linop(o)
-            if isinstance(op, ProductLinearOperator)
-            else utils.as_linop(op)
+            utils.as_linop(o) if isinstance(op, ProductLinearOperator) else utils.as_linop(op)
             for op in operator_list
-            for o in (
-                op.operator_list if isinstance(op, ProductLinearOperator) else [op]
-            )
+            for o in (op.operator_list if isinstance(op, ProductLinearOperator) else [op])
         ]
         batch_shape = _broadcast_shapes([op.shape[:-2] for op in self.operator_list])
         self.__check_init__()
         result_dtype = jnp.result_type(*[op.dtype for op in self.operator_list])
-        shape = utils.as_shape((
-            *batch_shape,
-            self.operator_list[0].shape[-2],
-            self.operator_list[-1].shape[-1],
-        ))
+        shape = utils.as_shape(
+            (
+                *batch_shape,
+                self.operator_list[0].shape[-2],
+                self.operator_list[-1].shape[-1],
+            )
+        )
         super().__init__(shape=shape, dtype=result_dtype)
 
     def __check_init__(self) -> None:
         for i, op1 in enumerate(self.operator_list[:-1]):
             op2 = self.operator_list[i + 1]
             if op1.shape[-1] != op2.shape[-2]:
-                msg = (
-                    f"Shape mismatch: Cannot multiply linear operators with shapes "
-                    f"operator 1: ({op1.shape}) "
-                    f"operator 2: ({op2.shape})"
-                )
+                msg = f"Shape mismatch: Cannot multiply linear operators with shapes operator 1: ({op1.shape}) operator 2: ({op2.shape})"
                 raise ValueError(msg)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return reduce(lambda x, y: y @ x, [arr, *reversed(self.operator_list)])
 
     def transpose(self) -> "ProductLinearOperator":
-        return ProductLinearOperator(
-            *(op.transpose() for op in reversed(self.operator_list))
-        )
+        """Return the transpose of this operator."""
+        return ProductLinearOperator(*(op.transpose() for op in reversed(self.operator_list)))
 
     def _todense(self) -> jax.Array:
         return reduce(
@@ -1244,14 +1249,14 @@ class ProductLinearOperator(LinearOperator):
         )
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = tuple(self.operator_list)
         aux_data = {}
         return children, aux_data
 
     @classmethod
-    def tree_unflatten(
-        cls, aux_data: dict[str, any], children: tuple[any, ...]
-    ) -> "ProductLinearOperator":
+    def tree_unflatten(cls, aux_data: dict[str, any], children: tuple[any, ...]) -> "ProductLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         return cls(*children)
 
@@ -1275,9 +1280,11 @@ class CongruenceTransform(ProductLinearOperator):
         super().__init__(self._A, self._B, self._A.T)
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         return CongruenceTransform(self._A, self._B.T)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self._A, self._B)
         aux_data = {}
         return children, aux_data
@@ -1288,6 +1295,7 @@ class CongruenceTransform(ProductLinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "CongruenceTransform":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         A, B = children
         return cls(A=A, B=B)
@@ -1295,6 +1303,7 @@ class CongruenceTransform(ProductLinearOperator):
 
 @plum.dispatch
 def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:
+    """Return the congruence transform ``A @ B @ A.T``."""
     return CongruenceTransform(A, B)
 
 
@@ -1330,9 +1339,11 @@ class TransposedLinearOperator(LinearOperator):
         return self.operator._todense().swapaxes(-1, -2)
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         return self.operator
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.operator,)
         aux_data = {}
         return children, aux_data
@@ -1343,6 +1354,7 @@ class TransposedLinearOperator(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "TransposedLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         (operator,) = children
         return cls(operator=operator)
@@ -1382,13 +1394,12 @@ class InverseLinearOperator(LinearOperator):
 
         if self.method == "lsmr":
             from linox.linalg.approx.lsmr import lsmr_solve
+
             x, _ = lsmr_solve(self.operator, arr, **self.solver_options)
             return x
 
         if self.method in {"cg", "conjugate_gradient"}:
-            x, _ = jax.scipy.sparse.linalg.cg(
-                self.operator, arr, **self.solver_options
-            )
+            x, _ = jax.scipy.sparse.linalg.cg(self.operator, arr, **self.solver_options)
             return x
 
         # Fallback
@@ -1405,6 +1416,7 @@ class InverseLinearOperator(LinearOperator):
         return self._matmul(I_op)
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         # If A is invertible, (A^-1)^T = (A^T)^-1
         # We propagate the solver method.
         # Note: if method was "cg" (expects SPD), A^T should also be SPD if A was.
@@ -1416,6 +1428,7 @@ class InverseLinearOperator(LinearOperator):
         )
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.operator,)
 
         aux_data = {"method": self.method, "solver_options": self.solver_options} if self.method != "exact" else {}
@@ -1427,6 +1440,7 @@ class InverseLinearOperator(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "InverseLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         (operator,) = children
         return cls(operator=operator, **aux_data)
 
@@ -1462,9 +1476,11 @@ class CongruenceTransform(ProductLinearOperator):
         super().__init__(self._A, self._B, self._A.T)
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         return CongruenceTransform(self._A, self._B.T)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self._A, self._B)
         aux_data = {}
         return children, aux_data
@@ -1475,6 +1491,7 @@ class CongruenceTransform(ProductLinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "CongruenceTransform":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         A, B = children
         return cls(A=A, B=B)
@@ -1482,37 +1499,43 @@ class CongruenceTransform(ProductLinearOperator):
 
 @plum.dispatch
 def congruence_transform(A: ArithmeticType, B: ArithmeticType) -> LinearOperator:  # noqa: F811
+    """Return the congruence transform ``A @ B @ A.T``."""
     return CongruenceTransform(A, B)
 
 
 class PseudoInverseLinearOperator(LinearOperator):
+    """Moore-Penrose pseudo-inverse ``A^+`` of a linear operator."""
+
     def __init__(self, operator: LinearOperator, tol: float = 1e-12) -> None:
         self.operator = operator
         super().__init__(shape=operator.T.shape, dtype=operator.dtype)
         self.tol = tol
 
     def transpose(self) -> LinearOperator:
+        """Return the transpose of this operator."""
         # (A^+)^T == (A^T)^+ -- transpose the operand, not the pseudo-inverse
         # of self, which recurses forever.
         return PseudoInverseLinearOperator(self.operator.transpose(), tol=self.tol)
 
     def _todense(self) -> jax.Array:
-        r"""# TODO:
-        Compute the dense pseudo-inverse using SVD.
-        U, S, Vh = svd(self.operator).
+        r"""Materialize the pseudo-inverse densely.
+
+        TODO: compute this from the SVD rather than via ``jnp.linalg.pinv``:
+        ``U, S, Vh = svd(self.operator)``.
 
         Returns
         -------
             x_LS = \sum_i (u_i^T b) / s_i v_i
             -> U, S, Vh = svd(self.operator)
             return U @ jnp.diag(1 / S) @ Vh.
-        """  # noqa: D205
+        """
         return jnp.linalg.pinv(self.operator._todense(), rtol=self.tol)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
         return lpsolve(self.operator, arr, rtol=self.tol)
 
     def tree_flatten(self) -> tuple[tuple[any, ...], dict[str, any]]:
+        """Flatten this operator into JAX pytree children and static data."""
         children = (self.operator,)
         aux_data = {}
         return children, aux_data
@@ -1523,6 +1546,7 @@ class PseudoInverseLinearOperator(LinearOperator):
         aux_data: dict[str, any],
         children: tuple[any, ...],
     ) -> "PseudoInverseLinearOperator":
+        """Reconstruct this operator from JAX pytree children and static data."""
         del aux_data
         (operator,) = children
         return cls(operator=operator)
@@ -1557,14 +1581,14 @@ def _(
     # Note: With full_matrices=True, U can be (m, m) but S is (min(m,n),)
     # We only mask the first S.shape[0] columns of U and rows of Vh
     k = S.shape[0]
-    if U.shape[1] == k:
+    if U.shape[1] == k:  # noqa: SIM108 - the per-branch comments carry the reasoning
         # Partial SVD or full_matrices=False: all columns correspond to singular values
         U_masked = U * mask[None, :]
     else:
         # full_matrices=True: only first k columns correspond to singular values
         U_masked = U.at[:, :k].multiply(mask[None, :])
 
-    if Vh.shape[0] == k:
+    if Vh.shape[0] == k:  # noqa: SIM108 - as above
         # All rows correspond to singular values
         Vh_masked = Vh * mask[:, None]
     else:
