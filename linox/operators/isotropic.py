@@ -25,46 +25,92 @@ from linox.operators.arithmetic import (
 from linox.operators.base import LinearOperator
 from linox.operators.diagonal import Diagonal
 from linox.operators.special import Identity
+from linox.utils.checks import require
 
 jax.config.update("jax_enable_x64", True)
 
 
-def _reject_if_provably_non_symmetric(A: LinearOperator) -> None:
-    """Raise if ``A`` can be cheaply shown to be non-symmetric.
+def _require_symmetric(A: LinearOperator, *, num_probes: int = 3) -> None:
+    """Raise unless ``A`` is symmetric.
 
     Every spectral shortcut on :class:`IsotropicAdditiveLinearOperator` goes
     through ``jnp.linalg.eigh``, which reads only the lower triangle. Handing
-    it a non-symmetric operand therefore returns a wrong answer *silently* --
+    it a non-symmetric operand returns a wrong answer *silently* --
     ``todense()`` and ``solve()`` end up disagreeing about the same operator.
 
-    This check is deliberately best-effort. It only inspects operators that
-    already hold a concrete dense array, so it never materialises a lazy or
-    matrix-free operand and never fires under ``jax.jit`` (where the entries
-    are tracers). For those cases symmetry remains an unchecked promise --
-    use :func:`linox.is_symmetric` to verify explicitly.
+    The check applies under ``jax.jit`` too, where it becomes a runtime error
+    rather than a trace-time one, and it never materialises the operand:
+
+    * an operator that declares ``is_symmetric`` is taken at its word;
+    * one that already holds a concrete dense array is compared exactly,
+      which costs nothing since the array is in hand;
+    * anything else -- Kronecker, kernel, block, any lazy composition -- is
+      probed matrix-free, comparing ``A x`` against ``A.T x`` for a few random
+      ``x``. Densifying here would defeat the point: ``leigh`` has structured
+      dispatches that never build the dense matrix, so a dense check would be
+      the *only* O(n^2) step in the whole path.
+
+    The probe is randomized, so an adversarially-constructed operand could
+    slip through; for that, ``num_probes`` can be raised.
     """
     if getattr(A, "is_symmetric", False):
         return
 
     array = getattr(A, "A", None)
-    if array is None or not isinstance(array, jnp.ndarray) or array.ndim < 2:
-        return
+    if isinstance(array, jnp.ndarray) and array.ndim >= 2:
+        ok = jnp.allclose(array, jnp.swapaxes(array, -1, -2))
+    else:
+        key = jax.random.PRNGKey(0)
+        n = A.shape[-1]
+        ok = jnp.asarray(True)
+        for i in range(num_probes):
+            x = jax.random.normal(jax.random.fold_in(key, i), (n,), dtype=A.dtype)
+            ok = ok & jnp.allclose(A @ x, A.T @ x, rtol=1e-5, atol=1e-8)
 
+    require(
+        ok,
+        "IsotropicAdditiveLinearOperator (s*I + A) requires a symmetric A: its "
+        "spectral shortcuts use eigh, which reads only the lower triangle and "
+        "would silently return wrong inverses and solves. Symmetrise A first "
+        "(e.g. linox.symmetrize(A)), or build the sum explicitly with "
+        "AddLinearOperator to keep the general path.",
+    )
+
+
+def _is_integer_power(power: float) -> bool:
+    """Whether ``power`` is a concrete integer, for which a negative base is fine."""
     try:
-        symmetric = bool(jnp.allclose(array, jnp.swapaxes(array, -1, -2)))
-    except jax.errors.ConcretizationTypeError:
-        # Traced entries: no concrete answer available, so make no claim.
-        return
+        return float(power).is_integer()
+    except (TypeError, ValueError, jax.errors.ConcretizationTypeError):
+        return False
 
-    if not symmetric:
-        msg = (
-            "IsotropicAdditiveLinearOperator (s*I + A) requires a symmetric A: "
-            "its spectral shortcuts use eigh, which reads only the lower "
-            "triangle and would silently return wrong inverses and solves. "
-            "Symmetrise A first (e.g. linox.symmetrize(A)), or build the sum "
-            "explicitly with AddLinearOperator to keep the general path."
-        )
-        raise ValueError(msg)
+
+def _require_positive_spectrum(a: "IsotropicAdditiveLinearOperator", op: str, *, strict: bool) -> None:
+    """Raise unless the eigenvalues of ``s*I + A`` are non-negative.
+
+    Symmetry alone makes the eigendecomposition valid, which is all that
+    ``inverse``, ``eigh`` and ``slogdet`` need. Taking a square root, a
+    Cholesky-like factor, a logarithm or a fractional power additionally
+    requires the *shifted* spectrum ``s + lambda`` to be non-negative
+    (positive, for the logarithm) -- otherwise the result is silently NaN.
+
+    Free to check: the eigenvalues have already been computed by the time any
+    of these dispatches run.
+    """
+    S = a.S
+    eigs = diagonal(S) if isinstance(S, LinearOperator) else S
+    shifted = eigs + a.scalar
+    ok = jnp.all(shifted > 0) if strict else jnp.all(shifted >= 0)
+    require(
+        ok,
+        f"{op} of (s*I + A) requires the shifted spectrum s + lambda to be "
+        f"{'positive' if strict else 'non-negative'}, but s*I + A is "
+        f"{'not positive definite' if strict else 'indefinite'}. Symmetry alone "
+        "is enough for inverse/eigh/slogdet, which stay available; this "
+        "operation is not defined on a spectrum that crosses zero. Increase "
+        "the shift s so it lifts the whole spectrum, or use a method that "
+        "does not require positivity.",
+    )
 
 
 class IsotropicAdditiveLinearOperator(AddLinearOperator):
@@ -142,14 +188,24 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
         Scalar added to the diagonal (isotropic shift). May be wrapped into a
         scalar ``ScaledLinearOperator(Identity, s)``.
     A : LinearOperator
-        Symmetric linear operator (square). Symmetry is required but only
-        *best-effort* checked: a non-symmetric operand raises ``ValueError``
-        when it already holds a concrete dense array, but the check is skipped
-        for lazy/matrix-free operands and under ``jax.jit`` (where entries are
-        tracers) rather than force a materialisation. In those cases symmetry
-        is an unchecked promise, and violating it makes every spectral
-        shortcut here silently wrong -- verify with :func:`linox.is_symmetric`
-        if unsure.
+        Symmetric linear operator (square).
+
+        Symmetry is **required and checked exactly**, including under
+        ``jax.jit`` -- where it becomes a runtime error rather than a
+        trace-time one. The check costs nothing asymptotically: it runs in
+        :meth:`_ensure_eigh`, which is about to densify ``A`` for ``leigh``
+        regardless.
+
+        ``_matmul`` and ``_todense`` stay permissive, since ``s*I + A`` is
+        computed correctly for any square ``A`` and ``smart_add`` routes every
+        ``Identity + op`` sum through this class. Only the eigh-backed
+        shortcuts refuse.
+
+        Symmetry alone is enough for ``inverse``, ``eigh`` and ``slogdet``.
+        ``sqrt``, ``lcholesky``, ``llog`` and fractional ``lpow`` additionally
+        require the *shifted* spectrum ``s + lambda`` to be non-negative
+        (strictly positive for the logarithm); that is checked per-operation
+        against the eigenvalues, which have already been computed by then.
 
     -------
 
@@ -191,7 +247,7 @@ class IsotropicAdditiveLinearOperator(AddLinearOperator):
             # s*I + A correctly for any square A, and `smart_add` rewrites
             # every `Identity + op` sum into this class. Only the eigh-based
             # shortcuts require symmetry, so only they need to refuse.
-            _reject_if_provably_non_symmetric(self._A)
+            _require_symmetric(self._A)
             self._S, self._Q = leigh(self._A)
             # invalidate derived caches
             self._projector = None
@@ -276,6 +332,7 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
     Q, S = a.Q, a.S  # cached
     s = a.s.scalar
     # Cholesky of A + sI = Q * sqrt(Λ + sI) where A = Q Λ Q^T
+    _require_positive_spectrum(a, "Cholesky factor", strict=False)
 
     eigs = diagonal(S) if isinstance(S, LinearOperator) else S
 
@@ -286,6 +343,7 @@ def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
 @lsqrt.dispatch(precedence=1)
 def _(a: IsotropicAdditiveLinearOperator) -> LinearOperator:
     a._ensure_eigh()
+    _require_positive_spectrum(a, "Square root", strict=False)
     Q, S = a.Q, a.S  # cached
     s = a.s.scalar
 
@@ -454,6 +512,7 @@ def _(
     log(sI + A) = U log(s + λ) U^T where A = U λ U^T
     """
     a._ensure_eigh()
+    _require_positive_spectrum(a, "Logarithm", strict=True)
     s = a.s.scalar
 
     # Eigenvalues of sI + A are s + λ(A)
@@ -486,6 +545,8 @@ def _(
     (sI + A)^p = U (s + λ)^p U^T where A = U λ U^T
     """
     a._ensure_eigh()
+    if not _is_integer_power(power):
+        _require_positive_spectrum(a, f"Power {power}", strict=False)
     s = a.s.scalar
 
     # Eigenvalues of sI + A are s + λ(A)
