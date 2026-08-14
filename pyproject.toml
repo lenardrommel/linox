@@ -55,8 +55,17 @@ test = [
 ]
 dev = ["pre-commit", "pyright", "jupyterlab", "isort>=7.0.0", "ruff"]
 
+# `linox.interop` adapters and their compatibility tests. Deliberately kept out
+# of `dev` (and therefore out of `[tool.uv] default-groups`): skerch pulls in
+# torch, h5py and torch-dct, which is a lot of install for a JAX library whose
+# own test suite never touches them. `tests/test_skerch_compat.py` skips itself
+# when this is not installed.
+interop = ["skerch>=1.2", "torch"]
+
 [dependency-groups]
 lint = ["ruff>=0.15.0"]
+
+interop = ["skerch>=1.2", "torch"]
 
 
 test = [
@@ -123,3 +132,7 @@ convention = "numpy"
 # `method="slq"` string across 11 files.
 slq = "slq"
 SLQ = "SLQ"
+# NumPy spells the flag `arr.flags.writeable`. Without this, typos "corrects"
+# it to `writable`, which is not an attribute -- turning a working guard into
+# an AttributeError at runtime.
+writeable = "writeable"
