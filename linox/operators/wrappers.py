@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 
 import jax
 
+from linox.operators.arithmetic import lsqrt
 from linox.operators.base import LinearOperator
 
 if TYPE_CHECKING:
@@ -343,6 +344,33 @@ def assume_spd(op: LinearOperator) -> SPD:
     if isinstance(op, SPD):
         return op
     return SPD(op)
+
+
+# --------------------------------------------------------------------------- #
+# Capability delegation
+# --------------------------------------------------------------------------- #
+#
+# `Sym`, `PSD` and `SPD` are tags: they promise a property, they do not change
+# what the operator computes. Without these dispatches a wrapper *removes*
+# capability -- `sqrt(Diagonal(d))` is a `Diagonal`, while `sqrt(PSD(Diagonal(d)))`
+# raised `NotImplementedError`, because the generic fallback sees only the
+# wrapper type. Wrapping an operator must never make it less capable than the
+# operator it wraps.
+#
+# The factor is not re-wrapped: `S` satisfying `S @ S.T == A` is not itself
+# symmetric or positive semidefinite, so the tag does not survive the operation.
+
+
+@lsqrt.dispatch
+def _(a: Sym) -> LinearOperator:
+    """Delegate to the wrapped operator; symmetry adds nothing to the factor."""
+    return lsqrt(a.wrapped)
+
+
+@lsqrt.dispatch
+def _(a: PSD) -> LinearOperator:
+    """Delegate to the wrapped operator. Also covers `SPD`, which extends `PSD`."""
+    return lsqrt(a.wrapped)
 
 
 # Register PyTrees

@@ -10,6 +10,7 @@ import jax
 import jax.numpy as jnp
 import linox
 import linox.config as config
+import pytest
 from linox import Diagonal, Matrix
 from linox.operators.wrappers import (
     PSD,
@@ -116,3 +117,70 @@ class TestWrapperProperties:
             op = wrapper(Diagonal(d))
             leaves, treedef = jax.tree_util.tree_flatten(op)
             assert isinstance(jax.tree_util.tree_unflatten(treedef, leaves), wrapper)
+
+
+class TestWrappersDelegateCapabilities:
+    """A wrapper must never be less capable than the operator it wraps.
+
+    `Sym`/`PSD`/`SPD` are tags: they promise a property, they do not change what
+    the operator computes. Before delegation was registered, the generic
+    fallback saw only the wrapper type, so `sqrt` raised `NotImplementedError`
+    for every wrapped operator -- including ones whose own `sqrt` is exact.
+    """
+
+    @pytest.mark.parametrize("wrapper", WRAPPERS, ids=lambda w: w.__name__)
+    def test_sqrt_is_available_through_the_wrapper(self, wrapper) -> None:
+        key = jax.random.PRNGKey(3)
+        X = jax.random.normal(key, (5, 5))
+        A_dense = X @ X.T + 5 * jnp.eye(5)
+
+        factor = linox.sqrt(wrapper(Matrix(A_dense)), method="exact")
+
+        dense = linox.todense(factor)
+        assert jnp.allclose(dense @ dense.T, A_dense, atol=1e-8), (
+            f"{wrapper.__name__} did not produce a valid factor S with S @ S.T == A"
+        )
+
+    @pytest.mark.parametrize("wrapper", WRAPPERS, ids=lambda w: w.__name__)
+    def test_sqrt_matches_the_unwrapped_operator(self, wrapper) -> None:
+        key = jax.random.PRNGKey(4)
+        X = jax.random.normal(key, (5, 5))
+        A = Matrix(X @ X.T + 5 * jnp.eye(5))
+
+        assert jnp.allclose(
+            linox.todense(linox.sqrt(wrapper(A), method="exact")),
+            linox.todense(linox.sqrt(A, method="exact")),
+        )
+
+    @pytest.mark.parametrize("wrapper", WRAPPERS, ids=lambda w: w.__name__)
+    def test_sqrt_preserves_the_wrapped_structure(self, wrapper) -> None:
+        # The point of delegating rather than densifying: a Diagonal's square
+        # root is a Diagonal, and wrapping must not cost that.
+        d = jnp.arange(1.0, 6.0)
+
+        factor = linox.sqrt(wrapper(Diagonal(d)), method="exact")
+
+        assert isinstance(factor, Diagonal), (
+            f"{wrapper.__name__} lost the Diagonal structure, got {type(factor).__name__}"
+        )
+        assert jnp.allclose(linox.todense(factor), jnp.diag(jnp.sqrt(d)))
+
+    @pytest.mark.parametrize("wrapper", WRAPPERS, ids=lambda w: w.__name__)
+    def test_sqrt_does_not_densify(self, wrapper) -> None:
+        d = jnp.arange(1.0, 6.0)
+
+        events = _record_events(lambda w=wrapper: linox.sqrt(w(Diagonal(d)), method="exact"))
+
+        assert "densify" not in events, (
+            f"{wrapper.__name__} densified its operand to take a square root"
+        )
+
+    @pytest.mark.parametrize("wrapper", WRAPPERS, ids=lambda w: w.__name__)
+    def test_sqrt_never_returns_the_inverse(self, wrapper) -> None:
+        # Regression for the stacked-decorator leak: `lsqrt`'s generic method
+        # was `linverse`, so wrapped operators silently received A^-1.
+        d = jnp.array([4.0, 9.0, 16.0, 25.0])
+
+        factor = linox.sqrt(wrapper(Diagonal(d)), method="exact")
+
+        assert jnp.allclose(linox.todense(factor), jnp.diag(jnp.array([2.0, 3.0, 4.0, 5.0])))
