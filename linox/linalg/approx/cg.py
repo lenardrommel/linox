@@ -37,6 +37,7 @@ def cg_solve(
     atol: float = 0.0,
     maxiter: int | None = None,
     x0: jax.Array | None = None,
+    track_iterations: bool = False,
 ) -> tuple[jax.Array, dict]:
     r"""Solve ``A x = b`` for symmetric positive-definite ``A``.
 
@@ -58,6 +59,10 @@ def cg_solve(
         implementation here.
     x0:
         Initial guess. Defaults to zeros.
+    track_iterations:
+        Report the exact iteration count as ``info["itn"]``, at the cost of
+        reverse-mode differentiability. See the note below; either mode costs
+        exactly one CG run.
 
     Returns
     -------
@@ -69,11 +74,19 @@ def cg_solve(
 
     Notes on differentiability
     --------------------------
-    The iteration is a ``lax.while_loop``, which has no reverse-mode rule. The
-    solution is therefore routed through :func:`jax.lax.custom_linear_solve`,
-    which supplies the correct adjoint -- for symmetric ``A`` the cotangent is
-    itself a solve against ``A`` -- exactly as ``jax.scipy.sparse.linalg.cg``
-    does. ``jax.grad`` through this function works as a result.
+    The iteration is a ``lax.while_loop``, which has no reverse-mode rule, and
+    its counter is only observable from inside it. Those two facts pull in
+    opposite directions, so both modes exist and each costs one CG run:
+
+    * ``track_iterations=False`` (default) routes the solution through
+      :func:`jax.lax.custom_linear_solve`, which supplies the adjoint
+      ``while_loop`` lacks -- for symmetric ``A`` the cotangent is itself a
+      solve against ``A``, which is how ``jax.scipy.sparse.linalg.cg`` manages
+      it too. ``jax.grad`` works; the loop runs inside the callable, so ``itn``
+      is not observable.
+    * ``track_iterations=True`` runs the loop directly, so ``info["itn"]`` is
+      exact. Reverse-mode differentiation then raises, ``while_loop`` having no
+      VJP; forward mode and ``jax.jit`` are unaffected.
 
     Notes
     -----
@@ -159,21 +172,20 @@ def cg_solve(
         solution, *_ = jax.lax.while_loop(cond, body, init)
         return solution
 
-    # `while_loop` has no reverse-mode rule, so route the solution through
-    # `custom_linear_solve`, which supplies the adjoint. `symmetric=True` is
-    # sound here: CG already requires it.
-    x = jax.lax.custom_linear_solve(lambda v: A @ v, b, run, symmetric=True)
+    extra: dict[str, jax.Array] = {}
+    if track_iterations:
+        # Run the loop directly: `itn` is observable, reverse mode is not.
+        r0 = b - A @ x
+        z0 = apply_M(r0)
+        init = (x, r0, z0, jnp.vdot(r0, z0), jnp.asarray(0), jnp.asarray(0))
+        x, _r, _z, _rz, itn, _istop = jax.lax.while_loop(cond, body, init)
+        extra["itn"] = itn
+    else:
+        x = jax.lax.custom_linear_solve(lambda v: A @ v, b, run, symmetric=True)
 
-    # `itn` is deliberately absent. The iteration count lives inside the
-    # `custom_linear_solve` callable and cannot be threaded out without either
-    # a second CG run or giving up differentiability. The residual below costs
-    # one extra matvec and answers the question that actually matters --
-    # whether the solve converged.
+    # One extra matvec, computed identically in both modes so the reported
+    # outcome never depends on which was chosen.
     normr = jnp.linalg.norm(b - A @ x)
     istop = jnp.where(normr <= atol_eff, CG_CONVERGED, CG_NOT_CONVERGED)
 
-    return x, {
-        "istop": istop,
-        "normr": normr,
-        "atol_eff": atol_eff,
-    }
+    return x, {"istop": istop, "normr": normr, "atol_eff": atol_eff, **extra}

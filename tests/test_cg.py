@@ -155,3 +155,53 @@ class TestWiredIntoSolve:
         grad = jax.grad(lambda v: linox.solve(Matrix(A), v, method="cg").sum())(b)
         assert grad.shape == (20,)
         assert jnp.all(jnp.isfinite(grad))
+
+
+class TestBothModes:
+    """Exact iteration count and reverse-mode grad are mutually exclusive.
+
+    `lax.while_loop` has no VJP, and its counter is only observable from inside
+    it. Both modes are provided, each costing one CG run.
+    """
+
+    def _system(self, n=60):
+        A = spd(n, cond=100.0)
+        return A, jnp.ones(n, dtype=F64)
+
+    def test_modes_agree_on_the_solution(self) -> None:
+        A, b = self._system()
+        x_diff, _ = cg_solve(Matrix(A), b)
+        x_tracked, _ = cg_solve(Matrix(A), b, track_iterations=True)
+        assert jnp.allclose(x_diff, x_tracked)
+
+    def test_only_tracked_mode_reports_itn(self) -> None:
+        A, b = self._system()
+        _x, info_default = cg_solve(Matrix(A), b)
+        _x, info_tracked = cg_solve(Matrix(A), b, track_iterations=True)
+
+        assert "itn" not in info_default
+        assert int(info_tracked["itn"]) > 0
+
+    def test_istop_is_computed_identically_in_both_modes(self) -> None:
+        """The reported outcome must not depend on which mode was chosen."""
+        A, b = self._system()
+        _x, a = cg_solve(Matrix(A), b, maxiter=2)
+        _x, c = cg_solve(Matrix(A), b, maxiter=2, track_iterations=True)
+        assert int(a["istop"]) == int(c["istop"]) == CG_NOT_CONVERGED
+
+    def test_default_mode_is_reverse_differentiable(self) -> None:
+        A, b = self._system(20)
+        grad = jax.grad(lambda v: cg_solve(Matrix(A), v)[0].sum())(b)
+        assert jnp.allclose(grad, jnp.linalg.solve(A, jnp.ones(20)), atol=1e-6)
+
+    def test_tracked_mode_rejects_reverse_mode_clearly(self) -> None:
+        A, b = self._system(20)
+        with pytest.raises(ValueError, match="[Rr]everse-mode"):
+            jax.grad(lambda v: cg_solve(Matrix(A), v, track_iterations=True)[0].sum())(b)
+
+    def test_tracked_mode_still_works_under_jit(self) -> None:
+        A, b = self._system(40)
+        _x, info = jax.jit(
+            lambda M, v: cg_solve(Matrix(M), v, track_iterations=True)
+        )(A, b)
+        assert int(info["itn"]) > 0
