@@ -15,8 +15,7 @@ import jax.numpy as jnp
 
 from linox._types import ArrayLike
 from linox.operators.base import LinearOperator
-
-DTYPE = jnp.float32
+from linox.utils.array import default_floating_dtype
 
 
 @partial(jnp.vectorize, signature="(n,k),(n)->(n,k)")
@@ -56,7 +55,7 @@ class Permutation(LinearOperator):
         perm_size = self._perm.shape[-1]
         super().__init__(
             shape=(*self._perm.shape[:-1], perm_size, perm_size),
-            dtype=DTYPE,  # Otherwise operation not allowed
+            dtype=default_floating_dtype(),  # Otherwise operation not allowed
         )
 
     # def _matmul(self, x: jnp.ndarray) -> jnp.ndarray:

@@ -32,6 +32,7 @@ from linox import config, utils
 from linox._types import ScalarLike, ShapeLike
 from linox.config import warn as _warn
 from linox.operators.base import LinearOperator
+from linox.utils.array import default_floating_dtype
 
 ArithmeticType = LinearOperator | jax.Array
 
@@ -119,7 +120,7 @@ def smart_add(*operators: LinearOperator) -> LinearOperator:
         # All were zero or empty, return Zero of correct shape
         # In practice shape must match, so use first op shape
         shape = operators[0].shape if operators else (0, 0)
-        dtype = operators[0].dtype if operators else jnp.float32
+        dtype = operators[0].dtype if operators else default_floating_dtype()
         return Zero(shape, dtype=dtype)
 
     if len(non_zero_ops) == 1:
