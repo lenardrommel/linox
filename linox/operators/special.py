@@ -129,7 +129,17 @@ def _(a: LinearOperator, b: Identity) -> LinearOperator:
     return a
 
 
+# Registered separately, and deliberately not stacked. A plum `.dispatch`
+# decorator returns the *Function object*, so `@lsqrt.dispatch` applied on top
+# of `@linverse.dispatch` registered `linverse` itself under `lsqrt` -- with
+# `linverse`'s own generic `(LinearOperator)` signature. Every operator without
+# a specific `lsqrt` then silently received its inverse instead of a square
+# root.
 @lsqrt.dispatch
+def _(a: Identity) -> Identity:
+    return a
+
+
 @linverse.dispatch
 def _(a: Identity) -> Identity:
     return a
@@ -307,7 +317,20 @@ def _(a: Scalar, b: Scalar) -> Scalar:
     return Scalar(a.scalar - b.scalar)
 
 
+# Registered separately rather than stacked, for the reason given above: it is
+# the *outer* decorator that gets polluted. Stacking `@lmatmul.dispatch` over
+# `@lmul.dispatch` gave `lmul` the correct method and `lmatmul` a copy of
+# `lmul`'s generic signature.
 @lmatmul.dispatch
+def _(a: Scalar, b: Scalar) -> Scalar:
+    # Narrower than the `ScalarType | Scalar` used for `lmul` below: the
+    # `jax.Array` half is not a `LinearOperator`, so that signature ties with
+    # the `(LinearOperator, LinearOperator)` generic and plum cannot order
+    # them. A scalar array times a Scalar is already covered by the generic
+    # `lmatmul(jax.Array, LinearOperator)`.
+    return Scalar(utils.as_scalar(a) * b.scalar)
+
+
 @lmul.dispatch
 def _(a: ScalarType | Scalar, b: Scalar) -> Scalar:
     return Scalar(utils.as_scalar(a) * b.scalar)
