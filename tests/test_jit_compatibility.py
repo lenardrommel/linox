@@ -179,10 +179,6 @@ class TestJITBlockOperators:
         expected = jnp.kron(A_data, B_data) @ x
         assert jnp.allclose(result, expected, rtol=1e-5)
 
-    @pytest.mark.xfail(
-        reason="BlockDiagonal uses jnp.cumsum in __init__, incompatible with JIT tracing",
-        strict=True
-    )
     def test_block_diagonal_jit(self, key):
         """Test BlockDiagonal under jit.
 
