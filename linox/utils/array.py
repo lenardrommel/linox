@@ -16,7 +16,25 @@ if TYPE_CHECKING:
     from linox.operators.base import LinearOperator
 
 
-__all__ = ["_broadcast_shapes", "as_linop", "as_scalar", "as_shape"]
+__all__ = [
+    "_broadcast_shapes",
+    "as_linop",
+    "as_scalar",
+    "as_shape",
+    "default_floating_dtype",
+]
+
+
+def default_floating_dtype() -> DTypeLike:
+    """Return the floating dtype JAX is currently configured to produce.
+
+    ``float64`` when ``jax_enable_x64`` is set, ``float32`` otherwise. Operators
+    that synthesise their own values -- ``Identity``, ``Zero``, ``Ones``,
+    ``Permutation`` -- must default to this rather than hard-coding
+    ``float32``, which silently narrowed results for anyone working in double
+    precision.
+    """
+    return jnp.float64 if jax.config.jax_enable_x64 else jnp.float32
 
 
 def as_shape(x: ShapeLike, ndim: numbers.Integral | None = None) -> ShapeType:

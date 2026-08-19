@@ -24,6 +24,7 @@ from linox.operators.arithmetic import (
 from linox.operators.base import LinearOperator
 from linox.operators.dense import Matrix
 from linox.utils import as_shape
+from linox.utils.array import default_floating_dtype
 
 
 def _matmul_broadcast(a: LinearOperator, b: LinearOperator):
@@ -44,10 +45,12 @@ class Identity(LinearOperator):
 
     Args:
         shape: The shape of the identity operator
-        dtype: The data type of the identity operator (default: float32)
+        dtype: The data type of the identity operator. Defaults to JAX's
+            current floating dtype (float64 under x64, else float32).
     """
 
-    def __init__(self, shape: ShapeLike, *, dtype: DTypeLike = jnp.float32) -> None:
+    def __init__(self, shape: ShapeLike, *, dtype: DTypeLike | None = None) -> None:
+        dtype = default_floating_dtype() if dtype is None else dtype
         shape = as_shape(shape)
         super().__init__((*shape, shape[-1]), dtype)
 
@@ -346,10 +349,12 @@ class Zero(LinearOperator):
 
     Args:
         shape: The shape of the zero operator
-        dtype: The data type of the zero operator (default: float32)
+        dtype: The data type of the zero operator. Defaults to JAX's
+            current floating dtype (float64 under x64, else float32).
     """
 
-    def __init__(self, shape: ShapeLike, dtype: DTypeLike = jnp.float32) -> None:
+    def __init__(self, shape: ShapeLike, dtype: DTypeLike | None = None) -> None:
+        dtype = default_floating_dtype() if dtype is None else dtype
         super().__init__(shape, dtype)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
@@ -359,7 +364,9 @@ class Zero(LinearOperator):
                 self.shape[-2],
                 arr.shape[-1],
             ),
-            dtype=self.dtype,
+            # Promote with the operand: a Zero operator must not narrow the
+            # result of `Zero @ x` to its own dtype.
+            dtype=jnp.result_type(self.dtype, arr.dtype),
         )
 
     def _todense(self) -> jax.Array:
@@ -469,10 +476,12 @@ class Ones(LinearOperator):
 
     Args:
         shape: The shape of the ones operator
-        dtype: The data type of the ones operator (default: float32)
+        dtype: The data type of the ones operator. Defaults to JAX's
+            current floating dtype (float64 under x64, else float32).
     """
 
-    def __init__(self, shape: ShapeLike, dtype: DTypeLike = jnp.float32) -> None:
+    def __init__(self, shape: ShapeLike, dtype: DTypeLike | None = None) -> None:
+        dtype = default_floating_dtype() if dtype is None else dtype
         super().__init__(shape, dtype)
 
     def _matmul(self, arr: jax.Array) -> jax.Array:
