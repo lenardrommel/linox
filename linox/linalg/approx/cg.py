@@ -88,27 +88,27 @@ def cg_solve(
     n = A.shape[-1]
 
     if b.ndim != 1:
-        msg = (
-            f"cg_solve expects a vector right-hand side, got shape {b.shape}. "
-            "Solve each column separately, or use jax.vmap."
-        )
+        msg = f"cg_solve expects a vector right-hand side, got shape {b.shape}. Solve each column separately, or use jax.vmap."
         raise ValueError(msg)
 
     dtype = jnp.result_type(A.dtype, b.dtype)
     b = b.astype(dtype)
     maxiter = 10 * n if maxiter is None else maxiter
 
-    apply_M = (
-        (lambda r: r)
-        if preconditioner is None
-        else (lambda r, M=as_linop(preconditioner): M @ r)
-    )
+    if preconditioner is None:
 
+        def apply_M(residual: jax.Array) -> jax.Array:
+            return residual
+
+    else:
+        M = as_linop(preconditioner)
+
+        def apply_M(residual: jax.Array) -> jax.Array:
+            return M @ residual
+
+    # `x` is the initial guess; the residual and search direction are built
+    # inside `run`, which is what `custom_linear_solve` actually invokes.
     x = jnp.zeros((n,), dtype=dtype) if x0 is None else jnp.asarray(x0, dtype=dtype)
-    r = b - A @ x
-    z = apply_M(r)
-    p = z
-    rz = jnp.vdot(r, z)
 
     # A zero right-hand side has x = 0 as its exact solution; the threshold
     # then falls back to `atol` so the loop exits immediately rather than
@@ -162,9 +162,7 @@ def cg_solve(
     # `while_loop` has no reverse-mode rule, so route the solution through
     # `custom_linear_solve`, which supplies the adjoint. `symmetric=True` is
     # sound here: CG already requires it.
-    x = jax.lax.custom_linear_solve(
-        lambda v: A @ v, b, run, symmetric=True
-    )
+    x = jax.lax.custom_linear_solve(lambda v: A @ v, b, run, symmetric=True)
 
     # `itn` is deliberately absent. The iteration count lives inside the
     # `custom_linear_solve` callable and cannot be threaded out without either
