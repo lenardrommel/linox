@@ -433,7 +433,8 @@ _LSMR_RESULT_FROM_ISTOP = {
 
 #: Relative-residual threshold for iterative solvers that report no status of
 #: their own. Deliberately loose -- it is a "this is obviously not a solution"
-#: guard, not a convergence criterion.
+#: guard, not a convergence criterion. Currently unused: every iterative path
+#: now reports its own outcome. Kept for solvers added later that do not.
 _ITERATIVE_RESIDUAL_RTOL = 1e-2
 
 
@@ -452,7 +453,10 @@ def solve(
     Args:
         a: Linear operator.
         b: Right-hand side vector/matrix.
-        method: Solver method ("exact", "lsmr", "cg", "auto").
+        method: Solver method ("exact", "lsmr", "cg", "auto"). ``"cg"`` uses
+            linox's own preconditioned conjugate gradients, which requires a
+            symmetric positive-definite operator and accepts a
+            ``preconditioner=`` operator.
         throw: Raise :class:`~linox.linalg.solution.LinearSolveError` when the
             solve fails (the default). Pass ``False`` to accept whatever the
             solver produced. Under ``jax.jit`` the outcome is a tracer and
@@ -499,12 +503,18 @@ def solve(
         result = _lsmr_result(info["istop"])
         check_rtol = None
     elif m in {"cg", "conjugate_gradient"}:
-        x, _ = jax.scipy.sparse.linalg.cg(op, b, **kwargs)
-        # jax's CG returns no convergence information, so fall back to a loose
-        # sanity check: tight enough to catch a singular system (whose relative
-        # residual is O(1)), loose enough not to flag a converged CG that
-        # simply stopped at its own tolerance.
-        check_rtol = _ITERATIVE_RESIDUAL_RTOL
+        from linox.linalg.approx.cg import CG_CONVERGED, cg_solve
+
+        x, info = cg_solve(op, b, **kwargs)
+        stats = dict(info)
+        # Unlike `jax.scipy.sparse.linalg.cg`, this reports whether it
+        # converged, so the loose residual guard is no longer needed.
+        result = jnp.where(
+            jnp.asarray(info["istop"]) == CG_CONVERGED,
+            jnp.int32(_RESULTS.successful),
+            jnp.int32(_RESULTS.max_steps_reached),
+        )
+        check_rtol = None
     else:
         x = _lsolve_impl(op, b, **kwargs)
 
