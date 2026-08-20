@@ -5,8 +5,10 @@
 # `linox`: Linear Operators in JAX
 
 **Version:** 0.0.3
-
-`linox` is a Python package that provides a collection of linear operators for JAX, enabling efficient and flexible linear algebra operations with lazy evaluation. This package is designed as a JAX alternative to [`probnum.linops`](https://probnum.readthedocs.io/en/latest/api/linops.html), but it is currently still under development having less and more instable features. It has no dependencies other than [JAX](https://github.com/jax-ml/jax) and [`plum`](https://github.com/beartype/plum) for multiple dispatch.
+`linox` is an experimental library for structured, matrix-free linear algebra in
+JAX. It provides composable linear operators, structure-aware dispatch, lazy
+matrix transformations, and scalable approximate algorithms while retaining
+JAX transformations such as `jit` and automatic differentiation.
 
 **Note (v0.0.3):** The API has been updated with unified `method=` dispatch for all functions. Functions now support `method="auto"|"exact"|"approx"` for flexible computation strategies, and an unrecognised `method=` now raises instead of silently falling back to the default. The old "l"-prefixed functions (e.g., `lsolve`, `linverse`) are deprecated and will be removed in version 0.0.4.
 
@@ -426,7 +428,7 @@ If you use matrix-free methods or differentiable linear algebra iterations in yo
 - [`probnum.linops`](https://probnum.readthedocs.io/en/latest/api/linops.html): The original inspiration for linox, providing linear operators in Python/NumPy
 - [`matfree`](https://pnkraemer.github.io/matfree/): Specialized matrix-free methods for large-scale problems
 
-## Installation
+## Installation (soon)
 
 ```bash
 pip install linox
@@ -434,7 +436,7 @@ pip install linox
 
 Or install from source:
 ```bash
-git clone https://github.com/2bys/linox.git
+git clone https://github.com/lenardrommel/linox.git
 cd linox
 pip install -e .
 ```
@@ -445,4 +447,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the Apache License 2.0.

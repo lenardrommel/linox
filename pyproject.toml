@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "linox"
 description = "Linear operators in JAX."
 readme = "README.md"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 version = "0.0.3"
 
@@ -27,6 +28,12 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Operating System :: OS Independent",
 ]
+
+[project.urls]
+Homepage = "https://linox.lenardrommel.com"
+Documentation = "https://linox.lenardrommel.com"
+Repository = "https://github.com/lenardrommel/linox"
+Issues = "https://github.com/lenardrommel/linox/issues"
 
 dependencies = [
   "jax",
@@ -164,3 +171,4 @@ SLQ = "SLQ"
 # it to `writable`, which is not an attribute -- turning a working guard into
 # an AttributeError at runtime.
 writeable = "writeable"
+
