@@ -192,3 +192,12 @@ cython_debug/
 
 # mkdocs build output
 /site/
+
+# Documentation and top-level markdown are part of the source tree. A global
+# ignore containing `*.md` (not unusual) would otherwise silently drop every
+# page from `git add`, which is exactly how the docs site was first committed
+# with 29 of its 31 pages missing. Repository rules take precedence over the
+# user's global excludesfile, so these negations restore them.
+!*.md
+!docs/
+!docs/**/*.md
