@@ -29,12 +29,6 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 
-[project.urls]
-Homepage = "https://linox.lenardrommel.com"
-Documentation = "https://linox.lenardrommel.com"
-Repository = "https://github.com/lenardrommel/linox"
-Issues = "https://github.com/lenardrommel/linox/issues"
-
 dependencies = [
   "jax",
   "jaxtyping",
@@ -42,6 +36,12 @@ dependencies = [
   "plum-dispatch",
   "scipy",
 ]
+
+[project.urls]
+Homepage = "https://linox.lenardrommel.com"
+Documentation = "https://linox.lenardrommel.com"
+Repository = "https://github.com/lenardrommel/linox"
+Issues = "https://github.com/lenardrommel/linox/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -171,4 +171,3 @@ SLQ = "SLQ"
 # it to `writable`, which is not an attribute -- turning a working guard into
 # an AttributeError at runtime.
 writeable = "writeable"
-

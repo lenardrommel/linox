@@ -1,9 +1,80 @@
 site_name: linox
 repo_name: linox
+site_url: https://linox.lenardrommel.com
+site_description: Structured, matrix-free linear algebra in JAX
+
+repo_name: lenardrommel/linox
 repo_url: https://github.com/lenardrommel/linox
+edit_uri: edit/main/docs/
 
 theme:
   name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quickstart: quickstart.md
+  - Concepts:
+      - Linear operators: concepts/linear-operators.md
+      - Structure and laziness: concepts/structure-and-laziness.md
+      - Method dispatch: concepts/method-dispatch.md
+      - JIT and autodiff: concepts/jit-and-autodiff.md
+  - Operators:
+      - Basic: operators/basic.md
+      - Composition: operators/composition.md
+      - Structured: operators/structured.md
+      - Kronecker: operators/kronecker.md
+      - Kernels: operators/kernels.md
+      - Low rank: operators/low-rank.md
+  - Algorithms:
+      - Solving: algorithms/solving.md
+      - Decompositions: algorithms/decompositions.md
+      - Matrix functions: algorithms/matrix-functions.md
+      - Trace and determinants: algorithms/trace-and-determinants.md
+      - Approximations: algorithms/approximations.md
+  - Guides:
+      - Choosing a method: guides/choosing-a-method.md
+      - Avoiding densification: guides/avoiding-densification.md
+      - Debugging and tracing: guides/debugging-and-tracing.md
+      - skerch interop: guides/skerch-interop.md
+  - Examples:
+      - Structured solving: examples/structured-solving.md
+      - Kronecker GP: examples/kronecker-gp.md
+      - Matrix-free estimation: examples/matrix-free-estimation.md
+  - Reference:
+      - API: reference/api.md
+      - Operators: reference/operators.md
+      - Configuration: reference/configuration.md
+  - Development:
+      - Architecture: development/architecture.md
+      - Roadmap: development/roadmap.md
+      - Decision records: development/adr/README.md
 
 plugins:
   - search
