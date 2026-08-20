@@ -16,6 +16,7 @@ These operators allow efficient representation and computation of
 structured linear transformations through block matrix operations.
 """
 
+import itertools
 from functools import reduce
 from itertools import product
 
@@ -256,7 +257,10 @@ class BlockDiagonal(LinearOperator):
         dtype = reduce(jnp.promote_types, (block.dtype for block in blocks))
         shape_0 = sum(block.shape[0] for block in blocks)
         shape_1 = sum(block.shape[1] for block in blocks)
-        self.split_indices = tuple(jnp.array([block.shape[1] for block in blocks]).cumsum()[:-1])
+        # Plain Python ints, not a jnp array: `jnp.split` needs concrete
+        # indices, and a traced array here made every BlockDiagonal matvec
+        # fail under `jax.jit`. The block shapes are static anyway.
+        self.split_indices = tuple(itertools.accumulate(block.shape[1] for block in blocks))[:-1]
 
         super().__init__((shape_0, shape_1), dtype)
 
