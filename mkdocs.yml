@@ -1,5 +1,4 @@
 site_name: linox
-repo_name: linox
 site_url: https://linox.lenardrommel.com
 site_description: Structured, matrix-free linear algebra in JAX
 
