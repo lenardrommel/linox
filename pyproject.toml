@@ -1,9 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "linox"
 description = "Linear operators in JAX."
 readme = "README.md"
 requires-python = ">=3.10"
 version = "0.0.3"
+
 
 authors = [
   { name = "Tobias Weber", email = "t.weber@uni-tuebingen.de" },
@@ -25,27 +30,28 @@ classifiers = [
 
 dependencies = [
   "jax",
-  "plum-dispatch",
-  "numpy",
-  "scipy",
   "jaxtyping",
-  "matplotlib",
-  "tueplots",
+  "numpy",
+  "plum-dispatch",
+  "scipy",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["linox*", "helper*"]
-exclude = ["site*", "tests*", "docs*"]
+include = ["linox*"]
+exclude = ["site*", "tests*", "docs*", "examples*", "helper*"]
 
-
-# Optional: keep these for "pip install linox[docs]" etc when you publish (extras are public API)
 [project.optional-dependencies]
-docs = ["mkdocs-material", "mkdocstrings[python]"]
-# pytest is capped below 9: pytest-cases 3.10.1 (the latest) calls
-# `IdMaker(...)` with pytest 8's signature and dies on pytest 9 with
-# "IdMaker.__init__() takes 7 positional arguments but 8 were given",
-# before collecting a single test. Lift the cap once pytest-cases supports 9.
+examples = [
+  "exponax",
+  "matplotlib",
+  "optax",
+  "tueplots",
+]
+docs = [
+  "mkdocs-material",
+  "mkdocstrings[python]",
+]
 test = [
   "pytest>=8,<9",
   "pytest-cov",
@@ -53,24 +59,29 @@ test = [
   "hypothesis",
   "tox-uv",
 ]
-dev = ["pre-commit", "pyright", "jupyterlab", "isort>=7.0.0", "ruff"]
+dev = [
+  "pre-commit",
+  "pyright",
+  "jupyterlab",
+  "isort>=7.0.0",
+  "ruff",
+]
 
-# `linox.interop` adapters and their compatibility tests. Deliberately kept out
-# of `dev` (and therefore out of `[tool.uv] default-groups`): skerch pulls in
-# torch, h5py and torch-dct, which is a lot of install for a JAX library whose
-# own test suite never touches them. `tests/test_skerch_compat.py` skips itself
-# when this is not installed.
-interop = ["skerch>=1.2", "torch"]
+# Kept outside dev because this installs PyTorch and related dependencies.
+interop = [
+  "skerch>=1.2",
+  "torch",
+]
 
 [dependency-groups]
 lint = ["ruff>=0.15.0"]
 
-interop = ["skerch>=1.2", "torch"]
-
+interop = [
+  "skerch>=1.2",
+  "torch",
+]
 
 test = [
-  # See the note on the `test` extra above: pytest-cases does not support
-  # pytest 9 yet.
   "pytest>=8,<9",
   "pytest-cov",
   "pytest-cases",
@@ -81,6 +92,13 @@ test = [
 docs = [
   "mkdocs-material",
   "mkdocstrings[python]",
+]
+
+examples = [
+  "exponax",
+  "matplotlib",
+  "optax",
+  "tueplots",
 ]
 
 dev = [
@@ -122,6 +140,16 @@ ignore = [
 ]
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [
+  "build",
+  "comparables",
+  "dist",
+]
+addopts = [
+  "--import-mode=importlib",
+]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["D", "E741"]
 
