@@ -42,6 +42,27 @@ jobs:
       - name: Run tests
         run: pytest -q
 
+  docs:
+    name: docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      # `--strict` turns warnings into errors, so a broken cross-reference or an
+      # API path that no longer resolves fails the build rather than shipping a
+      # dead link. The examples themselves are executed by the test suite.
+      - name: Build the site
+        run: mkdocs build --strict
+
   lint:
     name: lint
     runs-on: ubuntu-latest
