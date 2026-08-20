@@ -1,8 +1,6 @@
 
 # Dev environment
 local_*
-.vscode/
-.cursor/
 coverage.*
 uv.lock
 tox.ini
@@ -13,13 +11,9 @@ comparables/
 __pycache__/
 *.py[cod]
 *$py.class
-.venv/
-compare/
 
-geometric_bayesian/
 
 # IDEs and editors
-.vscode/
 .DS_Store
 
 # Local files
