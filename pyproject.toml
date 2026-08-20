@@ -1,182 +1,177 @@
-# See https://packaging.python.org/en/latest/specifications/pyproject-toml/
-
-# PEP 621 Project Metadata
-# See https://peps.python.org/pep-0621/
-
-[project]
-authors = [
-    { name = "Tobias Weber", email = "t.weber@uni-tuebingen.de" },
-]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Science/Research",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3 :: Only",
-    "Operating System :: OS Independent",
-]
-dependencies = [
-    "jax",
-    "plum-dispatch",
-    "numpy",
-    "scipy",
-    "matplotlib",
-    "tueplots",
-]
-description = "Linear operators in JAX."
-dynamic = ["version"]
-keywords = [
-    "Linear operators",
-    "Operators",
-    "Matrix-free linear algebra",
-]
-name = "linox"
-readme = "README.md"
-requires-python = ">=3.10"
-
-[project.optional-dependencies]
-dev = ["ruff", "jupyterlab", "pre-commit", "pytest", "pytest-cov", "tox-uv", "pyright"]
-test = ["pytest", "pytest-cov", "tox-uv", "pytest_cases", "hypothesis"]
-
-# PEP 518 Build System Configuration
-# See https://peps.python.org/pep-0518/
-
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["linox", "helper"]
+[project]
+name = "linox"
+description = "Linear operators in JAX."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+version = "0.0.3"
 
-[tool.setuptools.dynamic]
-version = {attr = "linox.__version__"}
 
-# Testing Configuration
-# See https://docs.pytest.org/en/stable/reference/customize.html
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = [
-    "--import-mode=importlib",
-    "--cov=linox",
-    "--cov-report=html",
-    "--cov-report=term-missing",
-    "--cov-report=xml",
+authors = [
+  { name = "Tobias Weber", email = "t.weber@uni-tuebingen.de" },
+  { name = "Lenard Rommel", email = "lenardrommel@icloud.com" },
 ]
 
-# Linting Configuration
-# See https://docs.astral.sh/ruff/rules/#legend
+keywords = ["Linear operators", "Operators", "Matrix-free linear algebra"]
+
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: OS Independent",
+]
+
+dependencies = [
+  "jax",
+  "jaxtyping",
+  "numpy",
+  "plum-dispatch",
+  "scipy",
+]
+
+[project.urls]
+Homepage = "https://linox.lenardrommel.com"
+Documentation = "https://linox.lenardrommel.com"
+Repository = "https://github.com/lenardrommel/linox"
+Issues = "https://github.com/lenardrommel/linox/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["linox*"]
+exclude = ["site*", "tests*", "docs*", "examples*", "helper*"]
+
+[project.optional-dependencies]
+examples = [
+  "exponax",
+  "matplotlib",
+  "optax",
+  "tueplots",
+]
+docs = [
+  "mkdocs-material",
+  "mkdocstrings[python]",
+]
+test = [
+  "pytest>=8,<9",
+  "pytest-cov",
+  "pytest-cases",
+  "hypothesis",
+  "tox-uv",
+]
+dev = [
+  "pre-commit",
+  "pyright",
+  "jupyterlab",
+  "isort>=7.0.0",
+  "ruff",
+]
+
+# Kept outside dev because this installs PyTorch and related dependencies.
+interop = [
+  "skerch>=1.2",
+  "torch",
+]
+
+[dependency-groups]
+lint = ["ruff>=0.15.0"]
+
+interop = [
+  "skerch>=1.2",
+  "torch",
+]
+
+test = [
+  "pytest>=8,<9",
+  "pytest-cov",
+  "pytest-cases",
+  "hypothesis",
+  "tox-uv",
+]
+
+docs = [
+  "mkdocs-material",
+  "mkdocstrings[python]",
+]
+
+examples = [
+  "exponax",
+  "matplotlib",
+  "optax",
+  "tueplots",
+]
+
+dev = [
+  { include-group = "lint" },
+  { include-group = "test" },
+  { include-group = "docs" },
+  "pre-commit",
+  "pyright",
+  "jupyterlab",
+  "isort>=7.0.0",
+]
+
+[tool.uv]
+default-groups = ["dev"]
 
 [tool.ruff]
-preview = true
-extend-include = ["*.ipynb"]
-exclude = [
-    ".git",
-    "__pycache__",
-]
-target-version = "py310"
+line-length = 150
+# pre-commit passes explicit file paths, and ruff only applies `exclude`
+# during its own file discovery unless this is set. Without it the hook lints
+# `tests/`, `examples/` and `helper/` despite the exclusions below.
+force-exclude = true
+# `examples/` are demonstration scripts and `helper/` is the GP demo package
+# that ships alongside them -- neither is public API, and holding them to the
+# docstring rules produced 75 findings with no reader to benefit.
+exclude = ["tests", "examples", "helper"]
+
 
 [tool.ruff.lint]
-select = [
-    "ARG",  # flake8-unused-arguments
-    "ASYNC",  # flake8-async
-    "ANN",  # flake8-annotations
-    "B",  # flake8-bugbear
-    "BLE",  # flake8-blind-except
-    "C4",  # flake8-comprehensions
-    "C90",  # mccabe
-    "COM",  # flake8-commas
-    "D",  # pydocstyle
-    "DTZ",  # flake8-datetimez
-    "E",  # pycodestyle error
-    "EM",  # flake8-errmsg
-    "ERA",  # eradicate
-    "F",  # Pyflakes
-    "FBT",  # flake8-boolean-trap
-    "FLY",  # flynt
-    "FURB",  # refurb
-    "G",  # flake80logging-format
-    "I",  # isort
-    "ICN",  # flake8-import-conventions
-    "INT",  # flake8-gettext
-    "ISC",  # flake8-implicit-str-concat
-    "LOG",  # flake8-logging
-    "N",  # pep8-naming
-    "NPY",  # NumPy
-    "PERF",  # Perflint
-    "PGH",  # pygrep-hooks
-    "PIE",  # flake8-pie
-    "PL",  # Pylint
-    "PT",  # flake8-pytest-style
-    "PTH",  # flake8-use-pathlib
-    "PYI",  # flake8-pyi
-    "Q",  # flake8-quotes
-    "RET",  # flake8-return
-    "RSE",  # flake8-raise
-    "RUF",  # Ruff
-    "S",  # flake8-bandit
-    "SLOT",  # flake8-slots
-    "T10",  # flake8-debugger
-    "T20",  # flake8-print
-    "TCH",  # flake8-type-checking
-    "TD",  # flake8-todos
-    "TID",  # flake8-tidy-imports
-    "TRY",  # tryceratops
-    "SIM",  # flake8-simplify
-    "SLF",  # flake8-self
-    "UP",  # pyupgrade
-    "W",  # pycodestyle warning
-    "YTT",  # flake8-2020
-]
+select = ["E", "F", "I", "D", "UP", "B", "SIM", "RUF"]
+
 ignore = [
-    # Conflicting lint rules with Ruff's formatter
-    "W191",
-    "E111",
-    "E114",
-    "E117",
-    "D206",
-    "D300",
-    "Q000",
-    "Q001",
-    "Q002",
-    "Q003",
-    "COM812",
-    "COM819",
-    "ISC001",
-    "ISC002",
-    # This is research code, attribute names are more flexible with casing
-    "E741",
-    "N802",
-    "N803",
-    "N806",
-    # Magic values are fine for academic code as longs as they are not overused
-    "PLR2004",
-    "PLR0912",
-    "PLR0912",
-    "PLR0914",
-    "PLR0914",
-    # Assignments before return can emphasize the code's semantic structure
-    "RET504",
-    "S403",
-    # During development it is useful to allow the following
-    "ERA001", # Allow uncommented code.
-    "TD003", # Allow TODOs without a issue number.
+  "D107",  # Missing docstring in __init__
+  "D105",  # Missing docstring in magic method
+  "RUF001", # String contains ambiguous sign (×, −, Λ, ⊗ in maths notation)
+  "RUF002", # Docstring contains ambiguous sign
+  "RUF003", # Comment contains ambiguous sign
+  "E741", # Ambiguous variable name
+  "D401", # Docstring not in imperative mood
 ]
-
-[tool.ruff.lint.extend-per-file-ignores]
-"tests/*.py" = [
-    "ANN001", # No typing enforcement in test files
-    "ANN202", # No return typing enforcement in test files
-    "D103", # No docs required in test files
-    "PLC2701", # Allow private name import from "linox" module
-    "S101",  # Use of assert is allowed in test files
-    "SLF001",  # Access of private members allowed
-]
-
-[tool.ruff.lint.mccabe]
-max-complexity = 18
-
 [tool.ruff.lint.pydocstyle]
-convention = "google"
+convention = "numpy"
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [
+  "build",
+  "comparables",
+  "dist",
+]
+addopts = [
+  "--import-mode=importlib",
+]
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D", "E741"]
+
+
+[tool.typos.default.extend-words]
+# Stochastic Lanczos Quadrature. Without this, typos "corrects" every SLQ to
+# SQL -- it once renamed the module, the exports and the documented
+# `method="slq"` string across 11 files.
+slq = "slq"
+SLQ = "SLQ"
+# NumPy/JAX spell it `arange`. typos reads it as a misspelling of `arrange`
+# and, with --write-changes, rewrites `jnp.arange` into a call that does not
+# exist -- silently breaking every example that uses it.
+arange = "arange"
+# NumPy spells the flag `arr.flags.writeable`. Without this, typos "corrects"
+# it to `writable`, which is not an attribute -- turning a working guard into
+# an AttributeError at runtime.
+writeable = "writeable"

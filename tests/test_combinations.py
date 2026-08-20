@@ -71,12 +71,11 @@ The tests reveal current framework capabilities and some dtype handling requirem
 from collections.abc import Callable
 
 import jax.numpy as jnp
+import linox
 import numpy as np
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
-
-import linox
 
 DTYPE = jnp.float32
 FLOATS = st.floats(
@@ -156,13 +155,13 @@ def _kronecker_strategy(
         (op1, dense1), (op2, dense2) = pair
         return linox.Kronecker(op1, op2), jnp.kron(dense1, dense2)
 
-    small_strat = st.one_of(
+    small_strategy = st.one_of(
         _matrix_strategy(k),
         _diagonal_strategy(k),
         st.just((linox.Identity((k,), dtype=DTYPE), jnp.eye(k, dtype=DTYPE))),
     )
 
-    return st.tuples(small_strat, small_strat).map(_build_kron)
+    return st.tuples(small_strategy, small_strategy).map(_build_kron)
 
 
 def _block_diagonal_strategy(
@@ -232,7 +231,7 @@ def _block_matrix_2x2_strategy(
         return op, dense
 
     # Create simple strategies for each block
-    A_strat = st.one_of(
+    A_strategy = st.one_of(
         _diagonal_strategy(n1),
         arrays(np.float32, (n1, n1), elements=SMALL_FLOATS).map(
             lambda arr: (
@@ -241,19 +240,19 @@ def _block_matrix_2x2_strategy(
             )
         ),
     )
-    B_strat = arrays(np.float32, (n1, n2), elements=SMALL_FLOATS).map(
+    B_strategy = arrays(np.float32, (n1, n2), elements=SMALL_FLOATS).map(
         lambda arr: (
             linox.Matrix(jnp.asarray(arr, dtype=DTYPE)),
             jnp.asarray(arr, dtype=DTYPE),
         )
     )
-    C_strat = arrays(np.float32, (n2, n1), elements=SMALL_FLOATS).map(
+    C_strategy = arrays(np.float32, (n2, n1), elements=SMALL_FLOATS).map(
         lambda arr: (
             linox.Matrix(jnp.asarray(arr, dtype=DTYPE)),
             jnp.asarray(arr, dtype=DTYPE),
         )
     )
-    D_strat = st.one_of(
+    D_strategy = st.one_of(
         _diagonal_strategy(n2),
         arrays(np.float32, (n2, n2), elements=SMALL_FLOATS).map(
             lambda arr: (
@@ -263,7 +262,7 @@ def _block_matrix_2x2_strategy(
         ),
     )
 
-    return st.tuples(A_strat, B_strat, C_strat, D_strat).map(_build_2x2)
+    return st.tuples(A_strategy, B_strategy, C_strategy, D_strategy).map(_build_2x2)
 
 
 def _base_operator_strategy(
@@ -370,6 +369,24 @@ HYPOTHESIS_SETTINGS = settings(
 )
 
 
+def assert_close(actual, expected, tol: float = 1e-5) -> None:
+    """Compare results with a tolerance scaled to the operand magnitude.
+
+    A plain elementwise `allclose(..., atol=1e-5)` is not a meaningful bound
+    for a float32 matmul: an output entry can be small (say 0.47) while being
+    the result of cancellation between entries of magnitude ~120, whose
+    representation error alone is float32-eps * 120 ~ 1.4e-5. Scaling the
+    absolute tolerance by the largest magnitude involved makes the check track
+    the actual arithmetic instead of failing on rare unlucky draws.
+    """
+    expected = jnp.asarray(expected)
+    scale = jnp.maximum(jnp.max(jnp.abs(expected)), 1.0)
+    assert jnp.allclose(actual, expected, atol=tol * scale, rtol=tol), (
+        f"max abs diff {jnp.max(jnp.abs(jnp.asarray(actual) - expected)):.3e} "
+        f"exceeds tolerance {tol:.1e} * scale {scale:.3e}"
+    )
+
+
 @HYPOTHESIS_SETTINGS
 @given(linear_operator_combo())
 def test_random_combination_todense_matches_dense(
@@ -393,7 +410,7 @@ def test_random_combination_vector_matmul(
     expected = dense @ vector
     actual = linop @ vector
     assert actual.shape == expected.shape
-    assert jnp.allclose(actual, expected, atol=1e-5)
+    assert_close(actual, expected, tol=1e-5)
 
 
 @HYPOTHESIS_SETTINGS
@@ -409,7 +426,7 @@ def test_random_combination_matrix_matmul(
     expected = dense @ rhs
     actual = linop @ rhs
     assert actual.shape == expected.shape
-    assert jnp.allclose(actual, expected, atol=1e-5)
+    assert_close(actual, expected, tol=1e-5)
 
 
 # ============================================================================
@@ -460,7 +477,7 @@ def test_deep_combination_vector_matmul(
     expected = dense @ vector
     actual = linop @ vector
     assert actual.shape == expected.shape
-    assert jnp.allclose(actual, expected, atol=1e-4, rtol=1e-4)
+    assert_close(actual, expected, tol=1e-4)
 
 
 @DEEP_HYPOTHESIS_SETTINGS
@@ -477,7 +494,7 @@ def test_deep_combination_matrix_matmul(
     expected = dense @ rhs
     actual = linop @ rhs
     assert actual.shape == expected.shape
-    assert jnp.allclose(actual, expected, atol=1e-4, rtol=1e-4)
+    assert_close(actual, expected, tol=1e-4)
 
 
 # ============================================================================
@@ -522,7 +539,7 @@ def test_specific_complex_combination_1() -> None:
     expected = left_dense @ right_dense
 
     actual = result.todense()
-    assert jnp.allclose(actual, expected, atol=1e-5)
+    assert_close(actual, expected, tol=1e-5)
 
 
 def test_specific_complex_combination_2() -> None:
@@ -554,7 +571,7 @@ def test_specific_complex_combination_2() -> None:
     ])
 
     actual = result.todense()
-    assert jnp.allclose(actual, expected, atol=1e-5)
+    assert_close(actual, expected, tol=1e-5)
 
 
 def test_specific_complex_combination_3() -> None:
@@ -590,7 +607,7 @@ def test_specific_complex_combination_3() -> None:
     expected = jnp.block([[A_dense, B_dense], [C_dense, D_dense]])
 
     actual = result.todense()
-    assert jnp.allclose(actual, expected, atol=1e-5)
+    assert_close(actual, expected, tol=1e-5)
 
 
 def test_five_level_depth_combination() -> None:
@@ -625,7 +642,7 @@ def test_five_level_depth_combination() -> None:
     expected = level4_dense + level4_dense.T
 
     actual = level5.todense()
-    assert jnp.allclose(actual, expected, atol=1e-5)
+    assert_close(actual, expected, tol=1e-5)
 
     # Also test matmul - ensure dtype matches
     vec = jnp.array([1.0, 2.0, 3.0, 4.0], dtype=level5.dtype)
@@ -677,7 +694,7 @@ def test_ultra_deep_combination() -> None:
     expected = level6_dense + level6_dense.T
 
     actual = level7.todense()
-    assert jnp.allclose(actual, expected, atol=1e-4)
+    assert_close(actual, expected, tol=1e-4)
 
     # Test matmul
     vec = jnp.array([1.0, 2.0, 3.0, 4.0], dtype=level7.dtype)
@@ -719,7 +736,7 @@ def test_block_operators_nested() -> None:
     ])
 
     actual = result.todense()
-    assert jnp.allclose(actual, expected, atol=1e-5)
+    assert_close(actual, expected, tol=1e-5)
 
 
 def test_mixed_operators_stress() -> None:
@@ -776,4 +793,4 @@ def test_mixed_operators_stress() -> None:
     expected = left_dense @ right_dense
 
     actual = result.todense()
-    assert jnp.allclose(actual, expected, atol=1e-4)
+    assert_close(actual, expected, tol=1e-4)

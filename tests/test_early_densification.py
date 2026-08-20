@@ -19,9 +19,8 @@ from typing import Any
 
 import jax
 import jax.numpy as jnp
-import pytest
-
 import linox
+import pytest
 from linox import (
     BlockDiagonal,
     Diagonal,
@@ -30,8 +29,8 @@ from linox import (
     Kronecker,
     Matrix,
 )
-from linox._arithmetic import diagonal, linverse
-from linox._low_rank import (
+from linox.operators.arithmetic import diagonal, linverse
+from linox.operators.lowrank import (
     IsotropicScalingPlusSymmetricLowRank,
     SymmetricLowRank,
 )
@@ -44,7 +43,9 @@ from linox._low_rank import (
 class DensificationDetector:
     """Context manager that detects if todense() is called."""
 
-    def __init__(self, operator: linox.LinearOperator, allow_in_matmul: bool = True) -> None:
+    def __init__(
+        self, operator: linox.LinearOperator, allow_in_matmul: bool = True
+    ) -> None:
         self.operator = operator
         self.allow_in_matmul = allow_in_matmul
         self.todense_called = False
@@ -87,9 +88,7 @@ class DensificationDetector:
         if self.todense_called:
             stack_str = "\n  ".join(self.call_stack)
             msg = f"Early densification detected! {message}\nCall stack:\n  {stack_str}"
-            raise AssertionError(
-                msg
-            )
+            raise AssertionError(msg)
 
 
 def assert_no_early_densification(
@@ -226,7 +225,7 @@ def test_diagonal_of_scaled_no_densification(matrix_a) -> None:
     scaled = 3.0 * A
 
     # Getting diagonal should not densify the scaled operator
-    with DensificationDetector(scaled.operator, allow_in_matmul=True) as detector:
+    with DensificationDetector(scaled, allow_in_matmul=True) as detector:
         diag = diagonal(scaled)
         detector.assert_no_densification("diagonal of ScaledLinearOperator")
 
@@ -240,11 +239,10 @@ def test_diagonal_of_sum_no_densification(matrix_a, matrix_b) -> None:
     sum_op = A + B
 
     # Getting diagonal should not densify A or B individually
-    with DensificationDetector(A, allow_in_matmul=True) as det_a:
-        with DensificationDetector(B, allow_in_matmul=True) as det_b:
-            diag = diagonal(sum_op)
-            det_a.assert_no_densification("diagonal of sum (operand A)")
-            det_b.assert_no_densification("diagonal of sum (operand B)")
+    with DensificationDetector(A, allow_in_matmul=True) as det_a, DensificationDetector(B, allow_in_matmul=True) as det_b:
+        diag = diagonal(sum_op)
+        det_a.assert_no_densification("diagonal of sum (operand A)")
+        det_b.assert_no_densification("diagonal of sum (operand B)")
 
     assert jnp.allclose(diag, jnp.diag(matrix_a) + jnp.diag(matrix_b))
 
@@ -259,11 +257,10 @@ def test_kronecker_construction_no_densification(matrix_a, matrix_b) -> None:
     A = Matrix(matrix_a)
     B = Matrix(matrix_b)
 
-    with DensificationDetector(A, allow_in_matmul=True) as det_a:
-        with DensificationDetector(B, allow_in_matmul=True) as det_b:
-            Kronecker(A, B)
-            det_a.assert_no_densification("Kronecker construction (A)")
-            det_b.assert_no_densification("Kronecker construction (B)")
+    with DensificationDetector(A, allow_in_matmul=True) as det_a, DensificationDetector(B, allow_in_matmul=True) as det_b:
+        Kronecker(A, B)
+        det_a.assert_no_densification("Kronecker construction (A)")
+        det_b.assert_no_densification("Kronecker construction (B)")
 
 
 def test_kronecker_matmul_no_densification(matrix_a, matrix_b, key) -> None:
@@ -298,11 +295,10 @@ def test_block_diagonal_no_densification(matrix_a, matrix_b, key) -> None:
     n = block_op.shape[0]
     vec = jax.random.normal(key, (n,))
 
-    with DensificationDetector(A, allow_in_matmul=True) as det_a:
-        with DensificationDetector(B, allow_in_matmul=True) as det_b:
-            block_op @ vec
-            det_a.assert_no_densification("BlockDiagonal matmul (A)")
-            det_b.assert_no_densification("BlockDiagonal matmul (B)")
+    with DensificationDetector(A, allow_in_matmul=True) as det_a, DensificationDetector(B, allow_in_matmul=True) as det_b:
+        block_op @ vec
+        det_a.assert_no_densification("BlockDiagonal matmul (A)")
+        det_b.assert_no_densification("BlockDiagonal matmul (B)")
 
 
 # ============================================================================
@@ -353,7 +349,7 @@ def test_inverse_scaled_no_densification(spd_matrix) -> None:
     scaled = 2.0 * A
 
     # Getting inverse should not densify the underlying operator early
-    with DensificationDetector(scaled.operator, allow_in_matmul=True) as detector:
+    with DensificationDetector(scaled, allow_in_matmul=True) as detector:
         linverse(scaled)
         # Note: inverse itself may need to densify at some point, but not during
         # construction of the inverse operator
@@ -373,7 +369,7 @@ def test_isotropic_add_cholesky_should_not_densify(spd_matrix, small_size) -> No
 
     This is currently a known issue in the codebase.
     """
-    from linox._arithmetic import lcholesky
+    from linox.operators.arithmetic import lcholesky
 
     A = Matrix(spd_matrix)
     iso_add = IsotropicAdditiveLinearOperator(0.5, A)
@@ -389,17 +385,16 @@ def test_congruence_diagonal_should_not_densify(matrix_a, spd_matrix) -> None:
 
     This is currently a known issue in the codebase.
     """
-    from linox._arithmetic import CongruenceTransform
+    from linox.operators.arithmetic import CongruenceTransform
 
     A = Matrix(matrix_a)
     B = Matrix(spd_matrix)
     cong = CongruenceTransform(A, B)
 
-    with DensificationDetector(A, allow_in_matmul=True) as det_a:
-        with DensificationDetector(B, allow_in_matmul=True) as det_b:
-            _ = diagonal(cong)
-            det_a.assert_no_densification("CongruenceTransform diagonal (A)")
-            det_b.assert_no_densification("CongruenceTransform diagonal (B)")
+    with DensificationDetector(A, allow_in_matmul=True) as det_a, DensificationDetector(B, allow_in_matmul=True) as det_b:
+        _ = diagonal(cong)
+        det_a.assert_no_densification("CongruenceTransform diagonal (A)")
+        det_b.assert_no_densification("CongruenceTransform diagonal (B)")
 
 
 # ============================================================================
@@ -462,10 +457,9 @@ def test_densification_detector_catches_todense() -> None:
     """Test that DensificationDetector correctly detects todense() calls."""
     A = Matrix(jnp.eye(3))
 
-    with pytest.raises(AssertionError, match="Early densification detected"):
-        with DensificationDetector(A, allow_in_matmul=False) as detector:
-            _ = A.todense()
-            detector.assert_no_densification()
+    with pytest.raises(AssertionError, match="Early densification detected"), DensificationDetector(A, allow_in_matmul=False) as detector:
+        _ = A.todense()
+        detector.assert_no_densification()
 
 
 def test_densification_detector_allows_matmul() -> None:

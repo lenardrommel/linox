@@ -1,12 +1,11 @@
 # test_decompositions.py
 
 import jax
+import linox
 import pytest
 import pytest_cases
 from jax import numpy as jnp
-
-import linox
-from linox.typing import ShapeLike, ShapeType
+from linox._types import ShapeLike, ShapeType
 from linox.utils import as_dense
 
 CaseType = tuple[linox.LinearOperator, jax.Array]
@@ -66,7 +65,8 @@ def sample_product(shape: ShapeLike) -> CaseType:
 def sample_diagonal(shape: ShapeLike) -> CaseType:
     key = jax.random.PRNGKey(1)
     arr = jax.random.normal(key, shape)
-    return linox.Diagonal(arr), linox._matrix._batch_jnp_diag(arr)
+    from linox.operators.diagonal import _batch_jnp_diag
+    return linox.Diagonal(arr), _batch_jnp_diag(arr)
 
 
 def sample_kronecker(shape: ShapeLike) -> CaseType:
@@ -75,7 +75,7 @@ def sample_kronecker(shape: ShapeLike) -> CaseType:
     opA, matrixA = sample_spd(shapeA)
     opB, matrixB = sample_spd(shapeB)
 
-    op = linox._kronecker.Kronecker(opA, opB)
+    op = linox.operators.kron.Kronecker(opA, opB)
     matrix = jnp.kron(matrixA, matrixB)
 
     assert op.shape == matrix.shape, "Shape mismatch"
@@ -85,7 +85,7 @@ def sample_kronecker(shape: ShapeLike) -> CaseType:
 
 def sample_isotropicadd(shape: ShapeLike, scalar: float) -> CaseType:
     op, matrix = sample_spd(shape)
-    op = linox._isotropicadd.IsotropicAdditiveLinearOperator(scalar, op)
+    op = linox.operators.isotropic.IsotropicAdditiveLinearOperator(scalar, op)
     matrix += jnp.eye(shape[0]) * scalar
 
     assert op.shape == matrix.shape, "Shape mismatch"
@@ -156,7 +156,7 @@ def case_isotropicadd(shape: ShapeType, scalar: float) -> CaseType:
 @pytest.mark.parametrize("scalar", [0.1, 1.0, 1e-8])
 def case_isotropicadd_kron(shape: ShapeType, scalar: float) -> CaseType:
     linop, matrix = sample_kronecker(shape)
-    linop = linox._isotropicadd.IsotropicAdditiveLinearOperator(scalar, linop)
+    linop = linox.operators.isotropic.IsotropicAdditiveLinearOperator(scalar, linop)
     matrix += jnp.eye(matrix.shape[0]) * scalar
     return linop, matrix
 
@@ -209,13 +209,13 @@ def test_eigh(linop: linox.LinearOperator, matrix: jax.Array) -> None:
 def test_eigh_kronecker(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     eigvals = jnp.linalg.eigvalsh(matrix)
     lin_eigvals, eigvecs = linox.leigh(linop)
-    assert jnp.allclose(eigvals, jnp.sort(as_dense(lin_eigvals)), atol=1e-5), (
+    lin_eigvals_flat = linox.diagonal(lin_eigvals)
+    assert jnp.allclose(eigvals, jnp.sort(lin_eigvals_flat), atol=1e-5), (
         "Eigenvalues do not match"
     )
-    D_lin = jnp.diag(as_dense(lin_eigvals))
-    assert jnp.allclose(as_dense(eigvecs @ D_lin @ eigvecs.T), matrix, atol=1e-5), (
-        "Eigen decomposition does not match"
-    )
+    assert jnp.allclose(
+        as_dense(eigvecs @ lin_eigvals @ eigvecs.T), matrix, atol=1e-5
+    ), "Eigen decomposition does not match"
 
 
 @pytest_cases.parametrize_with_cases("linop,matrix", cases=case_isotropicadd)

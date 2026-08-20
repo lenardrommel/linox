@@ -1,181 +1,57 @@
-# __init__.py
-r"""`linox`: Linear operators in JAX.
+"""linox: Linear operators in JAX."""
 
-This package provides a collection of linear operators for JAX, including:
+from . import api
+from .api import *  # noqa: F403
 
-- Basic operators: :class:`Matrix`, :class:`Identity`, :class:`Diagonal`,
-    :class:`Scalar`, :class:`Zero`, :class:`Ones`
-- Block operators: :class:`BlockMatrix`, :class:`BlockMatrix2x2`, :class:`BlockDiagonal`
-- Low rank operators: :class:`LowRank`, :class:`SymmetricLowRank`,
-    :class:`IsotropicScalingPlusSymmetricLowRank`,
-    :class:`PositiveDiagonalPlusSymmetricLowRank`
-- Special operators: :class:`Kronecker`, :class:`Permutation`, :class:`EigenD`
+# Deprecated "l"-prefixed aliases, kept for backwards compatibility and
+# scheduled for removal in 0.0.4. These are renames rather than plain
+# re-exports, so they are listed in `__all__` below instead of using the
+# redundant `X as X` form that marks an intentional re-export.
+from .api import _broadcast_shapes as _broadcast_shapes
+from .api import eigh as leigh  # noqa: F401
+from .api import eye as identity  # noqa: F401
+from .api import inv as linverse  # noqa: F401
+from .api import lexp as lexp
+from .api import llog as llog
+from .api import lpow as lpow
+from .api import pinv as lpinverse  # noqa: F401
+from .api import solve as lsolve  # noqa: F401
+from .api import sqrt as lsqrt  # noqa: F401
+from .api import trace as ltrace  # noqa: F401
 
-Common operations:
-- Arithmetic: :func:`linverse`, :func:`lsqrt`, :func:`transpose`
-- Properties: :func:`is_square`, :func:`is_symmetric`, :func:`is_hermitian`
-- Transformations: :func:`congruence_transform`, :func:`diagonal`, :func:`symmetrize`
+# Backward compatibility imports for kernel operators
+from .operators.kernel import ArrayKernel as ArrayKernel
+from .operators.kernel import Kernel as Kernel
+from .operators.kernel import KernelLinearOperator as KernelLinearOperator
+from .operators.kernel import ToeplitzKernel as ToeplitzKernel
+from .operators.kernel import kernel_operator as kernel_operator
 
-All operators support lazy evaluation and can be combined to form complex linear
-transformations.
-"""
-
-import warnings
-
-# Suppress Pydantic field attribute warnings from dependencies
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=".*'repr' attribute.*Field.*has no effect.*",
-)
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=".*'frozen' attribute.*Field.*has no effect.*",
-)
+__version__ = "0.0.3"
 
 
-__version__ = "0.0.2"
-
-# Import functions from _arithmetic module
-from ._arithmetic import (
-    AddLinearOperator,
-    InverseLinearOperator,
-    ProductLinearOperator,
-    PseudoInverseLinearOperator,
-    ScaledLinearOperator,
-    TransposedLinearOperator,
-    # New API (0.0.2+) - functions without "l" prefix
-    add,
-    cholesky,
-    # Common operations and utilities
-    congruence_transform,
-    det,
-    diagonal,
-    eigh,
-    inverse,
-    is_hermitian,
-    is_square,
-    is_symmetric,
-    kron,
-    # Deprecated API (will be removed in 0.0.3) - functions with "l" prefix
-    lcholesky,
-    ldet,
-    leigh,
-    lexp,
-    linverse,
-    llog,
-    lpinverse,
-    lpow,
-    lpsolve,
-    lqr,
-    lsolve,
-    lsqrt,
-    matmul,
-    mul,
-    neg,
-    pinverse,
-    psolve,
-    qr,
-    slogdet,
-    solve,
-    sqrt,
-    sub,
-    svd,
-    symmetrize,
-    transpose,
-)
-
-# Import classes from other modules
-from ._block import BlockDiagonal, BlockMatrix, BlockMatrix2x2
-from ._eigen import EigenD
-from ._isotropicadd import IsotropicAdditiveLinearOperator
-from ._kernel import ArrayKernel
-from ._kronecker import Kronecker
-from ._linear_operator import LinearOperator
-from ._low_rank import (
-    IsotropicScalingPlusSymmetricLowRank,
-    LowRank,
-    PositiveDiagonalPlusSymmetricLowRank,
-    SymmetricLowRank,
-)
-from ._matrix import Diagonal, Identity, Matrix, Ones, Scalar, Zero
-from ._permutation import Permutation
-from ._toeplitz import Toeplitz
-from .config import is_debug, set_debug
-from .utils import allclose, todense
-
-# Explicitly declare public API
-__all__ = [
-    # Linear Operator Classes
-    "AddLinearOperator",
-    "ArrayKernel",
-    "BlockDiagonal",
-    "BlockMatrix",
-    "BlockMatrix2x2",
-    "Diagonal",
-    "EigenD",
-    "Identity",
-    "InverseLinearOperator",
-    "IsotropicAdditiveLinearOperator",
-    "IsotropicScalingPlusSymmetricLowRank",
-    "Kronecker",
-    "LinearOperator",
-    "LowRank",
-    "Matrix",
-    "Ones",
-    "Permutation",
-    "PositiveDiagonalPlusSymmetricLowRank",
-    "ProductLinearOperator",
-    "PseudoInverseLinearOperator",
-    "Scalar",
-    "ScaledLinearOperator",
-    "SymmetricLowRank",
-    "Toeplitz",
-    "TransposedLinearOperator",
-    "Zero",
-    # New API (0.0.2+) - Arithmetic Operations
-    "add",
-    # Common Operations & Utilities
-    "allclose",
-    "cholesky",
-    "congruence_transform",
-    "det",
-    "diagonal",
-    "eigh",
-    "inverse",
-    # Configuration
-    "is_debug",
-    "is_hermitian",
-    "is_square",
-    "is_symmetric",
-    "kron",
-    # Deprecated (will be removed in 0.0.3)
-    "lcholesky",
-    "ldet",
+_LEGACY_ALIASES = [
+    "identity",
     "leigh",
     "lexp",
     "linverse",
     "llog",
     "lpinverse",
     "lpow",
-    "lpsolve",
-    "lqr",
     "lsolve",
     "lsqrt",
-    "matmul",
-    "mul",
-    "neg",
-    "pinverse",
-    "psolve",
-    "qr",
-    "set_debug",
-    "slogdet",
-    "solve",
-    "sqrt",
-    "sub",
-    "svd",
-    "symmetrize",
-    "todense",
-    "transpose",
+    "ltrace",
 ]
+
+_KERNEL_EXPORTS = [
+    "ArrayKernel",
+    "Kernel",
+    "KernelLinearOperator",
+    "ToeplitzKernel",
+    "kernel_operator",
+]
+
+# `api.__all__` already carries several of the legacy alias names, so
+# de-duplicate rather than concatenating blindly: a name repeated in `__all__`
+# breaks star-import tooling. `_broadcast_shapes` stays importable for
+# backwards compatibility but is deliberately not advertised as public.
+__all__ = sorted({*api.__all__, *_KERNEL_EXPORTS, *_LEGACY_ALIASES})

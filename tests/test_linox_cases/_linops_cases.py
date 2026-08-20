@@ -1,9 +1,8 @@
 import jax
 import jax.numpy as jnp
+import linox
 import pytest
 import pytest_cases
-
-import linox
 from linox import LinearOperator
 
 DTYPE = jnp.float32
@@ -15,6 +14,13 @@ matrices = [
     jnp.array([[2, 0], [1, 3]], dtype=DTYPE),
     jnp.array([[2, 0, -1.5], [1, 3, -230]], dtype=DTYPE),
 ]
+
+symmetric_matrices = [
+    jnp.array([[-1.5, 3], [3, -230]], dtype=DTYPE),
+    jnp.array([[2, 1], [1, 3]], dtype=DTYPE),
+    jnp.array([[2, 1, -1.5], [1, 3, 0], [-1.5, 0, 7]], dtype=DTYPE),
+]
+
 spd_matrices = [
     jnp.array([[1.0]], dtype=DTYPE),
     jnp.array([[1.0, -2.0], [-2.0, 5.0]], dtype=DTYPE),
@@ -48,7 +54,7 @@ mul_shapes = [
     ((3, 4), (4, 3)),
 ]
 
-symmetric_shapes = [((2, 2), (2, 2)), ((3, 3), (3, 3))]
+symmetric_shapes = [((2, 2), (2, 2)), ((3, 3), (3, 3)), ((10, 10), (10, 10))]
 
 
 def draw_random_onb(shape: SHAPE_TYPE) -> jnp.ndarray:
@@ -100,19 +106,19 @@ def get_permutation(shape: SHAPE_TYPE) -> CASE_TYPE:
 
 
 def get_product(linop1: LinearOperator, linop2: LinearOperator) -> CASE_TYPE:
-    return linox._arithmetic.ProductLinearOperator(
+    return linox.operators.arithmetic.ProductLinearOperator(
         linop1, linop2
     ), linop1.todense() @ linop2.todense()
 
 
 def get_add(linop1: LinearOperator, linop2: LinearOperator) -> CASE_TYPE:
-    return linox._arithmetic.AddLinearOperator(
+    return linox.operators.arithmetic.AddLinearOperator(
         linop1, linop2
     ), linop1.todense() + linop2.todense()
 
 
 def get_transpose(linop1: LinearOperator) -> CASE_TYPE:
-    return linox._arithmetic.TransposedLinearOperator(linop1), linop1.todense().T
+    return linox.operators.arithmetic.TransposedLinearOperator(linop1), linop1.todense().T
 
 
 linops_options = [
@@ -131,6 +137,11 @@ all_base_options = linops_options + symmetric_options
 
 @pytest.mark.parametrize("matrix", matrices)
 def case_matrix(matrix: jnp.ndarray) -> tuple[linox.LinearOperator, jnp.ndarray]:
+    linop = linox.Matrix(matrix)
+    return linop, matrix
+
+@pytest.mark.parametrize("matrix", symmetric_matrices)
+def case_symmetric_matrix(matrix: jnp.ndarray) -> tuple[linox.LinearOperator, jnp.ndarray]:
     linop = linox.Matrix(matrix)
     return linop, matrix
 

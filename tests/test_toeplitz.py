@@ -3,11 +3,11 @@
 
 import jax
 import jax.numpy as jnp
+import linox
 import pytest
 import pytest_cases
-
-import linox
-from linox._toeplitz import Toeplitz, solve_toeplitz_jax
+from linox.linalg._toeplitz_solve import solve_toeplitz_jax
+from linox.operators.toeplitz import Toeplitz
 
 DType = jnp.float32
 CaseType = tuple[linox.LinearOperator, jax.Array]

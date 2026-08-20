@@ -20,7 +20,8 @@ class Kernel(abc.ABC):  # noqa: D101
             x1: First input array of shape (n, d).
             x2: Second input array of shape (m, d).
 
-        Returns:
+        Returns
+        -------
             Kernel matrix of shape (n, m).
         """
 

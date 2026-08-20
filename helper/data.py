@@ -8,7 +8,9 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 class Heat1dDataGenerator:
     """Simple 1D heat equation data generator."""
 
-    def __init__(self, x_range=(0, np.pi), nx=25, T=1.0, alpha=0.5, N_samples=100) -> None:
+    def __init__(
+        self, x_range=(0, np.pi), nx=25, T=1.0, alpha=0.5, N_samples=100
+    ) -> None:
         self.x_range = x_range
         self.nx = nx
         self.T = T
@@ -179,9 +181,7 @@ class Heat2dDataGenerator:
         """Plot initial condition and solution for a specific sample."""
         if self.u0_samples is None or self.data is None:
             msg = "Data not yet generated. Run generate_initial_conditions() and solve_pde() first."
-            raise ValueError(
-                msg
-            )
+            raise ValueError(msg)
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
 
@@ -220,9 +220,7 @@ class Heat2dDataGenerator:
         """Plot initial conditions and solutions for multiple samples."""
         if self.u0_samples is None or self.data is None:
             msg = "Data not yet generated. Run generate_initial_conditions() and solve_pde() first."
-            raise ValueError(
-                msg
-            )
+            raise ValueError(msg)
 
         n_samples = min(n_samples, self.N_samples)
         fig, axes = plt.subplots(2, n_samples, figsize=figsize)
@@ -238,9 +236,7 @@ class Heat2dDataGenerator:
                 axes[0, i].set_ylabel("y")
 
             # Plot solution
-            axes[1, i].contourf(
-                self.X, self.Y, self.data[i], levels=15, cmap="RdBu_r"
-            )
+            axes[1, i].contourf(self.X, self.Y, self.data[i], levels=15, cmap="RdBu_r")
             axes[1, i].set_title(f"Solution (t={self.T})\nSample {i}")
             axes[1, i].set_xlabel("x")
             axes[1, i].set_aspect("equal")

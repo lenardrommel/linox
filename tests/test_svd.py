@@ -2,10 +2,9 @@
 
 import jax
 import jax.numpy as jnp
-
 import linox
 from linox import Matrix
-from linox._algorithms._svd import lanczos_bidiag, svd_partial
+from linox.linalg.spectral import lanczos_bidiag, svd_partial
 
 
 class TestLanczosBidiagonalization:
@@ -286,3 +285,56 @@ class TestJAXCompatibility:
         assert grad.shape == (m, n)
         # Gradient should be non-zero
         assert jnp.linalg.norm(grad) > 0
+
+
+class TestSVDPartialReconstruction:
+    """Regression tests for the U/Vt pairing in `svd_partial`.
+
+    The singular *values* are insensitive to swapping the left and right
+    factors of the inner bidiagonal SVD, so asserting on `S` alone cannot
+    detect a mismatched pairing. These tests assert on the reconstruction
+    `U diag(S) Vt`, which is what actually broke.
+    """
+
+    def test_reconstruction_matches_optimal_truncation(self) -> None:
+        for m, n, k, num_iters in [(8, 6, 3, 6), (20, 12, 5, 12), (6, 9, 2, 6)]:
+            A_dense = jax.random.normal(jax.random.PRNGKey(m * n), (m, n))
+            U, S, Vt = svd_partial(Matrix(A_dense), k=k, num_iters=num_iters)
+
+            reconstructed = jnp.linalg.norm(A_dense - U @ jnp.diag(S) @ Vt)
+
+            # Best possible rank-k approximation (Eckart-Young).
+            Uf, Sf, Vtf = jnp.linalg.svd(A_dense, full_matrices=False)
+            optimal = jnp.linalg.norm(
+                A_dense - Uf[:, :k] @ jnp.diag(Sf[:k]) @ Vtf[:k]
+            )
+
+            # With num_iters >= min(m, n) the Krylov space is complete, so the
+            # partial SVD should reach the optimal truncation error.
+            assert reconstructed <= optimal * 1.01 + 1e-8, (
+                f"({m}x{n}) k={k}: reconstruction error {reconstructed:.6f} "
+                f"exceeds optimal {optimal:.6f}"
+            )
+
+    def test_reconstruction_beats_zero_matrix(self) -> None:
+        """A rank-k approximation must beat returning the zero matrix.
+
+        With U and Vt paired incorrectly this assertion failed outright:
+        the error was 6.95 against ||A|| = 6.83.
+        """
+        A_dense = jax.random.normal(jax.random.PRNGKey(0), (8, 6))
+        U, S, Vt = svd_partial(Matrix(A_dense), k=3, num_iters=6)
+
+        assert jnp.linalg.norm(A_dense - U @ jnp.diag(S) @ Vt) < jnp.linalg.norm(
+            A_dense
+        )
+
+    def test_singular_vectors_are_consistent_pairs(self) -> None:
+        """A v_i should equal s_i u_i for each returned triple."""
+        A_dense = jax.random.normal(jax.random.PRNGKey(3), (12, 12))
+        k = 4
+        U, S, Vt = svd_partial(Matrix(A_dense), k=k, num_iters=12)
+
+        for i in range(k):
+            residual = jnp.linalg.norm(A_dense @ Vt[i] - S[i] * U[:, i])
+            assert residual < 1e-6, f"pair {i}: ||A v - s u|| = {residual:.2e}"

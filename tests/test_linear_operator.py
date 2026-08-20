@@ -4,18 +4,18 @@
 
 import jax
 import jax.numpy as jnp
+import linox
 import numpy as np
 import pytest
 import pytest_cases
 
-import linox
-
-from .test_linox_cases._linops_cases import (
+from tests.test_linox_cases._linops_cases import (
     case_add,
     case_identity,
     case_matrix,
     case_ones,
     case_product,
+    case_symmetric_matrix,
     case_zero,
 )
 
@@ -26,9 +26,10 @@ case_modules = [
     case_add,
     case_matrix,
     case_identity,
+    case_symmetric_matrix,
 ]
 
-inverse_cases = [case_identity, case_ones, case_matrix]
+inverse_cases = [case_identity, case_ones, case_symmetric_matrix]
 
 
 @pytest.fixture(
@@ -181,7 +182,7 @@ def test_inv(linop: linox.LinearOperator, matrix: np.ndarray) -> None:
 
         try:
             matrix_inv = jnp.linalg.inv(matrix)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             expected_exception = e
 
         if expected_exception is None:

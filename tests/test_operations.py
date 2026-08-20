@@ -23,11 +23,10 @@ Uses the combination helpers from test_linox_cases/_operations_cases.py to:
 
 import jax
 import jax.numpy as jnp
+import linox
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
-
-import linox
-from linox._arithmetic import (
+from linox.operators.arithmetic import (
     diagonal,
     iso,
     kron,
@@ -39,6 +38,7 @@ from linox._arithmetic import (
     svd,
 )
 from linox.utils import as_dense
+
 from tests.test_linox_cases._operations_cases import (
     CaseType,
     sample_add_operator,
@@ -389,15 +389,15 @@ def test_complex_iso_kron_combination() -> None:
     iso_linop = iso(s, kron_linop)
     iso_matrix = s * jnp.eye(n * n) + kron_matrix
 
-    # Test eigendecomposition
     eigenvalues_linop, _ = leigh(iso_linop)
     eigenvalues_np, _ = jnp.linalg.eigh(iso_matrix)
 
-    idx_linop = jnp.argsort(as_dense(eigenvalues_linop))
+    eigs_flat = linox.diagonal(eigenvalues_linop)
+    idx_linop = jnp.argsort(eigs_flat)
     idx_np = jnp.argsort(eigenvalues_np)
 
     assert jnp.allclose(
-        as_dense(eigenvalues_linop)[idx_linop],
+        eigs_flat[idx_linop],
         eigenvalues_np[idx_np],
         atol=1e-4,
         rtol=1e-4,

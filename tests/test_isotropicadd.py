@@ -2,12 +2,16 @@
 
 import jax
 import jax.numpy as jnp
+import linox
 import pytest
 import pytest_cases
-
-import linox
-from linox._isotropicadd import IsotropicAdditiveLinearOperator, linverse, lpinverse
-from linox.typing import ShapeLike, ShapeType
+from linox.operators.arithmetic import lsolve
+from linox.operators.isotropic import (
+    IsotropicAdditiveLinearOperator,
+    linverse,
+    lpinverse,
+)
+from linox._types import ShapeLike, ShapeType
 from linox.utils import as_dense
 
 DType = jnp.float32
@@ -213,7 +217,7 @@ def test_inverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     )
     if not isinstance(lin_inv, linox.AddLinearOperator):
         msg = f"Expected AddLinearOperator, got {type(lin_inv)}"
-        raise ValueError(msg)  # noqa: TRY004
+        raise ValueError(msg)
     vec = jax.random.normal(jax.random.PRNGKey(0), (matrix.shape[-1],))
     linop_inv_vec = lin_inv @ vec
     matrix_inv_vec = inv_matrix @ vec
@@ -239,9 +243,6 @@ def test_pinverse(linop: linox.LinearOperator, matrix: jax.Array) -> None:
     assert jnp.allclose(as_dense(lin_inv), inv_matrix, atol=1e-5), (
         f"Linop Inv:\n{lin_inv.todense()}\nMatrix Inv:\n{inv_matrix}"
     )
-    if not isinstance(lin_inv, linox.AddLinearOperator):
-        msg = f"Expected AddLinearOperator, got {type(lin_inv)}"
-        raise ValueError(msg)  # noqa: TRY004
     vec = jax.random.normal(jax.random.PRNGKey(0), (matrix.shape[-1],))
     linop_inv_vec = lin_inv @ vec
     matrix_inv_vec = inv_matrix @ vec
@@ -267,4 +268,72 @@ def test_cholesky() -> None:
     reconstructed = (lin_chol @ lin_chol.T).todense()
     assert jnp.allclose(reconstructed, matrix, atol=1e-5), (
         f"L @ L.T:\n{reconstructed}\nOriginal matrix:\n{matrix}"
+    )
+
+
+# ============================================================================
+# lsolve Tests
+# ============================================================================
+
+
+def test_lsolve_isotropic_additive_vector() -> None:
+    """Test lsolve for IsotropicAdditiveLinearOperator with vector RHS."""
+    shape = (4, 4)
+    linop, matrix = sample_spd_isotropic_additive(shape)
+    key = jax.random.PRNGKey(42)
+    vec = jax.random.normal(key, (shape[-1],))
+
+    linop_result = lsolve(linop, vec)
+    matrix_result = jnp.linalg.solve(matrix, vec)
+
+    assert jnp.allclose(linop_result, matrix_result, atol=1e-5), (
+        f"Linop solve:\n{linop_result}\nMatrix solve:\n{matrix_result}"
+    )
+
+
+def test_lsolve_isotropic_additive_matrix() -> None:
+    """Test lsolve for IsotropicAdditiveLinearOperator with matrix RHS."""
+    shape = (4, 4)
+    linop, matrix = sample_spd_isotropic_additive(shape)
+    key = jax.random.PRNGKey(42)
+    rhs = jax.random.normal(key, (shape[-1], 3))
+
+    linop_result = lsolve(linop, rhs)
+    matrix_result = jnp.linalg.solve(matrix, rhs)
+
+    assert jnp.allclose(linop_result, matrix_result, atol=1e-5), (
+        f"Linop solve:\n{linop_result}\nMatrix solve:\n{matrix_result}"
+    )
+
+
+def test_lsolve_isotropic_additive_kron() -> None:
+    """Test lsolve for IsotropicAdditiveLinearOperator with Kronecker structure."""
+    shape = (3, 3)
+    linop, matrix = sample_spd_isotropic_additive_kron(shape)
+    key = jax.random.PRNGKey(42)
+    vec = jax.random.normal(key, (matrix.shape[-1],))
+
+    linop_result = lsolve(linop, vec)
+    matrix_result = jnp.linalg.solve(matrix, vec)
+
+    assert jnp.allclose(linop_result, matrix_result, atol=1e-5), (
+        f"Linop solve:\n{linop_result}\nMatrix solve:\n{matrix_result}"
+    )
+
+
+def test_lsolve_with_linop_rhs() -> None:
+    """Test lsolve when RHS is a LinearOperator (should convert to dense)."""
+    shape = (4, 4)
+    linop, matrix = sample_spd_isotropic_additive(shape)
+
+    # Create a LinearOperator as RHS
+    key = jax.random.PRNGKey(42)
+    rhs_arr = jax.random.normal(key, (shape[-1], 2))
+    rhs_linop = linox.Matrix(rhs_arr)
+
+    linop_result = lsolve(linop, rhs_linop)
+    matrix_result = jnp.linalg.solve(matrix, rhs_arr)
+
+    assert jnp.allclose(linop_result, matrix_result, atol=1e-5), (
+        f"Linop solve:\n{linop_result}\nMatrix solve:\n{matrix_result}"
     )

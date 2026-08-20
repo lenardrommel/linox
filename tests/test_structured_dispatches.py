@@ -10,13 +10,12 @@ Tests that ltrace, lexp, llog, lpow work correctly and exploit structure for:
 
 import jax
 import jax.numpy as jnp
-import pytest
-
 import linox
+import pytest
 from linox import Diagonal, Identity, Matrix
-from linox._eigen import EigenD
-from linox._isotropicadd import IsotropicAdditiveLinearOperator
-from linox._kronecker import Kronecker
+from linox.operators.eigen import EigenD
+from linox.operators.isotropic import IsotropicAdditiveLinearOperator
+from linox.operators.kron import Kronecker
 
 
 class TestDiagonalDispatches:
@@ -28,11 +27,14 @@ class TestDiagonalDispatches:
         A = Diagonal(diag_vals)
         key = jax.random.PRNGKey(0)
 
-        trace_est, trace_std = linox.ltrace(A, key=key)
+        trace_est, trace_std = linox.ltrace(A, key=key, return_std=True)
+        trace_est_no_std = linox.ltrace(A, key=key)
+        assert not isinstance(trace_est_no_std, tuple), "trace should return float if return_std=False"
 
         true_trace = jnp.sum(diag_vals)
         assert jnp.allclose(trace_est, true_trace)
         assert trace_std == 0.0  # Exact computation
+        assert jnp.allclose(trace_est_no_std, true_trace)
 
     def test_lexp_diagonal_with_vector(self) -> None:
         """Test matrix exponential of diagonal with vector."""
@@ -87,7 +89,7 @@ class TestIdentityDispatches:
         A = Identity((n,))
         key = jax.random.PRNGKey(0)
 
-        trace_est, trace_std = linox.ltrace(A, key=key)
+        trace_est, trace_std = linox.ltrace(A, key=key, return_std=True)
 
         assert jnp.allclose(trace_est, n)
         assert trace_std == 0.0
@@ -136,7 +138,7 @@ class TestKroneckerDispatches:
         K = Kronecker(A, B)
         key = jax.random.PRNGKey(0)
 
-        trace_est, _trace_std = linox.ltrace(K, key=key)
+        trace_est, _trace_std = linox.ltrace(K, key=key, return_std=True)
 
         # trace(A⊗B) = trace(A) * trace(B) = 6 * 9 = 54
         true_trace = 6.0 * 9.0
@@ -178,10 +180,10 @@ class TestEigenDDispatches:
         """Test trace from eigenvalues: trace(A) = sum(λ)."""
         # Create symmetric matrix
         A_dense = jnp.diag(jnp.array([1.0, 2.0, 3.0]))
-        A = EigenD(A_dense)
+        A = EigenD(Identity(A_dense.shape[0]), Diagonal(jnp.diag(A_dense)))
         key = jax.random.PRNGKey(0)
 
-        trace_est, trace_std = linox.ltrace(A, key=key)
+        trace_est, trace_std = linox.ltrace(A, key=key, return_std=True)
 
         true_trace = 6.0
         assert jnp.allclose(trace_est, true_trace)
@@ -191,7 +193,7 @@ class TestEigenDDispatches:
         """Test matrix exponential using eigendecomposition."""
         # Create diagonal matrix (easy to verify)
         A_dense = jnp.diag(jnp.array([1.0, 2.0, 3.0]))
-        A = EigenD(A_dense)
+        A = EigenD(Identity(A_dense.shape[0]), Diagonal(jnp.diag(A_dense)))
         v = jnp.ones(3)
 
         result = linox.lexp(A, v=v)
@@ -203,7 +205,7 @@ class TestEigenDDispatches:
     def test_llog_eigend(self) -> None:
         """Test matrix logarithm using eigendecomposition."""
         A_dense = jnp.diag(jnp.array([1.0, 2.0, 4.0]))
-        A = EigenD(A_dense)
+        A = EigenD(Identity(A_dense.shape[0]), Diagonal(jnp.diag(A_dense)))
         v = jnp.ones(3)
 
         result = linox.llog(A, v=v)
@@ -214,7 +216,7 @@ class TestEigenDDispatches:
     def test_lpow_eigend(self) -> None:
         """Test matrix power using eigendecomposition."""
         A_dense = jnp.diag(jnp.array([1.0, 4.0, 9.0]))
-        A = EigenD(A_dense)
+        A = EigenD(Identity(A_dense.shape[0]), Diagonal(jnp.diag(A_dense)))
         v = jnp.ones(3)
 
         result = linox.lpow(A, power=0.5, v=v)
@@ -234,7 +236,7 @@ class TestIsotropicAdditiveDispatches:
         iso_A = IsotropicAdditiveLinearOperator(s, A)
         key = jax.random.PRNGKey(0)
 
-        trace_est, _trace_std = linox.ltrace(iso_A, key=key)
+        trace_est, _trace_std = linox.ltrace(iso_A, key=key, return_std=True)
 
         # trace(2I + I) = 2*10 + 10 = 30
         true_trace = 30.0
@@ -313,7 +315,7 @@ class TestStructureExploitation:
     def test_eigend_uses_cached_eigendecomposition(self) -> None:
         """EigenD should use cached eigenvalues, not recompute."""
         A_dense = jnp.diag(jnp.array([1.0, 2.0, 3.0]))
-        A = EigenD(A_dense)
+        A = EigenD(Identity(A_dense.shape[0]), Diagonal(jnp.diag(A_dense)))
 
         # First call caches eigendecomposition
         result1 = linox.lexp(A, v=jnp.ones(3))

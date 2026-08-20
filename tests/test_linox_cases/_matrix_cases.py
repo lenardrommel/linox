@@ -5,18 +5,18 @@ from itertools import product
 
 import jax
 import jax.numpy as jnp
-import pytest
-
 import linox
+import pytest
 from linox import LinearOperator
-from linox._arithmetic import (
+from linox.operators.arithmetic import (
     AddLinearOperator,
     ProductLinearOperator,
     ScaledLinearOperator,
     TransposedLinearOperator,
 )
-from linox._isotropicadd import IsotropicAdditiveLinearOperator
-from linox.typing import ShapeType
+from linox.operators.diagonal import _batch_jnp_diag
+from linox.operators.isotropic import IsotropicAdditiveLinearOperator
+from linox._types import ShapeType
 
 DType = jnp.float32
 CaseType = tuple[LinearOperator, jax.Array]
@@ -119,7 +119,7 @@ def sample_transposed_operator(shape: ShapeType) -> CaseType:
 def sample_diagonal(shape: ShapeType) -> CaseType:
     key = jax.random.PRNGKey(1)
     arr = jax.random.normal(key, shape)
-    return linox.Diagonal(arr), linox._matrix._batch_jnp_diag(arr)
+    return linox.Diagonal(arr), _batch_jnp_diag(arr)
 
 
 def sample_zero(shape: ShapeType) -> CaseType:

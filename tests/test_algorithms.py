@@ -11,23 +11,22 @@ These tests verify the correctness of:
 
 import jax
 import jax.numpy as jnp
-import pytest
-
 import linox
+import pytest
 from linox import Matrix
-from linox._algorithms._lanczos_arnoldi import *
-from linox._algorithms._lsmr import lsmr_solve
-from linox._algorithms._matrix_functions import (
-    stochastic_lanczos_quadrature,
+from linox.linalg.approx.arnoldi import arnoldi_iteration, arnoldi_matrix_function
+from linox.linalg.approx.lanczos import (
+    lanczos_eigh,
     lanczos_matrix_function,
-    arnoldi_matrix_function,
+    lanczos_tridiag,
 )
-from linox._algorithms._trace import (
-    hutchinson_trace,
+from linox.linalg.approx.lsmr import lsmr_solve
+from linox.linalg.approx.slq import slq
+from linox.linalg.trace import (
     hutchinson_diagonal,
+    hutchinson_trace,
     hutchinson_trace_and_diagonal,
 )
-
 
 
 class TestLanczosArnoldi:
@@ -240,43 +239,43 @@ class TestMatrixFunctions:
 class TestStochasticLanczosQuadrature:
     """Tests for stochastic Lanczos quadrature (SLQ)."""
 
-    def test_slq_logdet_identity(self) -> None:
+    def test_sql_logdet_identity(self) -> None:
         """Test log-determinant estimation on identity."""
         n = 50
         A = Matrix(jnp.eye(n))
         key = jax.random.PRNGKey(0)
 
-        logdet_est, logdet_std = stochastic_lanczos_quadrature(
-            A, jnp.log, key, num_samples=100, num_iters=5
+        logdet_est, logdet_std = slq(
+            A, jnp.log, key, num_samples=100, m=5
         )
 
         # log|I| = 0
         assert jnp.abs(logdet_est) < 3 * logdet_std + 1e-6
         assert jnp.abs(logdet_est) < 1.0
 
-    def test_slq_logdet_diagonal(self) -> None:
+    def test_sql_logdet_diagonal(self) -> None:
         """Test log-determinant estimation on diagonal matrix."""
         n = 20
         diag_vals = jnp.arange(1.0, n + 1.0)
         A = Matrix(jnp.diag(diag_vals))
         key = jax.random.PRNGKey(0)
 
-        logdet_est, logdet_std = stochastic_lanczos_quadrature(
-            A, jnp.log, key, num_samples=100, num_iters=20
+        logdet_est, logdet_std = slq(
+            A, jnp.log, key, num_samples=100, m=20
         )
 
         true_logdet = jnp.sum(jnp.log(diag_vals))
         # Should be within a few standard errors (or numerically exact)
         assert jnp.abs(logdet_est - true_logdet) <= 5 * logdet_std + 1e-12
 
-    def test_slq_trace_exp(self) -> None:
+    def test_sql_trace_exp(self) -> None:
         """Test trace(exp(A)) estimation."""
         n = 20
         A = Matrix(-jnp.eye(n))  # -I
         key = jax.random.PRNGKey(0)
 
-        trace_est, trace_std = stochastic_lanczos_quadrature(
-            A, jnp.exp, key, num_samples=50, num_iters=5
+        trace_est, trace_std = slq(
+            A, jnp.exp, key, num_samples=50, m=5
         )
 
         # trace(exp(-I)) = n * exp(-1)
@@ -285,11 +284,10 @@ class TestStochasticLanczosQuadrature:
         assert jnp.abs(trace_est - true_trace) <= max(3 * trace_std, 1e-10)
 
 
-
 class TestLSMR:
     """Tests for LSMR solver."""
 
-    def test_lsmr_identity(self):
+    def test_lsmr_identity(self) -> None:
         """Test LSMR on identity system."""
         n = 50
         A = Matrix(jnp.eye(n))
@@ -298,13 +296,13 @@ class TestLSMR:
         x, info = lsmr_solve(A, b, atol=1e-8, btol=1e-8)
 
         assert jnp.allclose(x, b, atol=1e-6)
-        assert info["istop"] in [1, 2, 3]  # Converged
+        assert int(info["istop"]) in {1, 2, 3}  # Converged
 
-    def test_lsmr_diagonal(self):
+    def test_lsmr_diagonal(self) -> None:
         """Test LSMR on diagonal system."""
         # Enable 64-bit precision for this test
         jax.config.update("jax_enable_x64", True)
-        
+
         n = 50
         # Use explicit float64
         diag_vals = jnp.arange(1.0, n + 1.0, dtype=jnp.float64)
@@ -316,9 +314,9 @@ class TestLSMR:
 
         assert jnp.all(jnp.isfinite(x))  # Check for NaNs
         assert jnp.allclose(x, x_true, atol=1e-6)
-        assert info["istop"] in [1, 2, 3]
+        assert int(info["istop"]) in {1, 2, 3}
 
-    def test_lsmr_overdetermined(self):
+    def test_lsmr_overdetermined(self) -> None:
         """Test LSMR on overdetermined least-squares problem."""
         m, n = 100, 50
         key = jax.random.PRNGKey(0)
@@ -334,7 +332,7 @@ class TestLSMR:
         # Residual should be small
         assert info["normr"] < 1.0
 
-    def test_lsmr_with_damping(self):
+    def test_lsmr_with_damping(self) -> None:
         """Test LSMR with Tikhonov regularization."""
         n = 50
         A = Matrix(jnp.eye(n))
@@ -346,6 +344,7 @@ class TestLSMR:
         # With damping, solution should be slightly smaller than b
         assert jnp.allclose(x, b / (1 + damp**2), atol=1e-2)
 
+
 class TestArithmeticIntegration:
     """Tests for integration with linox arithmetic module."""
 
@@ -355,16 +354,18 @@ class TestArithmeticIntegration:
         A = linox.Matrix(jnp.eye(n))
         key = jax.random.PRNGKey(0)
 
-        trace_est, _trace_std = linox._arithmetic.ltrace(A, key=key, num_samples=200)
+        trace_est, _trace_std = linox.operators.arithmetic.ltrace(A, key=key, num_samples=200)
 
-        assert jnp.abs(trace_est - n) < 5.0, f"Trace estimate {trace_est} is not close to {n}"
+        assert jnp.abs(trace_est - n) < 5.0, (
+            f"Trace estimate {trace_est} is not close to {n}"
+        )
 
     def test_ltrace_default_key(self) -> None:
         """Test ltrace with default key."""
         n = 50
         A = linox.Matrix(jnp.eye(n))
 
-        trace_est, _ = linox._arithmetic.ltrace(A, num_samples=100)
+        trace_est, _ = linox.operators.arithmetic.ltrace(A, num_samples=100)
 
         assert jnp.abs(trace_est - n) < 10.0
 

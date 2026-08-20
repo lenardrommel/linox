@@ -18,6 +18,11 @@ from helper.gp import (
     CombinationStrategy,
     KernelType,
 )
+from linox import (
+    Kronecker,
+    ScaledLinearOperator,
+)
+from linox.operators.kernel import ArrayKernel
 
 try:
     from helper.plotting import (
@@ -33,11 +38,7 @@ try:
     )
 except ModuleNotFoundError:  # pragma: no cover - fallback when helper not on path
     pass
-from linox import (
-    Kronecker,
-    ScaledLinearOperator,
-)
-from linox._kernel import ArrayKernel
+
 
 try:  # Python < 3.11 compatibility
     from enum import StrEnum  # type: ignore[attr-defined]
@@ -227,9 +228,7 @@ class ModularHParams:
 
         return ModularHParams(params=params)
 
-    def print_formatted(
-        self, structure_config: StructureConfig | None = None
-    ) -> None:
+    def print_formatted(self, structure_config: StructureConfig | None = None) -> None:
         spatial_params = {
             k: v for k, v in self.params.items() if k.startswith("spatial_")
         }
@@ -314,16 +313,16 @@ class ModularGPPrior:
         if array.ndim < 2:
             array = array[..., None]
 
-        nd = len(self.structure_config.spatial_dims)
-        if nd == 0:
+        and = len(self.structure_config.spatial_dims)
+        if and == 0:
             return []
 
-        if nd == 2 and array.ndim == 3 and array.shape[-1] == 2:
+        if and == 2 and array.ndim == 3 and array.shape[-1] == 2:
             return [array[0, :, 0:1], array[:, 0, 1:2]]
-        if nd == 3 and array.ndim == 4 and array.shape[-1] == 3:
+        if and == 3 and array.ndim == 4 and array.shape[-1] == 3:
             return [array[0, 0, :, 0:1], array[0, :, 0, 1:2], array[:, 0, 0, 2:3]]
 
-        return [array[..., i : i + 1] for i in range(nd)]
+        return [array[..., i : i + 1] for i in range(and)]
 
     def _build_axis_kernel(
         self,

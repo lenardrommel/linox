@@ -1,9 +1,8 @@
 # _operations_cases.py
 import jax
 from jax import numpy as jnp
-
 from linox import LinearOperator
-from linox._arithmetic import iso, kron, linverse, lpinverse
+from linox.operators.arithmetic import iso, kron, linverse, lpinverse
 from linox.utils import as_linop
 
 CaseType = tuple[LinearOperator, jax.Array]

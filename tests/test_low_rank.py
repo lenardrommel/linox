@@ -3,7 +3,6 @@
 import jax
 import jax.numpy as jnp
 import pytest
-
 from linox import (
     Diagonal,
     IsotropicScalingPlusSymmetricLowRank,
@@ -13,7 +12,7 @@ from linox import (
     linverse,
     lsqrt,
 )
-from linox.typing import ShapeLike
+from linox._types import ShapeLike
 
 CaseType = tuple[LinearOperator, jnp.ndarray]
 
