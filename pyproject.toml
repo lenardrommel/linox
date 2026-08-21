@@ -171,6 +171,10 @@ SLQ = "SLQ"
 # and, with --write-changes, rewrites `jnp.arange` into a call that does not
 # exist -- silently breaking every example that uses it.
 arange = "arange"
+# `nd` (number of dimensions) reads to typos as a misspelling of `and`. With
+# --write-changes it rewrote `nd = len(...)` into `and = len(...)`, a syntax
+# error, because `and` is a keyword.
+nd = "nd"
 # NumPy spells the flag `arr.flags.writeable`. Without this, typos "corrects"
 # it to `writable`, which is not an attribute -- turning a working guard into
 # an AttributeError at runtime.
