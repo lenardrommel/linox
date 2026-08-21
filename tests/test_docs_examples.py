@@ -1,4 +1,4 @@
-"""Execute every Python example in the documentation.
+"""Execute every Python example in the README and the documentation.
 
 Documentation that lies is worse than none, and this project has form: the
 README once listed 27 exports that did not exist, and several docstrings
@@ -19,7 +19,11 @@ import textwrap
 
 import pytest
 
-DOCS = pathlib.Path(__file__).resolve().parent.parent / "docs"
+_ROOT = pathlib.Path(__file__).resolve().parent.parent
+DOCS = _ROOT / "docs"
+#: The README is the most-read page and historically the least accurate -- it
+#: once advertised 27 exports that did not exist -- so it is checked too.
+README = _ROOT / "README.md"
 
 #: ```python ... ``` blocks, capturing the info string so fences can opt out.
 #: Leading whitespace is allowed so that examples nested inside admonitions are
@@ -35,12 +39,12 @@ _SKIP = "not-executed"
 
 def _blocks():
     """Yield (page, index, code) for every executable example in the docs."""
-    for path in sorted(DOCS.rglob("*.md")):
+    for path in [README, *sorted(DOCS.rglob("*.md"))]:
         text = path.read_text()
         for i, match in enumerate(_BLOCK.finditer(text)):
             if _SKIP in match.group("info"):
                 continue
-            rel = path.relative_to(DOCS)
+            rel = path.name if path == README else path.relative_to(DOCS)
             code = textwrap.dedent(match.group("code"))
             yield pytest.param(str(rel), i, code, id=f"{rel}#{i}")
 
