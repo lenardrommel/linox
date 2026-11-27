@@ -157,7 +157,13 @@ class ArrayKernel(KernelOperator):
             row = kernel_row_fn(xi, x1)
             return jnp.dot(row, vec)
 
-        return lax.map(compute_row_dot, x0)
+        out = lax.map(compute_row_dot, x0)
+        # lax.map stacks rows along axis 0, giving (n0, *batch, k) for a batched
+        # operand (*batch, n1, k). Move the row axis back so that the result
+        # follows the matmul convention (*batch, n0, k), as Kronecker expects.
+        if vec.ndim > 2:
+            out = jnp.moveaxis(out, 0, -2)
+        return out
 
     def transpose(self) -> "ArrayKernel":
         """Return transposed kernel operator."""

@@ -1037,11 +1037,13 @@ def topk_eigh(
 
         order = jnp.argsort(-w_safe) if largest else jnp.argsort(w_safe)  # (n,)
         w_sorted = w_safe[order]
-        Q_sorted = Q_dense[:, order]
 
         sort_indices.append(order)
         factor_eigs.append(w_sorted)
-        factor_vecs.append(Q_sorted)
+        # Keep eigenvectors in leigh's original column order (see KronTopkEighInfo).
+        # Consumers map a sorted index i to column order[i]; storing Q[:, order]
+        # here as well would apply the permutation twice.
+        factor_vecs.append(Q_dense)
 
         if return_full_eigs:
             full_factor_eigs.append(w_sorted)
